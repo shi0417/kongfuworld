@@ -17,10 +17,11 @@ router.get('/transactions', async (req, res) => {
   let db;
   try {
     // 从请求头获取用户ID，如果没有则使用默认值
-    const userId = req.headers['user-id'] || req.query.userId || 1;
+    const userId = parseInt(req.headers['user-id'] || req.query.userId || 1);
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
+    
     
     db = await mysql.createConnection(dbConfig);
     
@@ -38,14 +39,13 @@ router.get('/transactions', async (req, res) => {
         created_at
       FROM key_transaction 
       WHERE user_id = ? 
-      ORDER BY id DESC 
-      LIMIT ? OFFSET ?
-    `, [parseInt(userId), parseInt(limit), parseInt(offset)]);
+      ORDER BY id DESC
+    `, [userId]);
     
     // 获取总记录数
     const [countResult] = await db.execute(
       `SELECT COUNT(*) as total FROM key_transaction WHERE user_id = ?`,
-      [parseInt(userId)]
+      [userId]
     );
     const total = countResult[0].total;
     const totalPages = Math.ceil(total / limit);
