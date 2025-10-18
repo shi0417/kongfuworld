@@ -1,0 +1,38 @@
+{
+  "name": "wuxiaworld-clone",
+  "version": "1.0.0",
+  "description": "武侠世界克隆项目",
+  "scripts": {
+    "check:api": "node scripts/api-consistency-check.js",
+    "check:pre-commit": "node scripts/pre-commit-check.js",
+    "check:all": "npm run check:api && npm run check:pre-commit",
+    "dev:check": "npm run check:all",
+    "auto:check": "node scripts/auto-dev-check.js",
+    "dev:start": "npm run auto:check && echo '✅ 开发环境检查完成，可以开始开发'",
+    "setup:auto": "node scripts/setup-auto-hooks.js",
+    "dev:pre": "npm run auto:check",
+    "dev:during": "npm run check:pre-commit",
+    "dev:post": "npm run check:all",
+    "dev:auto": "npm run dev:pre && echo '✅ 开发前检查完成' && npm run dev:during && echo '✅ 开发中检查完成' && npm run dev:post && echo '✅ 开发后检查完成'",
+    "auto:start": "node scripts/simple-auto-runner.js",
+    "auto:during": "node scripts/simple-auto-runner.js",
+    "auto:post": "node scripts/simple-auto-runner.js",
+    "quick:check": "node scripts/quick-check.js",
+    "dev:auto": "npm run auto:start && echo '✅ 开发前检查完成' && npm run auto:during && echo '✅ 开发中检查完成' && npm run auto:post && echo '✅ 开发后检查完成'",
+    "dev:menu": "echo '🚀 自动开发检查菜单' && echo '1. 开发前检查: npm run auto:start' && echo '2. 开发中检查: npm run auto:during' && echo '3. 开发后检查: npm run auto:post' && echo '4. 运行所有: npm run dev:auto'"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/node": "^24.0.12",
+    "@types/react-dom": "^19.1.6",
+    "@types/testing-library__jest-dom": "^5.14.9",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "mammoth": "^1.9.1",
+    "multer": "^2.0.1",
+    "react-slick": "^0.30.3",
+    "slick-carousel": "^1.8.1",
+    "web-vitals": "^5.0.3"
+  }
+}
