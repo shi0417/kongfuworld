@@ -1,0 +1,18 @@
+{
+  "preChat": {
+    "command": "npm run auto:check",
+    "description": "Chat开发前自动检查",
+    "enabled": true
+  },
+  "duringChat": {
+    "command": "npm run check:pre-commit",
+    "description": "开发过程中自动检查",
+    "enabled": true,
+    "trigger": "file-change"
+  },
+  "postChat": {
+    "command": "npm run check:all",
+    "description": "开发完成后自动检查",
+    "enabled": true
+  }
+}

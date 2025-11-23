@@ -13,19 +13,21 @@
     "dev:pre": "npm run auto:check",
     "dev:during": "npm run check:pre-commit",
     "dev:post": "npm run check:all",
-    "dev:auto": "npm run dev:pre && echo '✅ 开发前检查完成' && npm run dev:during && echo '✅ 开发中检查完成' && npm run dev:post && echo '✅ 开发后检查完成'",
-    "auto:start": "node scripts/simple-auto-runner.js",
-    "auto:during": "node scripts/simple-auto-runner.js",
-    "auto:post": "node scripts/simple-auto-runner.js",
-    "quick:check": "node scripts/quick-check.js",
     "dev:auto": "npm run auto:start && echo '✅ 开发前检查完成' && npm run auto:during && echo '✅ 开发中检查完成' && npm run auto:post && echo '✅ 开发后检查完成'",
-    "dev:menu": "echo '🚀 自动开发检查菜单' && echo '1. 开发前检查: npm run auto:start' && echo '2. 开发中检查: npm run auto:during' && echo '3. 开发后检查: npm run auto:post' && echo '4. 运行所有: npm run dev:auto'"
+    "auto:start": "node scripts/auto-dev-check.js",
+    "auto:during": "node scripts/auto-dev-check.js",
+    "auto:post": "node scripts/auto-dev-check.js",
+    "auth:check": "node scripts/auth-standards-check.js",
+    "quick:check": "node scripts/quick-check.js",
+    "update:hooks": "node scripts/update-git-hooks.js",
+    "dev:menu": "echo '🚀 自动开发检查菜单' && echo '1. 开发前检查: npm run auto:start' && echo '2. 开发中检查: npm run auto:during' && echo '3. 开发后检查: npm run auto:post' && echo '4. 认证规范检查: npm run auth:check' && echo '5. 运行所有: npm run dev:auto'"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@types/node": "^24.0.12",
     "@types/react-dom": "^19.1.6",
     "@types/testing-library__jest-dom": "^5.14.9",
+    "chokidar": "^4.0.3",
     "typescript": "^5.8.3"
   },
   "dependencies": {

@@ -1,0 +1,1 @@
+select * from comment_dislike;

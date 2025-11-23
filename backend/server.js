@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+// 导入登录日志记录工具
+const { logUserLogin } = require('./utils/loginLogger');
 // 尝试加载环境变量，如果失败则使用默认值
 try {
   require('dotenv').config({ path: './kongfuworld.env' });
@@ -44,10 +46,22 @@ const karmaPaymentRoutes = require('./routes/karmaPayment');
 // 导入用户路由
 const userRoutes = require('./routes/user');
 
+// 导入新的任务管理系统
+const missionV2Routes = require('./routes/mission_v2');
+const readingWithMissionRoutes = require('./routes/reading_with_mission');
+const dailyCheckinWithMission = require('./daily_checkin_with_mission');
+
 
 const app = express();
+
+// 配置信任代理，以便正确获取客户端真实IP（生产环境需要）
+// 如果部署在Nginx等反向代理后面，需要设置这个
+app.set('trust proxy', true);
+
 app.use(cors());
-app.use(bodyParser.json());
+// 增加body-parser的大小限制，支持文件上传
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // 支持FormData
 
 // JWT验证中间件
 const authenticateToken = (req, res, next) => {
@@ -55,12 +69,12 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   jwt.verify(token, 'your-secret-key', (err, user) => {
     if (err) {
-      return res.status(403).json({ message: 'Token无效或已过期' });
+      return res.status(403).json({ message: 'Token invalid or expired' });
     }
     req.user = user;
     next();
@@ -84,6 +98,70 @@ app.use('/api/karma/payment', karmaPaymentRoutes);
 
 // 用户路由
 app.use('/api/user', userRoutes);
+
+// 后台管理路由
+const adminRoutes = require('./routes/admin');
+app.use('/api/admin', adminRoutes);
+
+// 个人信息路由
+const personalInfoRoutes = require('./routes/personalInfo');
+app.use('/api/personal-info', personalInfoRoutes);
+
+// 评论管理路由
+const commentManagementRoutes = require('./routes/commentManagement');
+app.use('/api/comment-management', authenticateToken, commentManagementRoutes);
+
+// 作者路由（收入管理、推广链接等）
+const writerRoutes = require('./routes/writer');
+app.use('/api/writer', writerRoutes);
+
+// 作者路由（卷轴管理等）
+const authorRoutes = require('./routes/author');
+app.use('/api/author', authorRoutes);
+
+// 随记路由
+const randomNotesRoutes = require('./routes/randomNotes');
+app.use('/api/random-notes', randomNotesRoutes);
+
+// 草稿路由
+const draftRoutes = require('./routes/draft');
+app.use('/api/draft', draftRoutes);
+
+// AI 路由
+const aiRoutes = require('./routes/ai');
+app.use('/api/ai', aiRoutes);
+
+// 收藏路由
+const favoriteRoutes = require('./routes/favorite');
+app.use('/api/favorite', favoriteRoutes);
+
+// 书签路由
+const bookmarkRoutes = require('./routes/bookmark');
+app.use('/api/bookmark', bookmarkRoutes);
+
+// 书签页面路由
+const bookmarksRoutes = require('./routes/bookmarks');
+app.use('/api/bookmarks', bookmarksRoutes);
+
+// 书签锁定路由
+const bookmarklockedRoutes = require('./routes/bookmarklocked');
+app.use('/api/bookmarklocked', bookmarklockedRoutes);
+
+// 第三方登录路由
+const socialAuthRoutes = require('./routes/social_auth');
+app.use('/api/auth', socialAuthRoutes);
+
+// 邮箱验证路由
+const emailVerificationRoutes = require('./routes/emailVerification');
+app.use('/api/email-verification', emailVerificationRoutes);
+
+// 导入小说创建路由
+const novelCreationRoutes = require('./routes/novelCreation');
+app.use('/api', novelCreationRoutes);
+
+// 定价路由（收费系统和促销系统）
+const pricingRoutes = require('./routes/pricing');
+app.use('/api', pricingRoutes);
 
 // 静态托管 covers 目录 - 使用avatars目录
 app.use('/covers', express.static(path.join(__dirname, '../avatars')));
@@ -116,6 +194,7 @@ setOpenAIApiKey(uploadApi);
 
 // 导入每日签到API
 const dailyCheckinAPI = require('./daily_checkin_api');
+const optimizedCheckinAPI = require('./optimized_checkin_api');
 
 // 头像上传配置
 const avatarDir = path.join(__dirname, '../avatars');
@@ -195,11 +274,12 @@ app.post('/api/novel/upload', novelUploadWithLimits.array('files'), uploadNovelA
 
 // 登录API
 app.post('/api/login', (req, res) => {
+  console.log('收到登录请求:', { username: req.body.username, password: req.body.password ? '***' : 'undefined' });
   const { username, password } = req.body;
   db.getConnection((err, connection) => {
     if (err) {
       console.error('获取数据库连接失败:', err);
-      return res.status(500).json({ message: '数据库连接错误' });
+      return res.status(500).json({ message: 'Database connection error' });
     }
     
     connection.query(
@@ -210,17 +290,32 @@ app.post('/api/login', (req, res) => {
         
         if (queryErr) {
           console.error('登录查询失败:', queryErr);
-          return res.status(500).json({ message: '数据库错误' });
+          return res.status(500).json({ message: 'Database error' });
         }
         
-        if (results.length === 0) return res.status(401).json({ message: '用户不存在' });
+        if (results.length === 0) return res.status(401).json({ message: 'User not found' });
 
         const user = results[0];
         // 这里要用 password_hash 字段
-        bcrypt.compare(password, user.password_hash, (bcryptErr, isMatch) => {
+        // 确保 password_hash 是字符串类型（可能是 Buffer 或对象）
+        const passwordHash = user.password_hash 
+          ? (Buffer.isBuffer(user.password_hash) 
+              ? user.password_hash.toString('utf8') 
+              : typeof user.password_hash === 'string' 
+                ? user.password_hash 
+                : String(user.password_hash))
+          : null;
+        
+        if (!passwordHash) {
+          console.error('用户密码哈希不存在');
+          return res.status(500).json({ message: 'Password hash not found' });
+        }
+        
+        bcrypt.compare(password, passwordHash, (bcryptErr, isMatch) => {
           if (bcryptErr) {
             console.error('密码比较失败:', bcryptErr);
-            return res.status(500).json({ message: '密码验证错误' });
+            console.error('password类型:', typeof password, 'passwordHash类型:', typeof passwordHash);
+            return res.status(500).json({ message: 'Password verification error' });
           }
           
           if (isMatch) {
@@ -231,13 +326,21 @@ app.post('/api/login', (req, res) => {
               { expiresIn: '7d' }
             );
             
+            // 记录登录日志（异步，不阻塞响应）
+            logUserLogin(db, user.id, req, 'password', 'success');
+            
             res.json({ 
-              message: '登录成功', 
-              user: { id: user.id, username: user.username, email: user.email, avatar: user.avatar },
+              success: true,
+              message: 'Login successful', 
+              user: { id: user.id, username: user.username, email: user.email, avatar: user.avatar, points: user.points, golden_karma: user.golden_karma },
               token: token
             });
           } else {
-            res.status(401).json({ message: '密码错误' });
+            // 记录登录失败日志
+            if (results.length > 0) {
+              logUserLogin(db, results[0].id, req, 'password', 'failed');
+            }
+            res.status(401).json({ message: 'Incorrect password' });
           }
         });
       }
@@ -247,32 +350,212 @@ app.post('/api/login', (req, res) => {
 
 // 注册接口
 app.post('/api/register', (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, referrer_id } = req.body;
   if (!username || !email || !password) {
-    return res.status(400).json({ message: '请填写完整信息' });
+    return res.status(400).json({ success: false, message: 'Please fill in all required information' });
   }
   db.query('SELECT * FROM user WHERE username = ? OR email = ?', [username, email], (err, results) => {
-    if (err) return res.status(500).json({ message: '数据库错误' });
-    if (results.length > 0) return res.status(400).json({ message: '用户名或邮箱已存在' });
-    bcrypt.hash(password, 10, (err, hash) => {
-      if (err) return res.status(500).json({ message: '加密失败' });
+    if (err) {
+      console.error('注册查询Database error:', err);
+      return res.status(500).json({ success: false, message: 'Database error', error: err.code || String(err) });
+    }
+    if (results.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username or email already exists' });
+    }
+    // 验证推荐人ID是否存在且状态为active（如果提供了推荐人ID）
+    const validateReferrer = (callback) => {
+      if (!referrer_id) {
+        return callback(null, true, null);
+      }
+      const referrerIdNum = parseInt(referrer_id);
+      if (isNaN(referrerIdNum) || referrerIdNum <= 0) {
+        return callback(null, false, null);
+      }
+      db.query('SELECT id, status FROM user WHERE id = ?', [referrerIdNum], (refErr, refResults) => {
+        if (refErr) {
+          console.error('验证推荐人ID错误:', refErr);
+          return callback(refErr, false, null);
+        }
+        if (refResults.length === 0 || refResults[0].status !== 'active') {
+          return callback(null, false, null);
+        }
+        callback(null, true, referrerIdNum);
+      });
+    };
+    
+    // 选择分成方案的辅助函数
+    const selectCommissionPlan = (planType, referrerId, callback) => {
+      // 1. 优先查该 referrer 的定制方案
       db.query(
-        'INSERT INTO user (username, email, password_hash, avatar, is_vip, balance, points, vip_expire_at, karma, settings_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [username, email, hash, '', 0, 0, 0, null, 0, JSON.stringify({
-          auto_unlock: true,
-          paragraph_comments: true,
-          notify_unlock_updates: true,
-          notify_chapter_updates: true,
-          accept_marketing: true
-        })],
-        (err, result) => {
-          if (err) {
-            //console.error('注册失败:', err);
-            return res.status(500).json({ message: '注册失败' });
+        `SELECT id FROM commission_plan 
+         WHERE plan_type = ? 
+           AND is_custom = 1 
+           AND owner_user_id = ? 
+           AND start_date <= NOW() 
+           AND (end_date IS NULL OR end_date >= NOW())
+         ORDER BY start_date DESC 
+         LIMIT 1`,
+        [planType, referrerId],
+        (err1, customResults) => {
+          if (err1) {
+            console.error(`查询定制${planType}方案错误:`, err1);
+            return callback(err1, null);
           }
-          res.json({ message: '注册成功！' });
+          
+          if (customResults.length > 0) {
+            return callback(null, customResults[0].id);
+          }
+          
+          // 2. 如果查不到，使用通用方案
+          db.query(
+            `SELECT id FROM commission_plan 
+             WHERE plan_type = ? 
+               AND is_custom = 0 
+               AND owner_user_id IS NULL 
+               AND start_date <= NOW() 
+               AND (end_date IS NULL OR end_date >= NOW())
+             ORDER BY start_date DESC 
+             LIMIT 1`,
+            [planType],
+            (err2, generalResults) => {
+              if (err2) {
+                console.error(`查询通用${planType}方案错误:`, err2);
+                return callback(err2, null);
+              }
+              
+              if (generalResults.length > 0) {
+                return callback(null, generalResults[0].id);
+              }
+              
+              // 3. 如果两个查询都为空，返回null（不绑定推荐关系）
+              console.warn(`未找到${planType}方案，将不绑定该类型的推荐关系`);
+              callback(null, null);
+            }
+          );
         }
       );
+    };
+    
+    validateReferrer((refErr, isValid, referrerIdNum) => {
+      if (refErr) {
+        return res.status(500).json({ success: false, message: 'Database error', error: refErr.code || String(refErr) });
+      }
+      // 如果推荐人ID不合法，不阻止注册，只是不绑定推荐关系
+      if (!isValid && referrer_id) {
+        console.warn(`推荐人ID ${referrer_id} 不合法或不存在，将不绑定推荐关系`);
+      }
+      
+      bcrypt.hash(password, 10, (err, hash) => {
+        if (err) {
+          console.error('密码Encryption failed:', err);
+          return res.status(500).json({ success: false, message: 'Encryption failed' });
+        }
+        db.query(
+          'INSERT INTO user (username, email, password_hash, avatar, is_vip, balance, points, vip_expire_at, golden_karma, settings_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [username, email, hash, '', 0, 0, 0, null, 0, JSON.stringify({
+            auto_unlock: true,
+            paragraph_comments: true,
+            notify_unlock_updates: true,
+            notify_chapter_updates: true,
+            accept_marketing: true
+          })],
+          (err, result) => {
+            if (err) {
+              console.error('Registration failed(插入用户)错误:', err);
+              return res.status(500).json({ success: false, message: 'Registration failed', error: err.code || String(err) });
+            }
+            const newUserId = result.insertId;
+            
+            // 如果有合法的推荐人ID，在referrals表中创建推荐关系记录
+            if (isValid && referrerIdNum) {
+              // 1. 检查该新用户是否已存在 referrals 记录
+              db.query('SELECT id FROM referrals WHERE user_id = ?', [newUserId], (checkErr, checkResults) => {
+                if (checkErr) {
+                  console.error('检查推荐关系错误:', checkErr);
+                  // 继续注册流程，不绑定推荐关系
+                  return continueRegistration();
+                }
+                
+                if (checkResults.length > 0) {
+                  console.log(`用户 ${newUserId} 已存在推荐关系，不再新增`);
+                  return continueRegistration();
+                }
+                
+                // 2. 选择分成方案
+                selectCommissionPlan('reader_promoter', referrerIdNum, (promoterErr, promoterPlanId) => {
+                  if (promoterErr) {
+                    console.error('选择读者推广方案错误:', promoterErr);
+                    // 继续注册流程，不绑定推荐关系
+                    return continueRegistration();
+                  }
+                  
+                  selectCommissionPlan('author_promoter', referrerIdNum, (authorErr, authorPlanId) => {
+                    if (authorErr) {
+                      console.error('选择作者推广方案错误:', authorErr);
+                      // 继续注册流程，不绑定推荐关系
+                      return continueRegistration();
+                    }
+                    
+                    // 如果两个方案都找不到，不插入推荐关系
+                    if (!promoterPlanId && !authorPlanId) {
+                      console.warn(`用户 ${newUserId} 无法找到合适的分成方案，不绑定推荐关系`);
+                      return continueRegistration();
+                    }
+                    
+                    // 3. 插入 referrals 记录
+                    db.query(
+                      'INSERT INTO referrals (user_id, referrer_id, promoter_plan_id, author_plan_id, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
+                      [newUserId, referrerIdNum, promoterPlanId, authorPlanId],
+                      (refErr) => {
+                        if (refErr) {
+                          // 如果是唯一约束冲突，说明已有记录，忽略错误
+                          if (refErr.code === 'ER_DUP_ENTRY') {
+                            console.log(`用户 ${newUserId} 的推荐关系已存在（唯一约束冲突）`);
+                          } else {
+                            console.error('创建推荐关系失败:', refErr);
+                          }
+                          // 推荐关系创建失败不影响注册流程，只记录错误
+                        } else {
+                          console.log(`✅ 已创建推荐关系: 用户 ${newUserId} <- 推荐人 ${referrerIdNum} (读者方案: ${promoterPlanId || '无'}, 作者方案: ${authorPlanId || '无'})`);
+                        }
+                        continueRegistration();
+                      }
+                    );
+                  });
+                });
+              });
+            } else {
+              // 没有推荐人ID或推荐人ID不合法，直接继续注册流程
+              continueRegistration();
+            }
+            
+            // 继续注册流程的辅助函数
+            function continueRegistration() {
+              db.query('SELECT id, username, email, avatar, points, golden_karma FROM user WHERE id = ?', [newUserId], (uErr, uResults) => {
+                if (uErr || uResults.length === 0) {
+                  if (uErr) console.error('注册后Failed to query user:', uErr);
+                  return res.json({ success: true, message: 'Registration successful!' });
+                }
+                const user = uResults[0];
+                const token = jwt.sign(
+                  { userId: user.id, username: user.username },
+                  'your-secret-key',
+                  { expiresIn: '7d' }
+                );
+                
+                // 记录注册后自动登录的日志
+                logUserLogin(db, user.id, req, 'register', 'success');
+                
+                return res.json({
+                  success: true,
+                  message: 'Registration successful!',
+                  data: { user, token }
+                });
+              });
+            }
+          }
+        );
+      });
     });
   });
 });
@@ -280,8 +563,8 @@ app.post('/api/register', (req, res) => {
 // 获取用户详细信息
 app.get('/api/user/:id', (req, res) => {
   const userId = req.params.id;
-  db.query('SELECT id, username, email, avatar, points, golden_karma, settings_json FROM user WHERE id = ?', [userId], (err, results) => {
-    if (err || results.length === 0) return res.status(404).json({ message: '用户不存在' });
+  db.query('SELECT id, username, email, avatar, points, golden_karma, settings_json, is_author, pen_name, bio, confirmed_email FROM user WHERE id = ?', [userId], (err, results) => {
+    if (err || results.length === 0) return res.status(404).json({ message: 'User not found' });
     
     const user = results[0];
     // 解析 settings_json 字段
@@ -318,10 +601,10 @@ app.post('/api/user/:id/settings', (req, res) => {
   db.query('UPDATE user SET settings_json = ? WHERE id = ?', [JSON.stringify(settings_json), userId], (err, result) => {
     if (err) {
       console.error('保存设置失败:', err);
-      return res.status(500).json({ message: '保存失败' });
+      return res.status(500).json({ message: 'Save failed' });
     }
-    console.log('设置保存成功');
-    res.json({ message: '保存成功' });
+    console.log('设置Save successful');
+    res.json({ message: 'Save successful' });
   });
 });
 
@@ -332,8 +615,8 @@ app.post('/api/fix-database', (req, res) => {
   // 添加 settings_json 字段
   db.query('ALTER TABLE user ADD COLUMN IF NOT EXISTS settings_json TEXT', (err) => {
     if (err) {
-      console.error('添加字段失败:', err);
-      return res.status(500).json({ message: '添加字段失败' });
+      console.error('Failed to add field:', err);
+      return res.status(500).json({ message: 'Failed to add field' });
     }
     
     console.log('字段添加成功');
@@ -350,12 +633,12 @@ app.post('/api/fix-database', (req, res) => {
     db.query('UPDATE user SET settings_json = ? WHERE settings_json IS NULL OR settings_json = ""', 
       [JSON.stringify(defaultSettings)], (updateErr, result) => {
       if (updateErr) {
-        console.error('更新默认设置失败:', updateErr);
-        return res.status(500).json({ message: '更新默认设置失败' });
+        console.error('Failed to update default settings:', updateErr);
+        return res.status(500).json({ message: 'Failed to update default settings' });
       }
       
       console.log('数据库修复完成，更新了', result.affectedRows, '个用户');
-      res.json({ message: '数据库修复成功', updatedUsers: result.affectedRows });
+      res.json({ message: 'Database repair successful', updatedUsers: result.affectedRows });
     });
   });
 });
@@ -376,13 +659,13 @@ app.post('/api/user/:id/init-settings', (req, res) => {
   // 先检查用户是否存在
   db.query('SELECT id, settings_json FROM user WHERE id = ?', [userId], (err, results) => {
     if (err) {
-      console.error('查询用户失败:', err);
-      return res.status(500).json({ message: '查询用户失败' });
+      console.error('Failed to query user:', err);
+      return res.status(500).json({ message: 'Failed to query user' });
     }
     
     if (results.length === 0) {
-      console.error('用户不存在:', userId);
-      return res.status(404).json({ message: '用户不存在' });
+      console.error('User not found:', userId);
+      return res.status(404).json({ message: 'User not found' });
     }
     
     const user = results[0];
@@ -395,8 +678,8 @@ app.post('/api/user/:id/init-settings', (req, res) => {
         if (user.settings_json.trim() !== '') {
           try {
             existingSettings = JSON.parse(user.settings_json);
-            console.log('用户已有设置，无需初始化');
-            return res.json({ message: '已有设置', settings: existingSettings });
+            console.log('用户Settings already exist，无需初始化');
+            return res.json({ message: 'Settings already exist', settings: existingSettings });
           } catch (e) {
             console.log('解析现有设置失败，重新初始化');
           }
@@ -404,8 +687,8 @@ app.post('/api/user/:id/init-settings', (req, res) => {
       } else if (typeof user.settings_json === 'object') {
         // 如果已经是对象，直接使用
         existingSettings = user.settings_json;
-        console.log('用户已有设置（对象格式），无需初始化');
-        return res.json({ message: '已有设置', settings: existingSettings });
+        console.log('用户Settings already exist（对象格式），无需初始化');
+        return res.json({ message: 'Settings already exist', settings: existingSettings });
       }
     }
     
@@ -415,156 +698,560 @@ app.post('/api/user/:id/init-settings', (req, res) => {
     
     db.query('UPDATE user SET settings_json = ? WHERE id = ?', [settingsJson, userId], (updateErr, result) => {
       if (updateErr) {
-        console.error('更新设置失败:', updateErr);
-        return res.status(500).json({ message: '更新设置失败' });
+        console.error('Failed to update settings:', updateErr);
+        return res.status(500).json({ message: 'Failed to update settings' });
       }
       
-      console.log('设置初始化成功，影响行数:', result.affectedRows);
-      res.json({ message: '初始化成功', settings: defaultSettings });
+      console.log('设置Initialization successful，影响行数:', result.affectedRows);
+      res.json({ message: 'Initialization successful', settings: defaultSettings });
     });
   });
 });
 
 // 上传头像
-app.post('/api/user/:id/avatar', upload.single('avatar'), (req, res) => {
+app.post('/api/user/:id/avatar', (req, res, next) => {
+  upload.single('avatar')(req, res, (err) => {
+    if (err) {
+      console.error('Multer错误:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ success: false, message: 'File too large. Maximum size is 5MB' });
+      }
+      return res.status(400).json({ success: false, message: err.message || 'File upload error' });
+    }
+    next();
+  });
+}, (req, res) => {
   const userId = req.params.id;
-  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+  
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded' });
+  }
+  
+  console.log('收到头像文件:', {
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    filename: req.file.filename
+  });
+  
   const url = `/avatars/${req.file.filename}`;
   db.query('UPDATE user SET avatar = ? WHERE id = ?', [url, userId], (err) => {
-    if (err) return res.status(500).json({ message: '保存失败' });
-    res.json({ url });
+    if (err) {
+      console.error('头像保存失败:', err);
+      return res.status(500).json({ success: false, message: 'Save failed' });
+    }
+    console.log('头像保存成功:', url);
+    res.json({ success: true, data: { url } });
   });
 });
 // 删除头像
 app.delete('/api/user/:id/avatar', (req, res) => {
   const userId = req.params.id;
   db.query('SELECT avatar FROM user WHERE id = ?', [userId], (err, results) => {
-    if (err || results.length === 0) return res.status(404).json({ message: '用户不存在' });
+    if (err || results.length === 0) return res.status(404).json({ message: 'User not found' });
     const avatarPath = results[0].avatar ? path.join(avatarDir, path.basename(results[0].avatar)) : null;
     db.query('UPDATE user SET avatar = "" WHERE id = ?', [userId], (err2) => {
-      if (err2) return res.status(500).json({ message: '删除失败' });
+      if (err2) return res.status(500).json({ message: 'Delete failed' });
       if (avatarPath && fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);
       res.json({ success: true });
     });
   });
 });
 
-// 获取用户通知列表
+// 更新用户信息（用户名和邮箱）
+app.put('/api/user/:id/profile', (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { username, email } = req.body;
+  
+  if (!username || !email) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Username and email are required' 
+    });
+  }
+  
+  // 验证邮箱格式
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid email format' 
+    });
+  }
+  
+  // 验证用户名长度
+  if (username.length < 3 || username.length > 50) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Username must be between 3 and 50 characters' 
+    });
+  }
+  
+  // 先检查用户是否存在
+  db.query('SELECT id, username, email FROM user WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      console.error('查询用户失败:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Database error' 
+      });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    
+    const currentUser = results[0];
+    
+    // 检查用户名是否已被其他用户使用
+    if (username !== currentUser.username) {
+      db.query('SELECT id FROM user WHERE username = ? AND id != ?', [username, userId], (err, usernameResults) => {
+        if (err) {
+          console.error('检查用户名失败:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Database error' 
+          });
+        }
+        
+        if (usernameResults.length > 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Username already exists' 
+          });
+        }
+        
+        // 检查邮箱是否已被其他用户使用
+        checkEmailAndUpdate();
+      });
+    } else {
+      // 用户名没变，直接检查邮箱
+      checkEmailAndUpdate();
+    }
+    
+    function checkEmailAndUpdate() {
+      if (email !== currentUser.email) {
+        db.query('SELECT id FROM user WHERE email = ? AND id != ?', [email, userId], (err, emailResults) => {
+          if (err) {
+            console.error('检查邮箱失败:', err);
+            return res.status(500).json({ 
+              success: false, 
+              message: 'Database error' 
+            });
+          }
+          
+          if (emailResults.length > 0) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Email already exists' 
+            });
+          }
+          
+          // 更新用户信息
+          updateUser();
+        });
+      } else {
+        // 邮箱没变，直接更新
+        updateUser();
+      }
+    }
+    
+    function updateUser() {
+      db.query('UPDATE user SET username = ?, email = ? WHERE id = ?', [username, email, userId], (err, result) => {
+        if (err) {
+          console.error('更新用户信息失败:', err);
+          // 检查是否是唯一约束冲突
+          if (err.code === 'ER_DUP_ENTRY') {
+            const field = err.message.includes('username') ? 'username' : 'email';
+            return res.status(400).json({ 
+              success: false, 
+              message: `${field === 'username' ? 'Username' : 'Email'} already exists` 
+            });
+          }
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Update failed' 
+          });
+        }
+        
+        // 返回更新后的用户信息
+        db.query('SELECT id, username, email, avatar FROM user WHERE id = ?', [userId], (err, updatedResults) => {
+          if (err || updatedResults.length === 0) {
+            return res.status(500).json({ 
+              success: false, 
+              message: 'Failed to fetch updated user data' 
+            });
+          }
+          
+          res.json({ 
+            success: true, 
+            message: 'Profile updated successfully',
+            data: updatedResults[0]
+          });
+        });
+      });
+    }
+  });
+});
+
+// 获取用户通知列表（包含时间解锁记录）- 使用UNION查询
 app.get('/api/user/:id/notifications', (req, res) => {
   const userId = req.params.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
-  const type = req.query.type || 'all';
+  const type = req.query.type || 'unlock';
   const offset = (page - 1) * limit;
   
   console.log('获取通知请求:', { userId, page, limit, type, offset });
   
-  // 构建查询条件
-  let whereClause = 'WHERE n.user_id = ?';
-  let params = [userId];
-  
-  if (type !== 'all') {
-    whereClause += ' AND n.type = ?';
-    params.push(type);
-  }
-  
-  // 获取总数
-  const countQuery = `SELECT COUNT(*) as total FROM notifications n ${whereClause}`;
-      db.query(countQuery, params, (err, countResults) => {
-      if (err) {
-        console.error('获取通知总数失败:', err);
-        return res.status(500).json({ message: '获取通知失败' });
+  // 首先检查用户的解锁更新通知设置
+  db.query('SELECT settings_json FROM user WHERE id = ?', [userId], (err, userResults) => {
+    if (err) {
+      console.error('获取用户设置失败:', err);
+      return res.status(500).json({ message: '获取用户设置失败' });
+    }
+    
+    if (userResults.length === 0) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+    
+    const user = userResults[0];
+    let notifyUnlockUpdates = false;
+    
+    // 解析用户设置
+    if (user.settings_json) {
+      try {
+        const settings = typeof user.settings_json === 'string' 
+          ? JSON.parse(user.settings_json) 
+          : user.settings_json;
+        notifyUnlockUpdates = settings.notify_unlock_updates === true;
+      } catch (e) {
+        console.error('解析用户设置失败:', e);
+      }
+    }
+    
+    console.log('用户解锁更新通知设置:', notifyUnlockUpdates);
+    
+    // 根据类型分别查询不同的表
+    if (type === 'unlock') {
+      // 查询时间解锁记录
+      if (!notifyUnlockUpdates) {
+        return res.json({
+          success: true,
+          data: {
+            notifications: [],
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              total: 0,
+              limit
+            }
+          }
+        });
       }
       
-      const total = countResults[0].total;
-      const totalPages = Math.ceil(total / limit);
-      console.log('通知总数:', total, '总页数:', totalPages);
-    
-    // 获取通知列表
-    const listQuery = `
-      SELECT 
-        n.id,
-        n.novel_id,
-        n.chapter_id,
-        n.title,
-        n.message,
-        n.type,
-        n.link,
-        n.is_read,
-        n.created_at,
-        TIMESTAMPDIFF(HOUR, n.created_at, NOW()) as hours_ago,
-        TIMESTAMPDIFF(DAY, n.created_at, NOW()) as days_ago
-      FROM notifications n 
-      ${whereClause}
-      ORDER BY n.created_at DESC 
-      LIMIT ? OFFSET ?
-    `;
-    
-    db.query(listQuery, [...params, limit, offset], (err, results) => {
-      if (err) {
-        console.error('获取通知列表失败:', err);
-        return res.status(500).json({ message: '获取通知失败' });
-      }
+      const timeUnlockQuery = `
+        SELECT 
+          CONCAT('time_unlock_', cu.id) as id,
+          cu.user_id,
+          cu.chapter_id,
+          cu.unlock_at,
+          cu.status,
+          cu.created_at,
+          cu.updated_at,
+          cu.readed,
+          n.title as novel_title,
+          c.chapter_number,
+          c.title as chapter_title,
+          c.novel_id,
+          'notify_unlock_updates' as type,
+          CONCAT('/novel/', c.novel_id, '/chapter/', cu.chapter_id) as link,
+          cu.readed as is_read,
+          CONCAT('Chapter ', c.chapter_number, ': "', c.title, '" ', 
+                 CASE 
+                   WHEN cu.status = 'unlocked' OR cu.unlock_at <= NOW() 
+                   THEN CONCAT('has been released at ', DATE_FORMAT(cu.unlock_at, '%Y/%m/%d %H:%i:%s'))
+                   ELSE CONCAT('will be released at ', DATE_FORMAT(cu.unlock_at, '%Y/%m/%d %H:%i:%s'))
+                 END) as message,
+          TIMESTAMPDIFF(HOUR, cu.created_at, NOW()) as hours_ago,
+          TIMESTAMPDIFF(DAY, cu.created_at, NOW()) as days_ago,
+          1 as isTimeUnlock,
+          CASE WHEN cu.status = 'unlocked' OR cu.unlock_at <= NOW() THEN 1 ELSE 0 END as isUnlocked
+        FROM chapter_unlocks cu
+        JOIN chapter c ON cu.chapter_id = c.id
+        JOIN novel n ON c.novel_id = n.id
+        WHERE cu.user_id = ? 
+          AND cu.unlock_method = 'time_unlock'
+          AND cu.status IN ('pending', 'unlocked')
+        ORDER BY cu.updated_at DESC
+        LIMIT ? OFFSET ?
+      `;
       
-      console.log('查询到的通知数量:', results.length);
-      console.log('原始通知数据:', results);
-      
-      // 格式化时间
-      const notifications = results.map(notification => {
-        let timeAgo = '';
-        if (notification.days_ago > 0) {
-          timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
-        } else if (notification.hours_ago > 0) {
-          timeAgo = `${notification.hours_ago} hours ago`;
-        } else {
-          timeAgo = 'just now';
+      db.query(timeUnlockQuery, [userId, limit, offset], (err, results) => {
+        if (err) {
+          console.error('获取时间解锁记录失败:', err);
+          return res.status(500).json({ message: '获取通知失败' });
         }
         
-        return {
-          ...notification,
-          timeAgo
-        };
+        console.log('查询到的时间解锁记录数量:', results.length);
+        
+        // 格式化时间
+        const notifications = results.map(notification => {
+          let timeAgo = '';
+          if (notification.days_ago > 0) {
+            timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
+          } else if (notification.hours_ago > 0) {
+            timeAgo = `${notification.hours_ago} hours ago`;
+          } else {
+            timeAgo = 'just now';
+          }
+          
+          // 对于时间解锁记录，计算正确的时间显示
+          const unlockAt = new Date(notification.unlock_at);
+          const now = new Date();
+          const isUnlocked = notification.status === 'unlocked' || unlockAt <= now;
+          
+          if (isUnlocked) {
+            // 已解锁：计算解锁后过了多长时间
+            const timeDiff = now - unlockAt;
+            const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+            const daysAgo = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            
+            if (daysAgo > 0) {
+              timeAgo = daysAgo === 1 ? 'a day ago' : `${daysAgo} days ago`;
+            } else if (hoursAgo > 0) {
+              timeAgo = `${hoursAgo} hours ago`;
+            } else {
+              timeAgo = 'just now';
+            }
+          } else {
+            // 未解锁：计算距离解锁还有多长时间
+            const timeDiff = unlockAt - now;
+            const hoursLater = Math.floor(timeDiff / (1000 * 60 * 60));
+            const daysLater = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            
+            if (daysLater > 0) {
+              timeAgo = `${daysLater} days later unlock`;
+            } else if (hoursLater > 0) {
+              timeAgo = `${hoursLater} hours later unlock`;
+            } else {
+              timeAgo = 'unlocking soon';
+            }
+          }
+          
+          return {
+            ...notification,
+            timeAgo,
+            readed: notification.readed || 0
+          };
+        });
+        
+        // 获取总数
+        const countQuery = `
+          SELECT COUNT(*) as total FROM chapter_unlocks cu
+          WHERE cu.user_id = ? 
+            AND cu.unlock_method = 'time_unlock'
+            AND cu.status IN ('pending', 'unlocked')
+        `;
+        
+        db.query(countQuery, [userId], (err, countResults) => {
+          if (err) {
+            console.error('获取时间解锁记录总数失败:', err);
+            return res.status(500).json({ message: '获取通知失败' });
+          }
+          
+          const total = countResults[0].total;
+          const totalPages = Math.ceil(total / limit);
+          console.log('时间解锁记录总数:', total, '总页数:', totalPages);
+          
+          res.json({
+            success: true,
+            data: {
+              notifications,
+              pagination: {
+                currentPage: page,
+                totalPages,
+                total,
+                limit
+              }
+            }
+          });
+        });
       });
+    } else if (type === 'chapter_marketing') {
+      // 查询普通通知（章节更新和营销）
+      const notificationQuery = `
+        SELECT 
+          n.id,
+          n.user_id,
+          n.chapter_id,
+          NULL as unlock_at,
+          NULL as status,
+          n.created_at,
+          n.updated_at,
+          NULL as readed,
+          n.novel_title,
+          NULL as chapter_number,
+          n.chapter_title,
+          n.novel_id,
+          n.type,
+          n.link,
+          n.is_read,
+          n.message,
+          TIMESTAMPDIFF(HOUR, n.created_at, NOW()) as hours_ago,
+          TIMESTAMPDIFF(DAY, n.created_at, NOW()) as days_ago,
+          0 as isTimeUnlock,
+          NULL as isUnlocked
+        FROM notifications n
+        WHERE n.user_id = ?
+        ORDER BY n.updated_at DESC
+        LIMIT ? OFFSET ?
+      `;
       
-      res.json({
-        notifications,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          total,
-          limit
+      db.query(notificationQuery, [userId, limit, offset], (err, results) => {
+        if (err) {
+          console.error('获取通知失败:', err);
+          return res.status(500).json({ message: '获取通知失败' });
         }
+        
+        console.log('查询到的通知数量:', results.length);
+        
+        // 格式化时间
+        const notifications = results.map(notification => {
+          let timeAgo = '';
+          if (notification.days_ago > 0) {
+            timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
+          } else if (notification.hours_ago > 0) {
+            timeAgo = `${notification.hours_ago} hours ago`;
+          } else {
+            timeAgo = 'just now';
+          }
+          
+          return {
+            ...notification,
+            timeAgo,
+            readed: notification.readed || 0
+          };
+        });
+        
+        // 获取总数
+        const countQuery = 'SELECT COUNT(*) as total FROM notifications n WHERE n.user_id = ?';
+        
+        db.query(countQuery, [userId], (err, countResults) => {
+          if (err) {
+            console.error('获取通知总数失败:', err);
+            return res.status(500).json({ message: '获取通知失败' });
+          }
+          
+          const total = countResults[0].total;
+          const totalPages = Math.ceil(total / limit);
+          console.log('通知总数:', total, '总页数:', totalPages);
+          
+          res.json({
+            success: true,
+            data: {
+              notifications,
+              pagination: {
+                currentPage: page,
+                totalPages,
+                total,
+                limit
+              }
+            }
+          });
+        });
       });
-    });
+    } else {
+      return res.status(400).json({ message: '无效的通知类型' });
+    }
   });
 });
+
+// 标记通知为已读
 
 // 标记通知为已读
 app.post('/api/user/:id/notifications/:notificationId/read', (req, res) => {
   const userId = req.params.id;
   const notificationId = req.params.notificationId;
   
-  db.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', 
-    [notificationId, userId], (err, result) => {
-    if (err) {
-      console.error('标记已读失败:', err);
-      return res.status(500).json({ message: '操作失败' });
-    }
-    res.json({ success: true });
-  });
+  // 检查是否是时间解锁记录
+  if (notificationId.startsWith('time_unlock_')) {
+    const chapterUnlockId = notificationId.replace('time_unlock_', '');
+    
+    // 更新 chapter_unlocks 表的 readed 字段
+    db.query('UPDATE chapter_unlocks SET readed = 1 WHERE id = ? AND user_id = ?', 
+      [chapterUnlockId, userId], (err, result) => {
+      if (err) {
+        console.error('标记时间解锁记录已读失败:', err);
+        return res.status(500).json({ message: 'Operation failed' });
+      }
+      res.json({ success: true });
+    });
+  } else {
+    // 更新普通通知
+    db.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', 
+      [notificationId, userId], (err, result) => {
+      if (err) {
+        console.error('标记已读失败:', err);
+        return res.status(500).json({ message: 'Operation failed' });
+      }
+      res.json({ success: true });
+    });
+  }
 });
 
-// 标记所有通知为已读
-app.post('/api/user/:id/notifications/mark-all-read', (req, res) => {
+// 标记当前页面通知为已读/未读
+app.post('/api/user/:id/notifications/mark-current-page-read', (req, res) => {
   const userId = req.params.id;
+  const { type, action, notificationIds } = req.body; // type: 'unlock' | 'chapter_marketing', action: 'read' | 'unread', notificationIds: array of IDs
   
-  db.query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [userId], (err, result) => {
-    if (err) {
-      console.error('标记全部已读失败:', err);
-      return res.status(500).json({ message: '操作失败' });
+  if (!type || !action || !notificationIds || !Array.isArray(notificationIds)) {
+    return res.status(400).json({ message: 'Missing type, action, or notificationIds parameter' });
+  }
+  
+  const isRead = action === 'read' ? 1 : 0;
+  
+  if (type === 'unlock') {
+    // 对于unlock类型，更新chapter_unlocks表的readed字段
+    // notificationIds格式: ['time_unlock_1', 'time_unlock_2', ...]
+    const chapterUnlockIds = notificationIds
+      .filter(id => typeof id === 'string' && id.startsWith('time_unlock_'))
+      .map(id => id.replace('time_unlock_', ''));
+    
+    if (chapterUnlockIds.length === 0) {
+      return res.json({ success: true, updatedCount: 0 });
     }
-    res.json({ success: true, updatedCount: result.affectedRows });
-  });
+    
+    const placeholders = chapterUnlockIds.map(() => '?').join(',');
+    const query = `UPDATE chapter_unlocks SET readed = ? WHERE id IN (${placeholders}) AND user_id = ?`;
+    const params = [isRead, ...chapterUnlockIds, userId];
+    
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error('标记时间解锁记录失败:', err);
+        return res.status(500).json({ message: 'Operation failed' });
+      }
+      res.json({ success: true, updatedCount: result.affectedRows });
+    });
+  } else if (type === 'chapter_marketing') {
+    // 对于chapter_marketing类型，更新notifications表的is_read字段
+    const placeholders = notificationIds.map(() => '?').join(',');
+    const query = `UPDATE notifications SET is_read = ? WHERE id IN (${placeholders}) AND user_id = ?`;
+    const params = [isRead, ...notificationIds, userId];
+    
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error('标记通知失败:', err);
+        return res.status(500).json({ message: 'Operation failed' });
+      }
+      res.json({ success: true, updatedCount: result.affectedRows });
+    });
+  } else {
+    return res.status(400).json({ message: 'Invalid type parameter' });
+  }
 });
 
 // 创建测试通知数据
@@ -682,9 +1369,9 @@ app.post('/api/create-test-notifications', (req, res) => {
   `, [values], (err, result) => {
     if (err) {
       console.error('创建测试通知失败:', err);
-      return res.status(500).json({ message: '创建测试数据失败' });
+      return res.status(500).json({ message: 'Failed to create test data' });
     }
-    res.json({ message: '测试通知创建成功', count: result.affectedRows });
+    res.json({ message: 'Test notification created successfully', count: result.affectedRows });
   });
 });
 
@@ -693,7 +1380,7 @@ app.post('/api/novel/search-by-title', (req, res) => {
   const { title } = req.body;
   
   if (!title || title.trim() === '') {
-    return res.status(400).json({ message: '请输入小说名称' });
+    return res.status(400).json({ message: 'Please enter novel name' });
   }
   
   const query = `
@@ -706,7 +1393,7 @@ app.post('/api/novel/search-by-title', (req, res) => {
   db.query(query, [`%${title.trim()}%`], (err, results) => {
     if (err) {
       console.error('搜索小说失败:', err);
-      return res.status(500).json({ message: '搜索失败' });
+      return res.status(500).json({ message: 'Search failed' });
     }
     
     res.json({ novels: results });
@@ -718,19 +1405,19 @@ app.get('/api/novel/:id/details', (req, res) => {
   const { id } = req.params;
   
   const query = `
-    SELECT id, title, author, translator, description, chapters, licensed_from, status, cover, rating, reviews
+    SELECT id, title, author, translator, description, recommendation, languages, chapters, licensed_from, status, cover, rating, reviews, champion_status
     FROM novel 
     WHERE id = ?
   `;
   
   db.query(query, [id], (err, results) => {
     if (err) {
-      console.error('获取小说详情失败:', err);
-      return res.status(500).json({ message: '获取小说详情失败' });
+      console.error('Failed to get novel details:', err);
+      return res.status(500).json({ message: 'Failed to get novel details' });
     }
     
     if (results.length === 0) {
-      return res.status(404).json({ message: '小说不存在' });
+      return res.status(404).json({ message: 'Novel not found' });
     }
     
     res.json({ novel: results[0] });
@@ -744,13 +1431,13 @@ app.get('/api/novel/:id/chapter-count', (req, res) => {
   const query = `
     SELECT COUNT(*) as chapter_count
     FROM chapter 
-    WHERE novel_id = ? AND is_visible = 1
+    WHERE novel_id = ? AND review_status = 'approved'
   `;
   
   db.query(query, [id], (err, results) => {
     if (err) {
-      console.error('获取章节数量失败:', err);
-      return res.status(500).json({ message: '获取章节数量失败' });
+      console.error('Failed to get chapter count:', err);
+      return res.status(500).json({ message: 'Failed to get chapter count' });
     }
     
     res.json({ chapterCount: results[0].chapter_count });
@@ -771,14 +1458,14 @@ app.put('/api/novel/:id/update', (req, res) => {
   db.query(query, [title, author, translator, description, chapters, licensed_from, id], (err, result) => {
     if (err) {
       console.error('更新小说失败:', err);
-      return res.status(500).json({ message: '更新失败' });
+      return res.status(500).json({ message: 'Update failed' });
     }
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: '小说不存在' });
+      return res.status(404).json({ message: 'Novel not found' });
     }
     
-    res.json({ message: '更新成功' });
+    res.json({ message: 'Update successful' });
   });
 });
 
@@ -787,18 +1474,18 @@ app.post('/api/novel/:id/cover', upload.single('cover'), (req, res) => {
   const { id } = req.params;
   
   if (!req.file) {
-    return res.status(400).json({ message: '请选择图片文件' });
+    return res.status(400).json({ message: 'Please select image file' });
   }
   
   // 验证文件类型
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
   if (!allowedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({ message: '只支持 JPG、PNG、GIF 格式的图片' });
+    return res.status(400).json({ message: 'Only JPG, PNG, GIF format images are supported' });
   }
   
   // 验证文件大小 (5MB)
   if (req.file.size > 5 * 1024 * 1024) {
-    return res.status(400).json({ message: '图片文件大小不能超过5MB' });
+    return res.status(400).json({ message: 'Image file size cannot exceed 5MB' });
   }
   
   const coverUrl = `/covers/${req.file.filename}`;
@@ -808,16 +1495,16 @@ app.post('/api/novel/:id/cover', upload.single('cover'), (req, res) => {
   
   db.query(query, [coverUrl, id], (err, result) => {
     if (err) {
-      console.error('更新封面失败:', err);
-      return res.status(500).json({ message: '更新封面失败' });
+      console.error('Failed to update cover:', err);
+      return res.status(500).json({ message: 'Failed to update cover' });
     }
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: '小说不存在' });
+      return res.status(404).json({ message: 'Novel not found' });
     }
     
     res.json({ 
-      message: '封面上传成功', 
+      message: 'Cover upload successful', 
       coverUrl: coverUrl 
     });
   });
@@ -850,14 +1537,14 @@ app.post('/api/novel/:id/volumes', (req, res) => {
   const { volumes } = req.body;
   
   if (!volumes || !Array.isArray(volumes)) {
-    return res.status(400).json({ message: '请提供卷信息' });
+    return res.status(400).json({ message: 'Please provide volume information' });
   }
   
   // 开始事务
   db.beginTransaction((err) => {
     if (err) {
       console.error('开始事务失败:', err);
-      return res.status(500).json({ message: '数据库错误' });
+      return res.status(500).json({ message: 'Database error' });
     }
     
     let completedOperations = 0;
@@ -869,15 +1556,15 @@ app.post('/api/novel/:id/volumes', (req, res) => {
         if (completedOperations === totalOperations) {
           if (hasError) {
             db.rollback(() => {
-              res.status(500).json({ message: '处理卷信息失败' });
+              res.status(500).json({ message: 'Failed to process volume information' });
             });
           } else {
             db.commit((commitErr) => {
               if (commitErr) {
                 console.error('提交事务失败:', commitErr);
-                return res.status(500).json({ message: '保存失败' });
+                return res.status(500).json({ message: 'Save failed' });
               }
-              res.json({ message: '卷信息更新成功' });
+              res.json({ message: '卷信息Update successful' });
             });
           }
         }
@@ -949,15 +1636,15 @@ app.put('/api/novels/:novelId/volumes', (req, res) => {
   // 首先删除该小说的所有现有卷轴信息
   db.query('DELETE FROM volume WHERE novel_id = ?', [novelId], (deleteErr) => {
     if (deleteErr) {
-      console.error('删除现有卷轴信息失败:', deleteErr);
-      return res.status(500).json({ success: false, message: '删除现有卷轴信息失败' });
+      console.error('Failed to delete existing volume information:', deleteErr);
+      return res.status(500).json({ success: false, message: 'Failed to delete existing volume information' });
     }
 
     console.log('成功删除现有卷轴信息');
 
     // 如果没有新的卷轴信息，直接返回成功
     if (!volumes || volumes.length === 0) {
-      return res.json({ success: true, message: '卷轴信息更新成功' });
+      return res.json({ success: true, message: '卷轴信息Update successful' });
     }
 
     // 插入新的卷轴信息
@@ -988,10 +1675,10 @@ app.put('/api/novels/:novelId/volumes', (req, res) => {
         // 当所有插入操作完成时
         if (completedInserts === volumes.length) {
           if (hasError) {
-            res.status(500).json({ success: false, message: '部分卷轴信息插入失败' });
+            res.status(500).json({ success: false, message: 'Failed to insert some volume information' });
           } else {
             console.log('所有卷轴信息插入成功');
-            res.json({ success: true, message: '卷轴信息更新成功' });
+            res.json({ success: true, message: '卷轴信息Update successful' });
           }
         }
       });
@@ -1007,7 +1694,7 @@ app.put('/api/novels/:novelId/chapters/volume-id', (req, res) => {
   console.log('收到更新章节volume_id请求:', { novelId, chapterUpdates });
 
   if (!chapterUpdates || chapterUpdates.length === 0) {
-    return res.json({ success: true, message: '章节volume_id更新成功' });
+    return res.json({ success: true, message: '章节volume_idUpdate successful' });
   }
 
   // 批量更新章节的volume_id
@@ -1032,10 +1719,10 @@ app.put('/api/novels/:novelId/chapters/volume-id', (req, res) => {
       // 当所有更新操作完成时
       if (completedUpdates === chapterUpdates.length) {
         if (hasError) {
-          res.status(500).json({ success: false, message: '部分章节volume_id更新失败' });
+          res.status(500).json({ success: false, message: '部分章节volume_idUpdate failed' });
         } else {
-          console.log('所有章节volume_id更新成功');
-          res.json({ success: true, message: '章节volume_id更新成功' });
+          console.log('所有章节volume_idUpdate successful');
+          res.json({ success: true, message: '章节volume_idUpdate successful' });
         }
       }
     });
@@ -1065,8 +1752,8 @@ app.get('/api/homepage/featured-novels/:section', (req, res) => {
   
   db.query(query, [section, parseInt(limit)], (err, results) => {
     if (err) {
-      console.error('获取推荐小说失败:', err);
-      return res.status(500).json({ message: '获取推荐小说失败' });
+      console.error('Failed to get recommended novels:', err);
+      return res.status(500).json({ message: 'Failed to get recommended novels' });
     }
     
     res.json({ novels: results });
@@ -1089,8 +1776,8 @@ app.get('/api/homepage/banners', (req, res) => {
   
   db.query(query, (err, results) => {
     if (err) {
-      console.error('获取轮播图失败:', err);
-      return res.status(500).json({ message: '获取轮播图失败' });
+      console.error('Failed to get carousel images:', err);
+      return res.status(500).json({ message: 'Failed to get carousel images' });
     }
     
     res.json({ banners: results });
@@ -1117,8 +1804,8 @@ app.get('/api/homepage/popular-this-week', (req, res) => {
   
   db.query(query, [parseInt(limit)], (err, results) => {
     if (err) {
-      console.error('获取本周热门失败:', err);
-      return res.status(500).json({ message: '获取本周热门失败' });
+      console.error('Failed to get weekly popular:', err);
+      return res.status(500).json({ message: 'Failed to get weekly popular' });
     }
     
     res.json({ novels: results });
@@ -1143,8 +1830,8 @@ app.get('/api/homepage/new-releases', (req, res) => {
   
   db.query(query, [parseInt(limit)], (err, results) => {
     if (err) {
-      console.error('获取最新发布失败:', err);
-      return res.status(500).json({ message: '获取最新发布失败' });
+      console.error('Failed to get latest releases:', err);
+      return res.status(500).json({ message: 'Failed to get latest releases' });
     }
     
     res.json({ novels: results });
@@ -1167,8 +1854,8 @@ app.get('/api/homepage/top-series', (req, res) => {
   
   db.query(query, [parseInt(limit)], (err, results) => {
     if (err) {
-      console.error('获取高分小说失败:', err);
-      return res.status(500).json({ message: '获取高分小说失败' });
+      console.error('Failed to get high-rated novels:', err);
+      return res.status(500).json({ message: 'Failed to get high-rated novels' });
     }
     
     res.json({ novels: results });
@@ -1188,8 +1875,8 @@ app.post('/api/novel/:id/view', (req, res) => {
   
   db.query(query, [id, today], (err, result) => {
     if (err) {
-      console.error('记录访问统计失败:', err);
-      return res.status(500).json({ message: '记录访问统计失败' });
+      console.error('Failed to record access statistics:', err);
+      return res.status(500).json({ message: 'Failed to record access statistics' });
     }
     
     res.json({ success: true });
@@ -1207,8 +1894,8 @@ app.get('/api/homepage/config', (req, res) => {
   
   db.query(query, (err, results) => {
     if (err) {
-      console.error('获取首页配置失败:', err);
-      return res.status(500).json({ message: '获取首页配置失败' });
+      console.error('Failed to get homepage configuration:', err);
+      return res.status(500).json({ message: 'Failed to get homepage configuration' });
     }
     
     res.json({ configs: results });
@@ -1232,8 +1919,8 @@ app.post('/api/admin/homepage/featured-novels', (req, res) => {
   
   db.query(query, [novel_id, section_type, display_order, start_date, end_date], (err, result) => {
     if (err) {
-      console.error('添加推荐小说失败:', err);
-      return res.status(500).json({ message: '添加推荐小说失败' });
+      console.error('Failed to add recommended novel:', err);
+      return res.status(500).json({ message: 'Failed to add recommended novel' });
     }
     
     res.json({ success: true, id: result.insertId });
@@ -1336,8 +2023,8 @@ app.get('/api/homepage/all', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('获取首页数据失败:', error);
-    res.status(500).json({ message: '获取首页数据失败' });
+    console.error('Failed to get homepage data:', error);
+    res.status(500).json({ message: 'Failed to get homepage data' });
   }
 });
 
@@ -1362,18 +2049,18 @@ app.get('/api/checkin/status/:userId', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('获取签到状态失败:', error);
-    res.status(500).json({ success: false, message: '获取签到状态失败' });
+    console.error('Failed to get check-in status:', error);
+    res.status(500).json({ success: false, message: 'Failed to get check-in status' });
   }
 });
 
-// 执行签到（支持时区）
+// 执行签到（支持时区 + 任务系统集成）
 app.post('/api/checkin/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { timezone = 'UTC' } = req.body;
     
-    const result = await dailyCheckinAPI.performCheckin(userId, timezone);
+    const result = await dailyCheckinWithMission.performCheckin(userId, timezone);
     
     if (result.success) {
       res.json(result);
@@ -1381,8 +2068,8 @@ app.post('/api/checkin/:userId', async (req, res) => {
       res.status(400).json(result);
     }
   } catch (error) {
-    console.error('签到失败:', error);
-    res.status(500).json({ success: false, message: '签到失败' });
+    console.error('Check-in failed:', error);
+    res.status(500).json({ success: false, message: 'Check-in failed' });
   }
 });
 
@@ -1391,15 +2078,161 @@ app.get('/api/checkin/history/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { limit = 30 } = req.query;
-    const history = await dailyCheckinAPI.getUserCheckinHistory(userId, parseInt(limit));
+    const history = await dailyCheckinWithMission.getUserCheckinHistory(userId, parseInt(limit));
     
     res.json({
       success: true,
       data: history
     });
   } catch (error) {
-    console.error('获取签到历史失败:', error);
-    res.status(500).json({ success: false, message: '获取签到历史失败' });
+    console.error('Failed to get check-in history:', error);
+    res.status(500).json({ success: false, message: 'Failed to get check-in history' });
+  }
+});
+
+// ==================== 新的任务管理系统API ====================
+
+// 获取用户任务列表（自动初始化）
+app.get('/api/mission-v2/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { date } = req.query;
+    
+    const { checkAndInitializeTodayMissions, checkMissionCompletion } = require('./mission_manager');
+    
+    // 1. 检查并初始化今日任务
+    const initResult = await checkAndInitializeTodayMissions(userId);
+    
+    if (!initResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: initResult.message
+      });
+    }
+    
+    // 2. 获取用户任务列表
+    const mysql = require('mysql2/promise');
+    const db = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '123456',
+      database: process.env.DB_NAME || 'kongfuworld',
+      charset: 'utf8mb4'
+    });
+    
+    const targetDate = date || new Date().toISOString().slice(0, 10);
+    
+    const [missions] = await db.execute(`
+      SELECT 
+        mc.id,
+        mc.mission_key,
+        mc.title,
+        mc.description,
+        mc.target_value,
+        mc.reward_keys,
+        mc.reward_karma,
+        mc.reset_type,
+        ump.current_progress,
+        ump.is_completed,
+        ump.is_claimed,
+        ump.progress_date
+      FROM mission_config mc
+      LEFT JOIN user_mission_progress ump ON mc.id = ump.mission_id 
+        AND ump.user_id = ? AND ump.progress_date = ?
+      WHERE mc.is_active = 1
+      ORDER BY mc.id ASC
+    `, [userId, targetDate]);
+    
+    await db.end();
+    
+    // 3. 处理任务数据
+    const processedMissions = missions.map(mission => ({
+      id: mission.id,
+      missionKey: mission.mission_key,
+      title: mission.title,
+      description: mission.description,
+      targetValue: mission.target_value,
+      rewardKeys: mission.reward_keys,
+      rewardKarma: mission.reward_karma,
+      resetType: mission.reset_type,
+      currentProgress: mission.current_progress || 0,
+      isCompleted: mission.is_completed || false,
+      isClaimed: mission.is_claimed || false,
+      progressDate: mission.progress_date || targetDate,
+      progressPercentage: Math.min(100, Math.round((mission.current_progress || 0) / mission.target_value * 100))
+    }));
+    
+    // 4. 检查任务完成状态
+    const completionStatus = await checkMissionCompletion(userId);
+    
+    res.json({
+      success: true,
+      data: {
+        missions: processedMissions,
+        date: targetDate,
+        userMissionStatus: initResult.status,
+        allTasksCompleted: completionStatus.isCompleted,
+        completionMessage: completionStatus.message
+      }
+    });
+    
+  } catch (error) {
+    console.error('Failed to get user missions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user missions',
+      error: error.message
+    });
+  }
+});
+
+// 更新任务进度（新版本）
+app.post('/api/mission-v2/progress', async (req, res) => {
+  try {
+    const { userId, missionKey, progressValue = 1 } = req.body;
+    
+    if (!userId || !missionKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters'
+      });
+    }
+    
+    const { updateMissionProgress } = require('./mission_manager');
+    const result = await updateMissionProgress(userId, missionKey, progressValue);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+    
+  } catch (error) {
+    console.error('Failed to update mission progress:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update mission progress',
+      error: error.message
+    });
+  }
+});
+
+// 检查任务完成状态
+app.get('/api/mission-v2/completion/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { checkMissionCompletion } = require('./mission_manager');
+    
+    const result = await checkMissionCompletion(userId);
+    res.json(result);
+    
+  } catch (error) {
+    console.error('Failed to check mission completion status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check mission completion status',
+      error: error.message
+    });
   }
 });
 
@@ -1414,8 +2247,7 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
       rl.read_at,
       c.chapter_number,
       c.title as chapter_title,
-      c.is_locked,
-      c.is_visible
+      c.unlock_price
     FROM reading_log rl
     JOIN chapter c ON rl.chapter_id = c.id
     WHERE rl.user_id = ? AND c.novel_id = ?
@@ -1425,8 +2257,8 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
   
   db.query(query, [userId, novelId], (err, results) => {
     if (err) {
-      console.error('获取最后阅读章节失败:', err);
-      return res.status(500).json({ message: '获取最后阅读章节失败' });
+      console.error('Failed to get last read chapter:', err);
+      return res.status(500).json({ message: 'Failed to get last read chapter' });
     }
     
     if (results.length === 0) {
@@ -1436,22 +2268,21 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
           id as chapter_id,
           chapter_number,
           title as chapter_title,
-          is_locked,
-          is_visible
+          unlock_price
         FROM chapter 
-        WHERE novel_id = ? AND is_visible = 1
+        WHERE novel_id = ? AND review_status = 'approved'
         ORDER BY chapter_number ASC
         LIMIT 1
       `;
       
       db.query(firstChapterQuery, [novelId], (err2, firstChapterResults) => {
         if (err2) {
-          console.error('获取第一章失败:', err2);
-          return res.status(500).json({ message: '获取第一章失败' });
+          console.error('Failed to get first chapter:', err2);
+          return res.status(500).json({ message: 'Failed to get first chapter' });
         }
         
         if (firstChapterResults.length === 0) {
-          return res.status(404).json({ message: '该小说暂无章节' });
+          return res.status(404).json({ message: 'This novel has no chapters yet' });
         }
         
         res.json({
@@ -1460,8 +2291,7 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
             chapter_id: firstChapterResults[0].chapter_id,
             chapter_number: firstChapterResults[0].chapter_number,
             chapter_title: firstChapterResults[0].chapter_title,
-            is_locked: firstChapterResults[0].is_locked,
-            is_visible: firstChapterResults[0].is_visible,
+            unlock_price: firstChapterResults[0].unlock_price || 0,
             is_first_read: true
           }
         });
@@ -1478,8 +2308,8 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
       
       db.query(unlockQuery, [userId, lastRead.chapter_id], (err3, unlockResults) => {
         if (err3) {
-          console.error('检查解锁状态失败:', err3);
-          return res.status(500).json({ message: '检查解锁状态失败' });
+          console.error('Failed to check unlock status:', err3);
+          return res.status(500).json({ message: 'Failed to check unlock status' });
         }
         
         const isUnlocked = unlockResults[0].unlocked > 0;
@@ -1490,8 +2320,7 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
             chapter_id: lastRead.chapter_id,
             chapter_number: lastRead.chapter_number,
             chapter_title: lastRead.chapter_title,
-            is_locked: lastRead.is_locked,
-            is_visible: lastRead.is_visible,
+            unlock_price: lastRead.unlock_price || 0,
             is_unlocked: isUnlocked,
             read_at: lastRead.read_at,
             is_first_read: false
@@ -1514,30 +2343,29 @@ app.get('/api/chapter/:chapterId', (req, res) => {
       c.chapter_number,
       c.title,
       c.content,
-      c.is_locked,
-      c.is_visible,
+      c.unlock_price,
       c.translator_note,
       n.title as novel_title,
       n.author,
       n.translator,
       v.title as volume_title,
       v.volume_id,
-      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number - 1 AND is_visible = 1 LIMIT 1) as prev_chapter_id,
-      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number + 1 AND is_visible = 1 LIMIT 1) as next_chapter_id
+      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number - 1 AND review_status = 'approved' LIMIT 1) as prev_chapter_id,
+      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number + 1 AND review_status = 'approved' LIMIT 1) as next_chapter_id
     FROM chapter c
     JOIN novel n ON c.novel_id = n.id
     LEFT JOIN volume v ON c.volume_id = v.volume_id
-    WHERE c.id = ? AND c.is_visible = 1
+    WHERE c.id = ? AND c.review_status = 'approved'
   `;
   
   db.query(query, [chapterId], (err, results) => {
     if (err) {
-      console.error('获取章节内容失败:', err);
-      return res.status(500).json({ message: '获取章节内容失败' });
+      console.error('Failed to get chapter content:', err);
+      return res.status(500).json({ message: 'Failed to get chapter content' });
     }
     
     if (results.length === 0) {
-      return res.status(404).json({ message: '章节不存在或已隐藏' });
+      return res.status(404).json({ message: 'Chapter not found or hidden' });
     }
     
     const chapter = results[0];
@@ -1551,8 +2379,7 @@ app.get('/api/chapter/:chapterId', (req, res) => {
         chapter_number: chapter.chapter_number,
         title: chapter.title,
         content: chapter.content,
-        is_locked: chapter.is_locked,
-        is_visible: chapter.is_visible,
+        unlock_price: chapter.unlock_price || 0,
         translator_note: chapter.translator_note,
         novel_title: chapter.novel_title,
         author: chapter.author,
@@ -1574,7 +2401,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
   const { chapterId } = req.body;
   
   if (!chapterId) {
-    return res.status(400).json({ message: '请提供章节ID' });
+    return res.status(400).json({ message: 'Please provide chapter ID' });
   }
   
   let db;
@@ -1590,91 +2417,107 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     });
     
     // 1. 检查章节是否存在
-    const [chapters] = await db.execute('SELECT id, novel_id, is_premium FROM chapter WHERE id = ?', [chapterId]);
+    const [chapters] = await db.execute('SELECT id, novel_id, unlock_price FROM chapter WHERE id = ?', [chapterId]);
     if (chapters.length === 0) {
-      return res.status(404).json({ message: '章节不存在' });
+      return res.status(404).json({ message: 'Chapter not found' });
     }
     const chapter = chapters[0];
     
     // 2. 获取用户信息
     const [userResults] = await db.execute('SELECT id, points, golden_karma, username FROM user WHERE id = ?', [userId]);
     if (userResults.length === 0) {
-      return res.status(404).json({ message: '用户不存在' });
+      return res.status(404).json({ message: 'User not found' });
     }
     const user = userResults[0];
     
     // 3. 先检查并处理时间解锁状态（关键修复）
     await checkAndUpdateTimeUnlock(db, userId, chapterId);
     
-    // 4. 获取章节解锁信息（在记录阅读日志之前）
-    const [unlockInfo] = await db.execute(`
-      SELECT 
-        CASE 
-          WHEN COUNT(*) > 0 THEN 1 
-          ELSE 0 
-        END as is_unlocked,
-        MAX(unlocked_at) as unlock_time
-      FROM chapter_unlocks 
-      WHERE user_id = ? AND chapter_id = ? AND status = 'unlocked'
-    `, [userId, chapterId]);
+    // 4. 判断章节解锁状态（修复免费章节处理）
+    let isUnlocked, unlockTime, hasValidChampion = false;
     
-    const isUnlocked = unlockInfo[0].is_unlocked;
-    const unlockTime = unlockInfo[0].unlock_time;
-    
-    // 5. 记录阅读日志（使用正确的解锁信息）
-    const [updateResult] = await db.execute(`
-      UPDATE reading_log 
-      SET read_at = NOW(), is_unlocked = ?, unlock_time = ?
-      WHERE user_id = ? AND chapter_id = ? AND DATE(read_at) = CURDATE()
-    `, [isUnlocked, unlockTime, userId, chapterId]);
-    
-    // 如果没有更新任何记录，则插入新记录
-    if (updateResult.affectedRows === 0) {
-      await db.execute(`
-        INSERT INTO reading_log (user_id, chapter_id, read_at, is_unlocked, unlock_time) 
-        VALUES (?, ?, NOW(), ?, ?)
-      `, [userId, chapterId, isUnlocked, unlockTime]);
+    if (!chapter.unlock_price || chapter.unlock_price <= 0) {
+      // 免费章节：默认解锁，解锁时间为当前时间
+      isUnlocked = true;
+      unlockTime = new Date();
+      hasValidChampion = false; // 免费章节不需要Champion会员
+      console.log(`[DEBUG] 免费章节 ${chapterId}，解锁状态: ${isUnlocked}, 解锁时间: ${unlockTime}`);
+    } else {
+      // 付费章节：检查解锁记录和Champion会员
+      const [unlockInfo] = await db.execute(`
+        SELECT 
+          CASE 
+            WHEN COUNT(*) > 0 THEN 1 
+            ELSE 0 
+          END as is_unlocked,
+          MAX(unlocked_at) as unlock_time
+        FROM chapter_unlocks 
+        WHERE user_id = ? AND chapter_id = ? AND status = 'unlocked'
+      `, [userId, chapterId]);
+      
+      const [championSubs] = await db.execute(`
+        SELECT * FROM user_champion_subscription 
+        WHERE user_id = ? AND novel_id = ? AND is_active = 1 AND end_date > NOW()
+      `, [userId, chapter.novel_id]);
+      
+      hasValidChampion = championSubs.length > 0;
+      
+      isUnlocked = unlockInfo[0].is_unlocked || hasValidChampion;
+      unlockTime = unlockInfo[0].unlock_time || (hasValidChampion ? new Date() : null);
+      console.log(`[DEBUG] 付费章节 ${chapterId}，解锁状态: ${isUnlocked}, 解锁时间: ${unlockTime}, Champion会员: ${hasValidChampion}`);
     }
     
-    // 6. 使用正确的新章节判断逻辑（在记录阅读日志之后）
-    const newChapterCheck = await checkIsNewChapterImproved(db, userId, chapterId);
+    // 5. 检查是否有历史阅读记录
+    const [existingRecords] = await db.execute(`
+      SELECT COUNT(*) as count FROM reading_log 
+      WHERE user_id = ? AND chapter_id = ?
+    `, [userId, chapterId]);
     
-    // 5. 更新任务进度（只有真正的新章节才更新）
+    const hasHistoryRecords = existingRecords[0].count > 0;
+    
+    // 6. 记录阅读日志（每次访问都插入新记录）
+    const [insertResult] = await db.execute(`
+      INSERT INTO reading_log (user_id, chapter_id, read_at, is_unlocked, unlock_time, page_enter_time) 
+      VALUES (?, ?, NOW(), ?, ?, NOW())
+    `, [userId, chapterId, isUnlocked, unlockTime]);
+    
+    const recordId = insertResult.insertId;
+    console.log(`[DEBUG] 用户 ${userId} 访问章节 ${chapterId}，创建新记录 ID: ${recordId}，解锁状态: ${isUnlocked}, 解锁时间: ${unlockTime}`);
+    
+    // 6. 使用正确的新章节判断逻辑（在记录阅读日志之后）
+    const newChapterCheck = await checkIsNewChapterImproved(db, userId, chapterId, hasValidChampion);
+    
+    // 5. 更新任务进度（使用新的任务管理系统）
     if (newChapterCheck.isNewChapter) {
       try {
+        const { updateMissionProgress } = require('./mission_manager');
         const missionKeys = ['read_2_chapters', 'read_5_chapters', 'read_10_chapters'];
+        
         for (const missionKey of missionKeys) {
-          const response = await fetch(`http://localhost:5000/api/mission/progress`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              userId: parseInt(userId), 
-              missionKey: missionKey, 
-              progressValue: 1,
-              chapterId: parseInt(chapterId) // 传递章节ID
-            })
-          });
-          if (response.ok) {
-            const result = await response.json();
-            console.log(`任务 ${missionKey} 进度更新:`, result.data);
+          const result = await updateMissionProgress(userId, missionKey, 1, chapterId);
+          if (result.success) {
+            console.log(`[DEBUG] 任务 ${missionKey} 进度Update successful:`, result.data);
+          } else {
+            console.log(`[DEBUG] 任务 ${missionKey} 进度Update failed:`, result.message);
           }
         }
       } catch (error) {
-        console.error('更新任务进度失败:', error);
+        console.error('Failed to update mission progress:', error);
       }
     }
     
     res.json({
       success: true,
-      message: '阅读记录已保存',
+      message: 'Reading record saved',
+      recordId: recordId,  // 返回记录ID供前端时间追踪使用
       isNewChapter: newChapterCheck.isNewChapter,
       reason: newChapterCheck.reason,
       details: newChapterCheck.details
     });
     
   } catch (error) {
-    console.error('记录阅读日志失败:', error);
-    res.status(500).json({ message: '记录阅读日志失败', error: error.message });
+    console.error('Failed to record reading log:', error);
+    res.status(500).json({ message: 'Failed to record reading log', error: error.message });
   } finally {
     if (db) await db.end();
   }
@@ -1724,13 +2567,13 @@ async function checkAndUpdateTimeUnlock(db, userId, chapterId) {
 //    有有效Champion会员: 只有今天首次阅读才算新章节
 // B. 免费章节判断:
 //    免费章节: 只有今天首次阅读才算新章节
-async function checkIsNewChapterImproved(db, userId, chapterId) {
+async function checkIsNewChapterImproved(db, userId, chapterId, hasValidChampion = null) {
   try {
     const today = new Date().toISOString().slice(0, 10);
     
     // 1. 查询章节基本信息
     const [chapters] = await db.execute(`
-      SELECT id, novel_id, is_premium
+      SELECT id, novel_id, unlock_price
       FROM chapter 
       WHERE id = ?
     `, [chapterId]);
@@ -1738,34 +2581,36 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
     if (chapters.length === 0) {
       return {
         isNewChapter: false,
-        reason: '章节不存在',
+        reason: 'Chapter not found',
         details: {}
       };
     }
     
     const chapter = chapters[0];
     
-    // 2. 查询用户Champion会员状态
-    const [championStatus] = await db.execute(`
-      SELECT 
-        ucs.*,
-        CASE 
-          WHEN ucs.end_date > NOW() THEN 1
-          ELSE 0
-        END as is_valid
-      FROM user_champion_subscription ucs
-      WHERE ucs.user_id = ? AND ucs.novel_id = ? AND ucs.is_active = 1
-      ORDER BY ucs.end_date DESC
-      LIMIT 1
-    `, [userId, chapter.novel_id]);
+    // 2. 查询用户Champion会员状态（如果未提供参数则查询）
+    if (hasValidChampion === null) {
+      const [championStatus] = await db.execute(`
+        SELECT 
+          ucs.*,
+          CASE 
+            WHEN ucs.end_date > NOW() THEN 1
+            ELSE 0
+          END as is_valid
+        FROM user_champion_subscription ucs
+        WHERE ucs.user_id = ? AND ucs.novel_id = ? AND ucs.is_active = 1
+        ORDER BY ucs.end_date DESC
+        LIMIT 1
+      `, [userId, chapter.novel_id]);
+      
+      hasValidChampion = championStatus.length > 0 && championStatus[0].is_valid === 1;
+    }
     
-    const hasValidChampion = championStatus.length > 0 && championStatus[0].is_valid === 1;
-    
-    // 3. 查询该章节的所有阅读记录
+    // 3. 查询该章节的所有有效阅读记录（只统计已解锁的阅读记录）
     const [allReadingRecords] = await db.execute(`
-      SELECT id, read_at, DATE(read_at) as read_date
+      SELECT id, read_at, DATE(read_at) as read_date, is_unlocked
       FROM reading_log 
-      WHERE user_id = ? AND chapter_id = ?
+      WHERE user_id = ? AND chapter_id = ? AND is_unlocked = 1
       ORDER BY read_at ASC
     `, [userId, chapterId]);
     
@@ -1777,13 +2622,17 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
       ORDER BY created_at ASC
     `, [userId, chapterId]);
     
+    // 5. 检查Champion会员解锁状态（使用之前查询的结果）
+    // 注意：hasValidChampion已经在第1913行定义过了
+    
     // 5. 分析阅读记录
     const todayReadingRecords = allReadingRecords.filter(record => {
-      const recordDate = record.read_date.toISOString().slice(0, 10);
+      // 使用UTC时间避免时区问题
+      const recordDate = new Date(record.read_at).toISOString().slice(0, 10);
       return recordDate === today;
     });
     const historyReadingRecords = allReadingRecords.filter(record => {
-      const recordDate = record.read_date.toISOString().slice(0, 10);
+      const recordDate = new Date(record.read_at).toISOString().slice(0, 10);
       return recordDate !== today;
     });
     
@@ -1792,6 +2641,9 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
       const unlockDate = new Date(record.unlocked_at || record.created_at).toISOString().slice(0, 10);
       return unlockDate === today && record.status === 'unlocked';
     });
+    
+    // 7. 检查Champion会员解锁（今天首次阅读且有效Champion会员）
+    const isChampionUnlocked = hasValidChampion && todayReadingRecords.length === 1 && historyReadingRecords.length === 0;
     
     // 7. 判断是否为新章节
     let isNewChapter = false;
@@ -1803,10 +2655,10 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
       isTodayFirstRead: todayReadingRecords.length === 1,
       hasTodayUnlock: todayUnlockRecords.length > 0,
       hasValidChampion: hasValidChampion,
-      isPremium: chapter.is_premium
+      unlock_price: chapter.unlock_price || 0
     };
     
-    if (chapter.is_premium) {
+    if (chapter.unlock_price && chapter.unlock_price > 0) {
       // A. 付费章节判断
       if (hasValidChampion) {
         // 有有效Champion会员: 只有今天首次阅读才算新章节
@@ -1824,13 +2676,19 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
           reason = '有有效Champion会员，但今天没有阅读该章节';
         }
       } else {
-        // 无Champion会员或已过期: 今天解锁就算新章节（不管是否今天首次阅读）
-        if (todayUnlockRecords.length > 0) {
+        // 无Champion会员或已过期: 今天解锁且今天首次阅读才算新章节
+        if (todayUnlockRecords.length > 0 && todayReadingRecords.length === 1 && historyReadingRecords.length === 0) {
           isNewChapter = true;
-          reason = '无Champion会员，今天解锁该章节';
+          reason = '付费章节，无Champion会员或会员过期，今天解锁该章节并首次阅读';
+        } else if (todayUnlockRecords.length > 0 && (todayReadingRecords.length > 1 || historyReadingRecords.length > 0)) {
+          isNewChapter = false;
+          reason = '付费章节，无Champion会员或会员过期，今天解锁该章节但非首次阅读';
+        } else if (todayUnlockRecords.length === 0) {
+          isNewChapter = false;
+          reason = '付费章节，无Champion会员或会员过期，今天未解锁该章节';
         } else {
           isNewChapter = false;
-          reason = '无Champion会员，今天未解锁该章节';
+          reason = '付费章节，无Champion会员或会员过期，今天没有阅读该章节';
         }
       }
     } else {
@@ -1848,6 +2706,12 @@ async function checkIsNewChapterImproved(db, userId, chapterId) {
         isNewChapter = false;
         reason = '免费章节，但今天没有阅读该章节';
       }
+    }
+    
+    // 8. 特殊处理：Champion会员解锁的章节
+    if (isChampionUnlocked) {
+      isNewChapter = true;
+      reason = 'Champion会员解锁，今天首次阅读该章节';
     }
     
     return {
@@ -1870,7 +2734,7 @@ async function checkChapterUnlockStatus(db, userId, chapterId, chapter, user) {
   try {
     // 1. 检查章节是否免费
     const now = new Date();
-    const isFree = !chapter.is_premium;
+    const isFree = !chapter.unlock_price || chapter.unlock_price <= 0;
     
     if (isFree) {
       return {
@@ -1950,11 +2814,11 @@ async function checkChapterUnlockStatus(db, userId, chapterId, chapter, user) {
     };
     
   } catch (error) {
-    console.error('检查解锁状态失败:', error);
+    console.error('Failed to check unlock status:', error);
     return {
       isUnlocked: false,
       unlockMethod: 'error',
-      reason: '检查解锁状态失败: ' + error.message
+      reason: 'Failed to check unlock status: ' + error.message
     };
   }
 }
@@ -2003,14 +2867,18 @@ app.get('/api/timezone/info/:timezone', (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: '无效的时区'
+      message: 'Invalid timezone'
     });
   }
 });
 
-// 任务系统路由
-const missionRoutes = require('./routes/mission');
-app.use('/api/mission', missionRoutes);
+// 任务系统路由 (已迁移到 mission-v2)
+// const missionRoutes = require('./routes/mission');
+// app.use('/api/mission', missionRoutes);
+
+// 新的任务管理系统路由
+app.use('/api/mission-v2', missionV2Routes);
+app.use('/api/reading-mission', readingWithMissionRoutes);
 
 // 章节解锁系统路由
 const chapterUnlockRoutes = require('./routes/chapter_unlock');
@@ -2024,6 +2892,10 @@ app.use('/api/key-transaction', keyTransactionRoutes);
 const timeUnlockRoutes = require('./routes/time_unlock_optimized');
 app.use('/api/time-unlock', timeUnlockRoutes);
 
+// 阅读时间追踪路由
+const readingTimingRoutes = require('./routes/reading_timing');
+app.use('/api/reading-timing', readingTimingRoutes);
+
 // API文档页面
 app.get('/api', (req, res) => {
   res.send(`
@@ -2033,7 +2905,7 @@ app.get('/api', (req, res) => {
         <b>POST /api/login</b><br/>
         <pre>
 请求体: { "username": "xxx", "password": "xxx" }
-返回: { "message": "登录成功", "user": { ... } }
+返回: { "message": "Login successful", "user": { ... } }
         </pre>
       </li>
       <li>
@@ -2054,7 +2926,7 @@ app.get('/api', (req, res) => {
         <b>POST /api/checkin/:userId</b><br/>
         <pre>
 执行签到
-返回: { "success": true, "message": "签到成功", "data": { "keysEarned": 3, ... } }
+返回: { "success": true, "message": "Check-in successful", "data": { "keysEarned": 3, ... } }
         </pre>
       </li>
     </ul>
@@ -2063,7 +2935,7 @@ app.get('/api', (req, res) => {
 
 // ==================== 评论系统API ====================
 
-// 获取小说的评论列表
+// 获取小说的评论列表（只返回主评论，parent_id IS NULL）
 app.get('/api/novel/:novelId/reviews', (req, res) => {
   const { novelId } = req.params;
   const { page = 1, limit = 10 } = req.query;
@@ -2080,12 +2952,13 @@ app.get('/api/novel/:novelId/reviews', (req, res) => {
       r.comments,
       r.views,
       r.is_recommended,
+      r.user_id,
       u.username,
       u.avatar,
       u.is_vip
     FROM review r
     JOIN user u ON r.user_id = u.id
-    WHERE r.novel_id = ?
+    WHERE r.novel_id = ? AND r.parent_id IS NULL
     ORDER BY r.created_at DESC
     LIMIT ? OFFSET ?
   `;
@@ -2096,27 +2969,98 @@ app.get('/api/novel/:novelId/reviews', (req, res) => {
       return res.status(500).json({ message: '获取评论失败' });
     }
 
-    // 获取总数
-    db.query('SELECT COUNT(*) as total FROM review WHERE novel_id = ?', [novelId], (err2, countResult) => {
-      if (err2) {
-        console.error('获取评论总数失败:', err2);
-        return res.status(500).json({ message: '获取评论总数失败' });
-      }
+    // 递归统计每个评论的所有层级回复数量
+    const countAllReplies = (reviewId, callback) => {
+      // 递归函数：统计所有层级的回复
+      const countRepliesRecursive = (parentId, callback) => {
+        db.query('SELECT id FROM review WHERE parent_id = ?', [parentId], (err, children) => {
+          if (err) {
+            console.error('查询子回复失败:', err);
+            callback(0);
+            return;
+          }
+          
+          if (children.length === 0) {
+            callback(0);
+            return;
+          }
+          
+          let processed = 0;
+          let childCount = children.length; // 直接子回复数量
+          
+          // 递归统计每个子回复的子回复
+          children.forEach((child) => {
+            countRepliesRecursive(child.id, (subCount) => {
+              childCount += subCount; // 累加子回复的子回复数量
+              processed++;
+              if (processed === children.length) {
+                callback(childCount);
+              }
+            });
+          });
+        });
+      };
+      
+      countRepliesRecursive(reviewId, (count) => {
+        console.log(`评论 ${reviewId} 的总回复数: ${count}`);
+        callback(count);
+      });
+    };
 
-      res.json({
-        success: true,
-        data: {
-          reviews: results,
-          total: countResult[0].total,
-          page: parseInt(page),
-          limit: parseInt(limit)
+    // 为每个评论计算总回复数
+    let processedCount = 0;
+    if (results.length === 0) {
+      // 如果没有评论，直接返回
+      db.query('SELECT COUNT(*) as total FROM review WHERE novel_id = ? AND parent_id IS NULL', [novelId], (err2, countResult) => {
+        if (err2) {
+          console.error('获取评论总数失败:', err2);
+          return res.status(500).json({ message: '获取评论总数失败' });
+        }
+        res.json({
+          success: true,
+          data: {
+            reviews: [],
+            total: countResult[0].total,
+            page: parseInt(page),
+            limit: parseInt(limit)
+          }
+        });
+      });
+      return;
+    }
+
+    results.forEach((review, index) => {
+      countAllReplies(review.id, (totalReplies) => {
+        review.comments = totalReplies;
+        console.log(`评论 ${review.id} 的comments字段更新为: ${totalReplies}`);
+        processedCount++;
+        
+        // 所有评论都处理完成后返回结果
+        if (processedCount === results.length) {
+          console.log('所有评论的回复数统计完成，返回结果');
+          db.query('SELECT COUNT(*) as total FROM review WHERE novel_id = ? AND parent_id IS NULL', [novelId], (err2, countResult) => {
+            if (err2) {
+              console.error('获取评论总数失败:', err2);
+              return res.status(500).json({ message: '获取评论总数失败' });
+            }
+            console.log('返回的评论数据:', results.map(r => ({ id: r.id, comments: r.comments })));
+            res.json({
+              success: true,
+              data: {
+                reviews: results,
+                total: countResult[0].total,
+                page: parseInt(page),
+                limit: parseInt(limit)
+              }
+            });
+          });
         }
       });
     });
   });
 });
 
-// 获取小说的评论统计
+// 获取小说的评论统计（只统计主评论，parent_id IS NULL）
 app.get('/api/novel/:novelId/review-stats', (req, res) => {
   const { novelId } = req.params;
 
@@ -2127,7 +3071,7 @@ app.get('/api/novel/:novelId/review-stats', (req, res) => {
       SUM(CASE WHEN is_recommended = 1 THEN 1 ELSE 0 END) as recommended_count,
       SUM(likes) as total_likes
     FROM review 
-    WHERE novel_id = ?
+    WHERE novel_id = ? AND parent_id IS NULL
   `;
 
   db.query(query, [novelId], (err, results) => {
@@ -2158,50 +3102,38 @@ app.post('/api/novel/:novelId/review', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   if (!content || content.trim().length < 100) {
     return res.status(400).json({ message: '评论内容至少需要100个字符' });
   }
 
-  // 检查用户是否已经评论过这部小说
-  db.query('SELECT id FROM review WHERE novel_id = ? AND user_id = ?', [novelId, userId], (err, existingReview) => {
+  // 允许用户多次评论同一部小说，直接插入新评论
+  const insertQuery = `
+    INSERT INTO review (novel_id, user_id, content, rating, is_recommended, created_at, parent_id)
+    VALUES (?, ?, ?, ?, ?, NOW(), NULL)
+  `;
+
+  db.query(insertQuery, [novelId, userId, content, rating || null, is_recommended || 0], (err, result) => {
     if (err) {
-      console.error('检查现有评论失败:', err);
-      return res.status(500).json({ message: '检查现有评论失败' });
+      console.error('提交评论失败:', err);
+      return res.status(500).json({ message: '提交评论失败' });
     }
 
-    if (existingReview.length > 0) {
-      return res.status(400).json({ message: '您已经评论过这部小说了' });
-    }
-
-    // 插入新评论
-    const insertQuery = `
-      INSERT INTO review (novel_id, user_id, content, rating, is_recommended, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())
-    `;
-
-    db.query(insertQuery, [novelId, userId, content, rating || null, is_recommended || 0], (err2, result) => {
+    // 更新小说的评论数（只统计主评论）
+    db.query('UPDATE novel SET reviews = (SELECT COUNT(*) FROM review WHERE novel_id = ? AND parent_id IS NULL) WHERE id = ?', [novelId, novelId], (err2) => {
       if (err2) {
-        console.error('提交评论失败:', err2);
-        return res.status(500).json({ message: '提交评论失败' });
+        console.error('更新小说评论数失败:', err2);
       }
+    });
 
-      // 更新小说的评论数
-      db.query('UPDATE novel SET reviews = reviews + 1 WHERE id = ?', [novelId], (err3) => {
-        if (err3) {
-          console.error('更新小说评论数失败:', err3);
-        }
-      });
-
-      res.json({
-        success: true,
-        message: '评论提交成功',
-        data: {
-          review_id: result.insertId
-        }
-      });
+    res.json({
+      success: true,
+      message: '评论提交成功',
+      data: {
+        review_id: result.insertId
+      }
     });
   });
 });
@@ -2212,7 +3144,7 @@ app.post('/api/review/:reviewId/like', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   // 检查是否已经点赞
@@ -2222,13 +3154,28 @@ app.post('/api/review/:reviewId/like', authenticateToken, (req, res) => {
       return res.status(500).json({ message: '检查点赞状态失败' });
     }
 
-    // 如果已经点赞，直接返回
+    // 如果已经点赞，查询当前数据并返回
     if (existingLike.length > 0) {
+      db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err, result) => {
+        if (err) {
+          console.error('查询数据失败:', err);
       return res.json({
         success: true,
         message: '已经点赞过了',
         action: 'already_liked'
       });
+        }
+        return res.json({
+          success: true,
+          message: '已经点赞过了',
+          action: 'already_liked',
+          data: {
+            likes: result[0].likes,
+            dislikes: result[0].dislikes
+          }
+        });
+      });
+      return;
     }
 
     // 检查是否有点踩记录（互斥逻辑）
@@ -2251,6 +3198,7 @@ app.post('/api/review/:reviewId/like', authenticateToken, (req, res) => {
             if (err4) {
               console.error('更新点踩数失败:', err4);
             }
+            // 继续执行，不中断流程
           });
         });
       }
@@ -2266,13 +3214,26 @@ app.post('/api/review/:reviewId/like', authenticateToken, (req, res) => {
         db.query('UPDATE review SET likes = likes + 1 WHERE id = ?', [reviewId], (err6) => {
           if (err6) {
             console.error('更新点赞数失败:', err6);
+            return res.status(500).json({ message: '更新点赞数失败' });
           }
-        });
+
+          // 查询更新后的最新数据
+          db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err7, result) => {
+            if (err7) {
+              console.error('查询更新后的数据失败:', err7);
+              return res.status(500).json({ message: '查询更新后的数据失败' });
+            }
 
         res.json({
           success: true,
           message: '点赞成功',
-          action: 'liked'
+              action: 'liked',
+              data: {
+                likes: result[0].likes,
+                dislikes: result[0].dislikes
+              }
+            });
+          });
         });
       });
     });
@@ -2285,7 +3246,7 @@ app.post('/api/review/:reviewId/dislike', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   // 检查是否已经点踩
@@ -2295,13 +3256,28 @@ app.post('/api/review/:reviewId/dislike', authenticateToken, (req, res) => {
       return res.status(500).json({ message: '检查点踩状态失败' });
     }
 
-    // 如果已经点踩，直接返回
+    // 如果已经点踩，查询当前数据并返回
     if (existingDislike.length > 0) {
+      db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err, result) => {
+        if (err) {
+          console.error('查询数据失败:', err);
       return res.json({
         success: true,
         message: '已经点踩过了',
         action: 'already_disliked'
       });
+        }
+        return res.json({
+          success: true,
+          message: '已经点踩过了',
+          action: 'already_disliked',
+          data: {
+            likes: result[0].likes,
+            dislikes: result[0].dislikes
+          }
+        });
+      });
+      return;
     }
 
     // 检查是否有点赞记录（互斥逻辑）
@@ -2324,6 +3300,7 @@ app.post('/api/review/:reviewId/dislike', authenticateToken, (req, res) => {
             if (err4) {
               console.error('更新点赞数失败:', err4);
             }
+            // 继续执行，不中断流程
           });
         });
       }
@@ -2339,13 +3316,26 @@ app.post('/api/review/:reviewId/dislike', authenticateToken, (req, res) => {
         db.query('UPDATE review SET dislikes = dislikes + 1 WHERE id = ?', [reviewId], (err6) => {
           if (err6) {
             console.error('更新点踩数失败:', err6);
+            return res.status(500).json({ message: '更新点踩数失败' });
           }
-        });
+
+          // 查询更新后的最新数据
+          db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err7, result) => {
+            if (err7) {
+              console.error('查询更新后的数据失败:', err7);
+              return res.status(500).json({ message: '查询更新后的数据失败' });
+            }
 
         res.json({
           success: true,
           message: '点踩成功',
-          action: 'disliked'
+              action: 'disliked',
+              data: {
+                likes: result[0].likes,
+                dislikes: result[0].dislikes
+              }
+            });
+          });
         });
       });
     });
@@ -2358,20 +3348,25 @@ app.get('/api/review/:reviewId/comments', (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
 
+  // 从review表读取回复，使用parent_id关联
   const query = `
     SELECT 
-      c.id,
-      c.content,
-      c.created_at,
-      c.likes,
-      c.dislikes,
+      r.id,
+      r.content,
+      r.created_at,
+      r.likes,
+      COALESCE(r.dislikes, 0) as dislikes,
+      r.user_id,
+      COALESCE(r.comments, 0) as comments,
       u.username,
+      u.pen_name,
+      u.is_author,
       u.avatar,
       u.is_vip
-    FROM comment c
-    JOIN user u ON c.user_id = u.id
-    WHERE c.target_type = 'review' AND c.target_id = ?
-    ORDER BY c.created_at ASC
+    FROM review r
+    JOIN user u ON r.user_id = u.id
+    WHERE r.parent_id = ?
+    ORDER BY r.created_at ASC
     LIMIT ? OFFSET ?
   `;
 
@@ -2395,37 +3390,96 @@ app.post('/api/review/:reviewId/comment', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   if (!content || content.trim().length < 10) {
     return res.status(400).json({ message: '回复内容至少需要10个字符' });
   }
 
+  // 先获取父review的novel_id
+  db.query('SELECT novel_id FROM review WHERE id = ?', [reviewId], (err, parentReview) => {
+    if (err) {
+      console.error('获取父评论失败:', err);
+      return res.status(500).json({ message: '获取父评论失败' });
+    }
+
+    if (parentReview.length === 0) {
+      return res.status(404).json({ message: '父评论不存在' });
+    }
+
+    const novelId = parentReview[0].novel_id;
+
+    // 将回复保存到review表，使用parent_id关联
   const insertQuery = `
-    INSERT INTO comment (user_id, target_type, target_id, content, created_at)
-    VALUES (?, 'review', ?, ?, NOW())
+      INSERT INTO review (parent_id, novel_id, user_id, content, created_at, rating, likes, comments, views, is_recommended)
+      VALUES (?, ?, ?, ?, NOW(), NULL, 0, 0, 0, 0)
   `;
 
-  db.query(insertQuery, [userId, reviewId, content], (err, result) => {
-    if (err) {
-      console.error('回复评论失败:', err);
+    db.query(insertQuery, [reviewId, novelId, userId, content], (err2, result) => {
+      if (err2) {
+        console.error('回复评论失败:', err2);
       return res.status(500).json({ message: '回复评论失败' });
     }
 
-    // 更新评论的回复数
-    db.query('UPDATE review SET comments = comments + 1 WHERE id = ?', [reviewId], (err2) => {
-      if (err2) {
-        console.error('更新回复数失败:', err2);
+      // 更新父评论的回复数
+      db.query('UPDATE review SET comments = comments + 1 WHERE id = ?', [reviewId], (err3) => {
+        if (err3) {
+          console.error('更新回复数失败:', err3);
       }
     });
 
-    res.json({
-      success: true,
-      message: '回复成功',
-      data: {
-        comment_id: result.insertId
+      res.json({
+        success: true,
+        message: '回复成功',
+        data: {
+          comment_id: result.insertId
+        }
+      });
+    });
+  });
+});
+
+// 更新评论（主评论或子评论）
+app.put('/api/review/:reviewId', authenticateToken, (req, res) => {
+  const { reviewId } = req.params;
+  const { content } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Please login first' });
+  }
+
+  if (!content || content.trim().length < 10) {
+    return res.status(400).json({ message: '评论内容至少需要10个字符' });
+  }
+
+  // 先检查评论是否存在且属于当前用户
+  db.query('SELECT id, user_id FROM review WHERE id = ?', [reviewId], (err, review) => {
+    if (err) {
+      console.error('查询评论失败:', err);
+      return res.status(500).json({ message: '查询评论失败' });
+    }
+
+    if (review.length === 0) {
+      return res.status(404).json({ message: '评论不存在' });
+    }
+
+    if (review[0].user_id !== userId) {
+      return res.status(403).json({ message: '无权编辑此评论' });
+    }
+
+    // 更新评论内容
+    db.query('UPDATE review SET content = ? WHERE id = ?', [content.trim(), reviewId], (err2) => {
+      if (err2) {
+        console.error('更新评论失败:', err2);
+        return res.status(500).json({ message: '更新评论失败' });
       }
+
+      res.json({
+        success: true,
+        message: '评论更新成功'
+      });
     });
   });
 });
@@ -2438,21 +3492,22 @@ app.get('/api/chapter/:chapterId/comments', (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
 
-  // 获取评论列表
+  // 获取评论列表（comment表现在只存储章节评论，target_id就是chapter_id）
   const commentsQuery = `
     SELECT 
       c.id,
       c.content,
       c.created_at,
       c.likes,
-      c.dislikes,
+      COALESCE(c.dislikes, 0) as dislikes,
       c.parent_comment_id,
+      c.user_id,
       u.username,
       u.avatar,
       u.is_vip
     FROM comment c
     JOIN user u ON c.user_id = u.id
-    WHERE c.target_type = 'chapter' AND c.target_id = ?
+    WHERE c.target_id = ?
     ORDER BY c.created_at DESC
     LIMIT ? OFFSET ?
   `;
@@ -2470,7 +3525,7 @@ app.get('/api/chapter/:chapterId/comments', (req, res) => {
         SUM(CASE WHEN likes > 0 THEN 1 ELSE 0 END) as liked_comments,
         SUM(likes) as total_likes
       FROM comment 
-      WHERE target_type = 'chapter' AND target_id = ?
+      WHERE target_id = ?
     `;
 
     db.query(statsQuery, [chapterId], (err2, stats) => {
@@ -2503,30 +3558,52 @@ app.post('/api/chapter/:chapterId/comment', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   if (!content || content.trim().length < 10) {
     return res.status(400).json({ message: '评论内容至少需要10个字符' });
   }
 
-  const insertQuery = `
-    INSERT INTO comment (user_id, target_type, target_id, content, created_at)
-    VALUES (?, 'chapter', ?, ?, NOW())
-  `;
-
-  db.query(insertQuery, [userId, chapterId, content], (err, result) => {
+  // 先查询章节的novel_id
+  db.query('SELECT novel_id FROM chapter WHERE id = ?', [chapterId], (err, chapterResult) => {
     if (err) {
-      console.error('提交章节评论失败:', err);
-      return res.status(500).json({ message: '提交章节评论失败' });
+      console.error('查询章节信息失败:', err);
+      return res.status(500).json({ message: '查询章节信息失败' });
     }
 
-    res.json({
-      success: true,
-      message: '评论提交成功',
-      data: {
-        comment_id: result.insertId
+    if (chapterResult.length === 0) {
+      return res.status(404).json({ message: '章节不存在' });
+    }
+
+    const novelId = chapterResult[0].novel_id;
+
+    if (!novelId) {
+      console.error('章节novel_id为空，章节ID:', chapterId);
+      return res.status(500).json({ message: '章节信息不完整，无法创建评论' });
+    }
+
+    console.log('创建章节评论 - chapterId:', chapterId, 'novelId:', novelId, 'userId:', userId);
+
+    const insertQuery = `
+      INSERT INTO comment (user_id, target_id, novel_id, content, created_at)
+      VALUES (?, ?, ?, ?, NOW())
+    `;
+
+    db.query(insertQuery, [userId, chapterId, novelId, content], (err2, result) => {
+      if (err2) {
+        console.error('提交章节评论失败:', err2);
+        return res.status(500).json({ message: '提交章节评论失败' });
       }
+
+      console.log('章节评论创建成功 - commentId:', result.insertId, 'novelId:', novelId);
+      res.json({
+        success: true,
+        message: '评论提交成功',
+        data: {
+          comment_id: result.insertId
+        }
+      });
     });
   });
 });
@@ -2537,7 +3614,7 @@ app.post('/api/comment/:commentId/like', authenticateToken, (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   // 检查是否已经点赞
@@ -2547,13 +3624,28 @@ app.post('/api/comment/:commentId/like', authenticateToken, (req, res) => {
       return res.status(500).json({ message: '检查点赞状态失败' });
     }
 
-    // 如果已经点赞，直接返回
+    // 如果已经点赞，查询当前数据并返回
     if (existingLike.length > 0) {
+      db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err, result) => {
+        if (err) {
+          console.error('查询数据失败:', err);
       return res.json({
         success: true,
         message: '已经点赞过了',
         action: 'already_liked'
       });
+        }
+        return res.json({
+          success: true,
+          message: '已经点赞过了',
+          action: 'already_liked',
+          data: {
+            likes: result[0].likes,
+            dislikes: result[0].dislikes || 0
+          }
+        });
+      });
+      return;
     }
 
     // 检查是否有点踩记录（互斥逻辑）
@@ -2591,13 +3683,26 @@ app.post('/api/comment/:commentId/like', authenticateToken, (req, res) => {
         db.query('UPDATE comment SET likes = likes + 1 WHERE id = ?', [commentId], (err6) => {
           if (err6) {
             console.error('更新点赞数失败:', err6);
+            return res.status(500).json({ message: '更新点赞数失败' });
           }
-        });
+
+          // 查询更新后的最新数据
+          db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err7, result) => {
+            if (err7) {
+              console.error('查询更新后的数据失败:', err7);
+              return res.status(500).json({ message: '查询更新后的数据失败' });
+            }
 
         res.json({
           success: true,
           message: '点赞成功',
-          action: 'liked'
+              action: 'liked',
+              data: {
+                likes: result[0].likes,
+                dislikes: result[0].dislikes || 0
+              }
+            });
+          });
         });
       });
     });
@@ -2615,7 +3720,7 @@ app.post('/api/comment/:commentId/reply', authenticateToken, (req, res) => {
 
   if (!userId) {
     console.log('❌ 用户未登录');
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   if (!content || content.trim().length < 10) {
@@ -2623,8 +3728,8 @@ app.post('/api/comment/:commentId/reply', authenticateToken, (req, res) => {
     return res.status(400).json({ message: '回复内容至少需要10个字符' });
   }
 
-  // 获取原评论的章节ID
-  db.query('SELECT target_id FROM comment WHERE id = ? AND target_type = "chapter"', [commentId], (err, parentComment) => {
+  // 获取原评论的章节ID和novel_id
+  db.query('SELECT target_id, novel_id FROM comment WHERE id = ?', [commentId], (err, parentComment) => {
     if (err) {
       console.error('获取原评论失败:', err);
       return res.status(500).json({ message: '获取原评论失败' });
@@ -2635,27 +3740,119 @@ app.post('/api/comment/:commentId/reply', authenticateToken, (req, res) => {
     }
 
     const chapterId = parentComment[0].target_id;
+    let novelId = parentComment[0].novel_id;
 
-    // 插入回复
-    const insertQuery = `
-      INSERT INTO comment (user_id, target_type, target_id, parent_comment_id, content, created_at)
-      VALUES (?, 'chapter', ?, ?, ?, NOW())
-    `;
-
-    db.query(insertQuery, [userId, chapterId, commentId, content], (err2, result) => {
-      if (err2) {
-        console.error('回复评论失败:', err2);
-        return res.status(500).json({ message: '回复评论失败' });
-      }
-
-      res.json({
-        success: true,
-        message: '回复成功',
-        data: {
-          reply_id: result.insertId
+    // 如果父评论的novel_id是NULL，从章节表查询novel_id
+    if (!novelId && chapterId) {
+      db.query('SELECT novel_id FROM chapter WHERE id = ?', [chapterId], (err3, chapterResult) => {
+        if (err3) {
+          console.error('查询章节信息失败:', err3);
+          return res.status(500).json({ message: '查询章节信息失败' });
         }
+
+        if (chapterResult.length === 0) {
+          return res.status(404).json({ message: '章节不存在' });
+        }
+
+        novelId = chapterResult[0].novel_id;
+
+        if (!novelId) {
+          console.error('章节novel_id为空，章节ID:', chapterId);
+          return res.status(500).json({ message: '章节信息不完整，无法创建回复' });
+        }
+
+        console.log('创建回复评论 - parentCommentId:', commentId, 'chapterId:', chapterId, 'novelId:', novelId, 'userId:', userId);
+
+        // 插入回复
+        const insertQuery = `
+          INSERT INTO comment (user_id, target_id, novel_id, parent_comment_id, content, created_at)
+          VALUES (?, ?, ?, ?, ?, NOW())
+        `;
+
+        db.query(insertQuery, [userId, chapterId, novelId, commentId, content], (err2, result) => {
+          if (err2) {
+            console.error('回复评论失败:', err2);
+            return res.status(500).json({ message: '回复评论失败' });
+          }
+
+          console.log('回复评论创建成功 - replyId:', result.insertId, 'novelId:', novelId);
+          res.json({
+            success: true,
+            message: '回复成功',
+            data: {
+              reply_id: result.insertId
+            }
+          });
+        });
       });
-    });
+    } else {
+      // 如果父评论已经有novel_id，直接插入
+      if (!novelId && chapterId) {
+        // 如果父评论的novel_id也是NULL，从章节表查询
+        db.query('SELECT novel_id FROM chapter WHERE id = ?', [chapterId], (err3, chapterResult) => {
+          if (err3) {
+            console.error('查询章节信息失败:', err3);
+            return res.status(500).json({ message: '查询章节信息失败' });
+          }
+
+          if (chapterResult.length === 0) {
+            return res.status(404).json({ message: '章节不存在' });
+          }
+
+          novelId = chapterResult[0].novel_id;
+          if (!novelId) {
+            console.error('章节novel_id为空，章节ID:', chapterId);
+            return res.status(500).json({ message: '章节信息不完整，无法创建回复' });
+          }
+
+          console.log('创建回复评论（从章节查询novel_id）- parentCommentId:', commentId, 'chapterId:', chapterId, 'novelId:', novelId, 'userId:', userId);
+
+          const insertQuery = `
+            INSERT INTO comment (user_id, target_id, novel_id, parent_comment_id, content, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+          `;
+
+          db.query(insertQuery, [userId, chapterId, novelId, commentId, content], (err2, result) => {
+            if (err2) {
+              console.error('回复评论失败:', err2);
+              return res.status(500).json({ message: '回复评论失败' });
+            }
+
+            console.log('回复评论创建成功 - replyId:', result.insertId, 'novelId:', novelId);
+            res.json({
+              success: true,
+              message: '回复成功',
+              data: {
+                reply_id: result.insertId
+              }
+            });
+          });
+        });
+      } else {
+        console.log('创建回复评论（使用父评论novel_id）- parentCommentId:', commentId, 'chapterId:', chapterId, 'novelId:', novelId, 'userId:', userId);
+
+        const insertQuery = `
+          INSERT INTO comment (user_id, target_id, novel_id, parent_comment_id, content, created_at)
+          VALUES (?, ?, ?, ?, ?, NOW())
+        `;
+
+        db.query(insertQuery, [userId, chapterId, novelId, commentId, content], (err2, result) => {
+          if (err2) {
+            console.error('回复评论失败:', err2);
+            return res.status(500).json({ message: '回复评论失败' });
+          }
+
+          console.log('回复评论创建成功 - replyId:', result.insertId, 'novelId:', novelId);
+          res.json({
+            success: true,
+            message: '回复成功',
+            data: {
+              reply_id: result.insertId
+            }
+          });
+        });
+      }
+    }
   });
 });
 
@@ -2672,7 +3869,10 @@ app.get('/api/comment/:commentId/replies', (req, res) => {
       c.created_at,
       c.likes,
       c.dislikes,
+      c.user_id,
       u.username,
+      u.pen_name,
+      u.is_author,
       u.avatar,
       u.is_vip
     FROM comment c
@@ -2695,13 +3895,57 @@ app.get('/api/comment/:commentId/replies', (req, res) => {
   });
 });
 
+// 更新章节评论
+app.put('/api/comment/:commentId', authenticateToken, (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Please login first' });
+  }
+
+  if (!content || content.trim().length < 10) {
+    return res.status(400).json({ message: '评论内容至少需要10个字符' });
+  }
+
+  // 先检查评论是否存在且属于当前用户
+  db.query('SELECT user_id FROM comment WHERE id = ?', [commentId], (err, comment) => {
+    if (err) {
+      console.error('查询评论失败:', err);
+      return res.status(500).json({ message: '查询评论失败' });
+    }
+
+    if (comment.length === 0) {
+      return res.status(404).json({ message: '评论不存在' });
+    }
+
+    if (comment[0].user_id !== userId) {
+      return res.status(403).json({ message: '无权修改此评论' });
+    }
+
+    // 更新评论内容
+    db.query('UPDATE comment SET content = ? WHERE id = ?', [content.trim(), commentId], (err2) => {
+      if (err2) {
+        console.error('更新评论失败:', err2);
+        return res.status(500).json({ message: '更新评论失败' });
+      }
+
+      res.json({
+        success: true,
+        message: '评论更新成功'
+      });
+    });
+  });
+});
+
 // 不喜欢章节评论 - 简化版本
 app.post('/api/comment/:commentId/dislike', authenticateToken, (req, res) => {
   const { commentId } = req.params;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: '请先登录' });
+    return res.status(401).json({ message: 'Please login first' });
   }
 
   // 检查是否已经点踩
@@ -2711,13 +3955,28 @@ app.post('/api/comment/:commentId/dislike', authenticateToken, (req, res) => {
       return res.status(500).json({ message: '检查点踩状态失败' });
     }
 
-    // 如果已经点踩，直接返回
+    // 如果已经点踩，查询当前数据并返回
     if (existingDislike.length > 0) {
+      db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err, result) => {
+        if (err) {
+          console.error('查询数据失败:', err);
       return res.json({
         success: true,
         message: '已经点踩过了',
         action: 'already_disliked'
       });
+        }
+        return res.json({
+          success: true,
+          message: '已经点踩过了',
+          action: 'already_disliked',
+          data: {
+            likes: result[0].likes,
+            dislikes: result[0].dislikes || 0
+          }
+        });
+      });
+      return;
     }
 
     // 检查是否有点赞记录（互斥逻辑）
@@ -2755,13 +4014,26 @@ app.post('/api/comment/:commentId/dislike', authenticateToken, (req, res) => {
         db.query('UPDATE comment SET dislikes = dislikes + 1 WHERE id = ?', [commentId], (err6) => {
           if (err6) {
             console.error('更新点踩数失败:', err6);
+            return res.status(500).json({ message: '更新点踩数失败' });
           }
-        });
+
+          // 查询更新后的最新数据
+          db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err7, result) => {
+            if (err7) {
+              console.error('查询更新后的数据失败:', err7);
+              return res.status(500).json({ message: '查询更新后的数据失败' });
+            }
 
         res.json({
           success: true,
           message: '点踩成功',
-          action: 'disliked'
+              action: 'disliked',
+              data: {
+                likes: result[0].likes,
+                dislikes: result[0].dislikes || 0
+              }
+            });
+          });
         });
       });
     });
@@ -2819,7 +4091,10 @@ app.get('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', (req, res)
       COALESCE(pc.like_count, 0) as like_count,
       COALESCE(pc.dislike_count, 0) as dislike_count,
       pc.parent_id,
+      pc.user_id,
       u.username,
+      u.pen_name,
+      u.is_author,
       u.avatar
     FROM paragraph_comment pc
     JOIN user u ON pc.user_id = u.id
@@ -2845,7 +4120,10 @@ app.get('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', (req, res)
             COALESCE(pc.like_count, 0) as like_count,
             COALESCE(pc.dislike_count, 0) as dislike_count,
             pc.parent_id,
+            pc.user_id,
             u.username,
+            u.pen_name,
+            u.is_author,
             u.avatar
           FROM paragraph_comment pc
           JOIN user u ON pc.user_id = u.id
@@ -2908,24 +4186,79 @@ app.post('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', (req, res
     return res.status(400).json({ message: '评论内容和用户ID不能为空' });
   }
   
-  const query = `
-    INSERT INTO paragraph_comment (chapter_id, paragraph_index, user_id, content, parent_id)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+  // 首先获取章节对应的novel_id
+  const getNovelIdQuery = `SELECT novel_id FROM chapter WHERE id = ?`;
   
-  db.query(query, [chapterId, paragraphIndex, userId, content, parentId || null], (err, result) => {
+  db.query(getNovelIdQuery, [chapterId], (err, chapterResult) => {
     if (err) {
-      console.error('添加段落评论失败:', err);
-      return res.status(500).json({ message: '添加段落评论失败' });
+      console.error('获取章节信息失败:', err);
+      return res.status(500).json({ message: '获取章节信息失败' });
     }
     
-    res.json({
-      success: true,
-      data: {
-        id: result.insertId,
-        message: '评论添加成功'
-      }
-    });
+    if (chapterResult.length === 0) {
+      return res.status(404).json({ message: '章节不存在' });
+    }
+    
+    const novelId = chapterResult[0].novel_id;
+    
+    // 如果是回复，需要从父评论获取novel_id和chapter_id
+    if (parentId) {
+      const getParentQuery = `SELECT novel_id, chapter_id FROM paragraph_comment WHERE id = ?`;
+      db.query(getParentQuery, [parentId], (err, parentResult) => {
+        if (err) {
+          console.error('获取父评论信息失败:', err);
+          return res.status(500).json({ message: '获取父评论信息失败' });
+        }
+        
+        if (parentResult.length === 0) {
+          return res.status(404).json({ message: '父评论不存在' });
+        }
+        
+        const parentNovelId = parentResult[0].novel_id || novelId;
+        const parentChapterId = parentResult[0].chapter_id || chapterId;
+        
+        const insertQuery = `
+          INSERT INTO paragraph_comment (chapter_id, paragraph_index, novel_id, user_id, content, parent_id)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        
+        db.query(insertQuery, [parentChapterId, paragraphIndex, parentNovelId, userId, content, parentId], (err, result) => {
+          if (err) {
+            console.error('添加段落评论失败:', err);
+            return res.status(500).json({ message: '添加段落评论失败' });
+          }
+          
+          res.json({
+            success: true,
+            data: {
+              id: result.insertId,
+              message: '评论添加成功'
+            }
+          });
+        });
+      });
+    } else {
+      // 主评论，直接使用获取到的novel_id
+      const insertQuery = `
+        INSERT INTO paragraph_comment (chapter_id, paragraph_index, novel_id, user_id, content, parent_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      
+      db.query(insertQuery, [chapterId, paragraphIndex, novelId, userId, content, null], (err, result) => {
+        if (err) {
+          console.error('添加段落评论失败:', err);
+          return res.status(500).json({ message: '添加段落评论失败' });
+        }
+        
+        res.json({
+          success: true,
+          data: {
+            id: result.insertId,
+            message: '评论添加成功'
+          }
+        });
+      });
+    }
   });
 });
 
@@ -3020,6 +4353,213 @@ function updateCommentCounts(commentId, res) {
   });
 }
 
+// 获取段落评论的回复
+app.get('/api/paragraph-comment/:commentId/replies', (req, res) => {
+  const { commentId } = req.params;
+  
+  const query = `
+    SELECT 
+      pc.id,
+      pc.content,
+      pc.created_at,
+      COALESCE(pc.like_count, 0) as like_count,
+      COALESCE(pc.dislike_count, 0) as dislike_count,
+      pc.parent_id,
+      pc.user_id,
+      u.username,
+      u.pen_name,
+      u.is_author,
+      u.avatar
+    FROM paragraph_comment pc
+    JOIN user u ON pc.user_id = u.id
+    WHERE pc.parent_id = ? AND pc.is_deleted = 0
+    ORDER BY pc.created_at ASC
+  `;
+  
+  db.query(query, [commentId], (err, replies) => {
+    if (err) {
+      console.error('获取回复失败:', err);
+      return res.status(500).json({ message: '获取回复失败' });
+    }
+    
+    res.json({
+      success: true,
+      data: replies
+    });
+  });
+});
+
+// 回复段落评论（通过commentId，不需要chapterId和paragraphIndex）
+app.post('/api/paragraph-comment/:commentId/reply', (req, res) => {
+  const { commentId } = req.params;
+  const { content, userId, parentId } = req.body;
+  
+  if (!content || !userId) {
+    return res.status(400).json({ message: '评论内容和用户ID不能为空' });
+  }
+  
+  // 从父评论获取chapter_id, paragraph_index和novel_id
+  const getParentQuery = `SELECT chapter_id, paragraph_index, novel_id FROM paragraph_comment WHERE id = ?`;
+  
+  db.query(getParentQuery, [parentId || commentId], (err, parentResult) => {
+    if (err) {
+      console.error('获取父评论信息失败:', err);
+      return res.status(500).json({ message: '获取父评论信息失败' });
+    }
+    
+    if (parentResult.length === 0) {
+      return res.status(404).json({ message: '父评论不存在' });
+    }
+    
+    const chapterId = parentResult[0].chapter_id;
+    const paragraphIndex = parentResult[0].paragraph_index;
+    const novelId = parentResult[0].novel_id;
+    const actualParentId = parentId || commentId;
+    
+    const insertQuery = `
+      INSERT INTO paragraph_comment (chapter_id, paragraph_index, novel_id, user_id, content, parent_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    
+    db.query(insertQuery, [chapterId, paragraphIndex, novelId, userId, content, actualParentId], (err, result) => {
+      if (err) {
+        console.error('添加段落评论回复失败:', err);
+        return res.status(500).json({ message: '添加段落评论回复失败' });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          id: result.insertId,
+          message: '回复添加成功'
+        }
+      });
+    });
+  });
+});
+
+// 更新段落评论
+app.put('/api/paragraph-comment/:commentId', authenticateToken, (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Please login first' });
+  }
+
+  if (!content || content.trim().length < 10) {
+    return res.status(400).json({ message: '评论内容至少需要10个字符' });
+  }
+
+  // 先检查评论是否存在且属于当前用户
+  db.query('SELECT user_id FROM paragraph_comment WHERE id = ?', [commentId], (err, comment) => {
+    if (err) {
+      console.error('查询评论失败:', err);
+      return res.status(500).json({ message: '查询评论失败' });
+    }
+
+    if (comment.length === 0) {
+      return res.status(404).json({ message: '评论不存在' });
+    }
+
+    if (comment[0].user_id !== userId) {
+      return res.status(403).json({ message: '无权修改此评论' });
+    }
+
+    // 更新评论内容
+    db.query('UPDATE paragraph_comment SET content = ? WHERE id = ?', [content.trim(), commentId], (err2) => {
+      if (err2) {
+        console.error('更新评论失败:', err2);
+        return res.status(500).json({ message: '更新评论失败' });
+      }
+
+      res.json({
+        success: true,
+        message: '评论更新成功'
+      });
+    });
+  });
+});
+
+// ==================== 举报API ====================
+
+// 提交举报
+app.post('/api/report', authenticateToken, (req, res) => {
+  const { type, remark_id, report } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Please login first' });
+  }
+
+  // 验证参数
+  if (!type || !remark_id || !report) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  // 验证type值
+  const validTypes = ['review', 'comment', 'paragraph_comment'];
+  if (!validTypes.includes(type)) {
+    return res.status(400).json({ success: false, message: 'Invalid type' });
+  }
+
+  // 验证report值
+  const validReports = [
+    'Spoilers',
+    'Abuse or harassment',
+    'Spam',
+    'Copyright infringement',
+    'Discrimination (racism, sexism, etc.)',
+    'Request to delete a comment that you created'
+  ];
+  if (!validReports.includes(report)) {
+    return res.status(400).json({ success: false, message: 'Invalid report reason' });
+  }
+
+  // 验证被举报的内容是否存在
+  let checkQuery = '';
+  if (type === 'review') {
+    checkQuery = 'SELECT id FROM review WHERE id = ?';
+  } else if (type === 'comment') {
+    checkQuery = 'SELECT id FROM comment WHERE id = ?';
+  } else if (type === 'paragraph_comment') {
+    checkQuery = 'SELECT id FROM paragraph_comment WHERE id = ?';
+  }
+
+  db.query(checkQuery, [remark_id], (err, results) => {
+    if (err) {
+      console.error('检查被举报内容失败:', err);
+      return res.status(500).json({ success: false, message: 'Failed to check reported content' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Reported content not found' });
+    }
+
+    // 插入举报记录
+    const insertQuery = `
+      INSERT INTO report (user_id, type, remark_id, report, created_at)
+      VALUES (?, ?, ?, ?, NOW())
+    `;
+
+    db.query(insertQuery, [userId, type, remark_id, report], (err2, result) => {
+      if (err2) {
+        console.error('提交举报失败:', err2);
+        return res.status(500).json({ success: false, message: 'Failed to submit report' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Report submitted successfully',
+        data: {
+          id: result.insertId
+        }
+      });
+    });
+  });
+});
+
 // ==================== 章节展示API ====================
 
 // 获取小说的卷和章节信息
@@ -3045,7 +4585,7 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
       COUNT(c.id) as actual_chapter_count,
       MAX(c.created_at) as latest_chapter_date
     FROM volume v
-    LEFT JOIN chapter c ON v.volume_id = c.volume_id AND c.novel_id = v.novel_id AND c.is_visible = 1
+    LEFT JOIN chapter c ON v.volume_id = c.volume_id AND c.novel_id = v.novel_id AND c.review_status = 'approved'
     WHERE v.novel_id = ?
     GROUP BY v.id, v.volume_id, v.title, v.start_chapter, v.end_chapter, v.chapter_count
     ORDER BY ${orderBy}
@@ -3064,10 +4604,10 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
         c.chapter_number,
         c.title,
         c.created_at,
-        v.volume_number
+        v.volume_id
       FROM chapter c
       JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
-      WHERE c.novel_id = ? AND c.is_visible = 1
+      WHERE c.novel_id = ? AND c.review_status = 'approved'
       ORDER BY c.created_at DESC
       LIMIT 1
     `;
@@ -3130,19 +4670,16 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
         c.chapter_number,
         c.title,
         c.created_at,
-        c.is_locked,
-        c.is_vip_only,
         c.is_advance,
         c.unlock_price,
         CASE 
-          WHEN c.is_locked = 1 THEN 'locked'
-          WHEN c.is_vip_only = 1 THEN 'vip_only'
+          WHEN c.unlock_price > 0 THEN 'locked'
           WHEN c.is_advance = 1 THEN 'advance'
           ELSE 'free'
         END as access_status
       FROM chapter c
       JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
-      WHERE v.id = ? AND c.is_visible = 1
+      WHERE v.id = ? AND c.review_status = 'approved'
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `;
@@ -3158,7 +4695,7 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
         SELECT COUNT(*) as total
         FROM chapter c
         JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
-        WHERE v.id = ? AND c.is_visible = 1
+        WHERE v.id = ? AND c.review_status = 'approved'
       `;
 
       db.query(totalQuery, [volumeId], (err3, totalResult) => {
@@ -3184,6 +4721,12 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
     });
   });
 });
+
+// 导入定时发布服务
+const scheduledReleaseService = require('./services/scheduledReleaseService');
+
+// 启动定时发布任务（每小时整点执行）
+scheduledReleaseService.startScheduledReleaseTask();
 
 app.listen(5000, () => {
   console.log('Server running on http://localhost:5000');

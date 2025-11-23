@@ -22,11 +22,14 @@ router.get('/transactions', async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     
+    console.log(`分页参数: page=${page}, limit=${limit}, offset=${offset}, userId=${userId}`);
+    console.log(`参数类型: page=${typeof page}, limit=${typeof limit}, offset=${typeof offset}, userId=${typeof userId}`);
+    
     
     db = await mysql.createConnection(dbConfig);
     
-    // 获取用户Key交易记录，排除user_id字段，按id倒序排列
-    const [transactions] = await db.execute(`
+    // 获取用户Key交易记录，排除user_id字段，按id倒序排列，支持分页
+    const sql = `
       SELECT 
         id,
         transaction_type,
@@ -38,9 +41,15 @@ router.get('/transactions', async (req, res) => {
         description,
         created_at
       FROM key_transaction 
-      WHERE user_id = ? 
+      WHERE user_id = ${userId} 
       ORDER BY id DESC
-    `, [userId]);
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    
+    console.log(`SQL查询: ${sql}`);
+    console.log(`查询参数: userId=${userId}, limit=${limit}, offset=${offset}`);
+    
+    const [transactions] = await db.execute(sql);
     
     // 获取总记录数
     const [countResult] = await db.execute(

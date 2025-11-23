@@ -1,0 +1,1 @@
+select * from novel_royalty_contract;

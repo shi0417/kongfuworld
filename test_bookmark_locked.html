@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试书签锁定功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .locked {
+            background-color: #ff6b6b;
+            color: white;
+        }
+        .unlocked {
+            background-color: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试书签锁定功能</h1>
+        <p>此页面用于测试reading_log表的bookmark_locked字段功能</p>
+        
+        <div class="form-group">
+            <label for="userId">用户ID:</label>
+            <input type="number" id="userId" value="1003">
+        </div>
+        
+        <div class="form-group">
+            <label for="chapterId">章节ID:</label>
+            <input type="number" id="chapterId" value="1314">
+        </div>
+        
+        <div class="form-group">
+            <label for="bookmarkLocked">书签锁定状态:</label>
+            <select id="bookmarkLocked">
+                <option value="0">未锁定 (0)</option>
+                <option value="1">已锁定 (1)</option>
+            </select>
+        </div>
+        
+        <button onclick="createReadingLog()">创建阅读记录</button>
+        <button onclick="updateBookmarkLocked()">更新锁定状态</button>
+        <button onclick="getReadingLogs()">获取阅读记录</button>
+        <button onclick="checkBookmarkLockedStatus()">检查锁定状态</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        function getFormData() {
+            return {
+                user_id: parseInt(document.getElementById('userId').value),
+                chapter_id: parseInt(document.getElementById('chapterId').value),
+                bookmark_locked: parseInt(document.getElementById('bookmarkLocked').value)
+            };
+        }
+        
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+        
+        function getStatusIndicator(locked) {
+            return `<span class="status-indicator ${locked ? 'locked' : 'unlocked'}">${locked ? '已锁定' : '未锁定'}</span>`;
+        }
+        
+        async function createReadingLog() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/reading-log`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: data.user_id,
+                        chapter_id: data.chapter_id,
+                        bookmark_locked: data.bookmark_locked
+                    })
+                });
+                const result = await response.json();
+                
+                const message = `创建阅读记录结果:
+成功: ${result.success}
+消息: ${result.message || '无'}
+记录ID: ${result.recordId || '未知'}
+书签锁定状态: ${getStatusIndicator(data.bookmark_locked)}
+时间: ${new Date().toLocaleString()}`;
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function updateBookmarkLocked() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/reading-log/bookmark-locked`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: data.user_id,
+                        chapter_id: data.chapter_id,
+                        bookmark_locked: data.bookmark_locked
+                    })
+                });
+                const result = await response.json();
+                
+                const message = `更新书签锁定状态结果:
+成功: ${result.success}
+消息: ${result.message || '无'}
+新状态: ${getStatusIndicator(data.bookmark_locked)}
+时间: ${new Date().toLocaleString()}`;
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getReadingLogs() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch(`${API_BASE}/reading-log/user/${userId}`);
+                const result = await response.json();
+                
+                let message = `阅读记录列表结果:
+成功: ${result.success}
+记录数量: ${result.logs ? result.logs.length : 0}
+
+阅读记录详情:`;
+                
+                if (result.logs && result.logs.length > 0) {
+                    result.logs.forEach((log, index) => {
+                        message += `
+${index + 1}. 章节ID: ${log.chapter_id}
+   阅读时间: ${log.read_at}
+   书签锁定: ${getStatusIndicator(log.bookmark_locked)}
+   解锁状态: ${log.is_unlocked ? '已解锁' : '未解锁'}`;
+                    });
+                }
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkBookmarkLockedStatus() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/reading-log/status/${data.user_id}/${data.chapter_id}`);
+                const result = await response.json();
+                
+                const message = `书签锁定状态检查结果:
+成功: ${result.success}
+用户ID: ${data.user_id}
+章节ID: ${data.chapter_id}
+书签锁定状态: ${getStatusIndicator(result.bookmark_locked)}
+阅读时间: ${result.read_at || '未知'}
+时间: ${new Date().toLocaleString()}`;
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

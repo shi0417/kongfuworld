@@ -1,0 +1,1 @@
+select updated_at,t.* from user_mission_progress t order by id desc;

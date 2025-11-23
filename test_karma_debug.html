@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karma Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .test-section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Karma API Debug Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Backend Connection</h3>
+        <button class="test-button" onclick="testBackendConnection()">Test Backend</button>
+        <div id="backendResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Karma Balance API</h3>
+        <button class="test-button" onclick="testKarmaBalance()">Test Balance</button>
+        <div id="balanceResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Karma Transactions API</h3>
+        <button class="test-button" onclick="testKarmaTransactions()">Test Transactions</button>
+        <div id="transactionsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Test User Authentication</h3>
+        <button class="test-button" onclick="testUserAuth()">Test Auth</button>
+        <div id="authResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>5. Test Frontend API Service</h3>
+        <button class="test-button" onclick="testApiService()">Test ApiService</button>
+        <div id="apiServiceResult" class="result"></div>
+    </div>
+
+    <script>
+        async function testBackendConnection() {
+            const resultDiv = document.getElementById('backendResult');
+            resultDiv.innerHTML = 'Testing backend connection...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/balance?userId=1');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="success">✅ Backend connection successful</span>\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Backend error: ${response.status}</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Backend connection failed: ${error.message}</span>`;
+            }
+        }
+        
+        async function testKarmaBalance() {
+            const resultDiv = document.getElementById('balanceResult');
+            resultDiv.innerHTML = 'Testing Karma balance API...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/balance?userId=1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Karma balance API working</span>\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Karma balance API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Karma balance API error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testKarmaTransactions() {
+            const resultDiv = document.getElementById('transactionsResult');
+            resultDiv.innerHTML = 'Testing Karma transactions API...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/transactions?userId=1&page=1&limit=10');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Karma transactions API working</span>\nTransactions: ${data.data.transactions.length}\n${JSON.stringify(data.data.pagination, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Karma transactions API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Karma transactions API error: ${error.message}</span>`;
+            }
+        }
+        
+        function testUserAuth() {
+            const resultDiv = document.getElementById('authResult');
+            
+            const user = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            
+            if (user && token) {
+                try {
+                    const userData = JSON.parse(user);
+                    resultDiv.innerHTML = `<span class="success">✅ User authenticated</span>\nUser: ${userData.username}\nID: ${userData.id}\nToken: ${token.substring(0, 20)}...`;
+                } catch (error) {
+                    resultDiv.innerHTML = `<span class="error">❌ User data parse error: ${error.message}</span>`;
+                }
+            } else {
+                resultDiv.innerHTML = `<span class="error">❌ User not authenticated</span>\nUser: ${user}\nToken: ${token}`;
+            }
+        }
+        
+        async function testApiService() {
+            const resultDiv = document.getElementById('apiServiceResult');
+            resultDiv.innerHTML = 'Testing ApiService...';
+            
+            try {
+                // Simulate ApiService call
+                const response = await fetch('http://localhost:5000/api/karma/balance?userId=1', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ ApiService simulation successful</span>\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ ApiService simulation failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ ApiService simulation error: ${error.message}</span>`;
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            console.log('🧪 Karma Debug Test page loaded');
+            console.log('Current URL:', window.location.href);
+            console.log('User agent:', navigator.userAgent);
+        });
+    </script>
+</body>
+</html>

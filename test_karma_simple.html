@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Karma Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Simple Karma API Test</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Direct API Call</h3>
+            <button class="test-button" onclick="testDirectAPI()">Test Direct API</button>
+            <div id="directResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: Simulate Frontend Call</h3>
+            <button class="test-button" onclick="testFrontendSimulation()">Test Frontend Simulation</button>
+            <div id="frontendResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: Check User Authentication</h3>
+            <button class="test-button" onclick="checkUserAuth()">Check Auth</button>
+            <div id="authResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 4: Test All Karma APIs</h3>
+            <button class="test-button" onclick="testAllKarmaAPIs()">Test All APIs</button>
+            <div id="allApisResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testDirectAPI() {
+            const resultDiv = document.getElementById('directResult');
+            resultDiv.innerHTML = '<span class="info">Testing direct API call...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/transactions?userId=1&page=1&limit=10');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Direct API call successful</span>\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ API returned error: ${data.message}</span>\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testFrontendSimulation() {
+            const resultDiv = document.getElementById('frontendResult');
+            resultDiv.innerHTML = '<span class="info">Simulating frontend API call...</span>';
+            
+            try {
+                // Simulate the exact call that the frontend makes
+                const userId = 1; // Simulate user ID
+                const page = 1;
+                const limit = 10;
+                
+                const url = `http://localhost:5000/api/karma/transactions?userId=${userId}&page=${page}&limit=${limit}`;
+                console.log('Frontend simulation URL:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Frontend simulation response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Frontend simulation response data:', data);
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Frontend simulation successful</span>\n\nTransactions: ${data.data.transactions.length}\nPagination: ${JSON.stringify(data.data.pagination, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Frontend simulation failed: ${data.message}</span>\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Frontend simulation error: ${error.message}</span>`;
+                console.error('Frontend simulation error:', error);
+            }
+        }
+        
+        function checkUserAuth() {
+            const resultDiv = document.getElementById('authResult');
+            
+            const user = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            
+            let result = '<span class="info">Checking user authentication...</span>\n\n';
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    result += `<span class="success">✅ User data found:</span>\n`;
+                    result += `Username: ${userData.username}\n`;
+                    result += `ID: ${userData.id}\n`;
+                    result += `Email: ${userData.email}\n`;
+                } catch (error) {
+                    result += `<span class="error">❌ User data parse error: ${error.message}</span>\n`;
+                }
+            } else {
+                result += `<span class="error">❌ No user data in localStorage</span>\n`;
+            }
+            
+            if (token) {
+                result += `\n<span class="success">✅ Token found: ${token.substring(0, 20)}...</span>\n`;
+            } else {
+                result += `\n<span class="error">❌ No token in localStorage</span>\n`;
+            }
+            
+            resultDiv.innerHTML = result;
+        }
+        
+        async function testAllKarmaAPIs() {
+            const resultDiv = document.getElementById('allApisResult');
+            resultDiv.innerHTML = '<span class="info">Testing all Karma APIs...</span>';
+            
+            const apis = [
+                { name: 'Balance', url: 'http://localhost:5000/api/karma/balance?userId=1' },
+                { name: 'Packages', url: 'http://localhost:5000/api/karma/packages' },
+                { name: 'Transactions', url: 'http://localhost:5000/api/karma/transactions?userId=1&page=1&limit=10' }
+            ];
+            
+            let results = '';
+            let allSuccess = true;
+            
+            for (const api of apis) {
+                try {
+                    const response = await fetch(api.url);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        results += `<span class="success">✅ ${api.name}: Success</span>\n`;
+                    } else {
+                        results += `<span class="error">❌ ${api.name}: ${data.message}</span>\n`;
+                        allSuccess = false;
+                    }
+                } catch (error) {
+                    results += `<span class="error">❌ ${api.name}: ${error.message}</span>\n`;
+                    allSuccess = false;
+                }
+            }
+            
+            if (allSuccess) {
+                resultDiv.innerHTML = `<span class="success">✅ All Karma APIs working correctly</span>\n\n${results}`;
+            } else {
+                resultDiv.innerHTML = `<span class="error">❌ Some Karma APIs failed</span>\n\n${results}`;
+            }
+        }
+        
+        // Auto-run basic tests on page load
+        window.addEventListener('load', function() {
+            console.log('🧪 Simple Karma Test page loaded');
+            console.log('Current URL:', window.location.href);
+            
+            // Auto-check user auth
+            setTimeout(checkUserAuth, 1000);
+        });
+    </script>
+</body>
+</html>

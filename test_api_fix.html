@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 API Fix Test</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Karma Balance API (Fixed)</h3>
+            <button class="test-button" onclick="testKarmaBalance()">Test Balance</button>
+            <div id="balanceResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: Karma Packages API (Fixed)</h3>
+            <button class="test-button" onclick="testKarmaPackages()">Test Packages</button>
+            <div id="packagesResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: Karma Transactions API (Fixed)</h3>
+            <button class="test-button" onclick="testKarmaTransactions()">Test Transactions</button>
+            <div id="transactionsResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 4: Champion API (Fixed)</h3>
+            <button class="test-button" onclick="testChampionAPI()">Test Champion</button>
+            <div id="championResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 5: All APIs Working</h3>
+            <button class="test-button" onclick="testAllAPIs()">Test All APIs</button>
+            <div id="allApisResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testKarmaBalance() {
+            const resultDiv = document.getElementById('balanceResult');
+            resultDiv.innerHTML = '<span class="info">Testing Karma Balance API...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/balance?userId=2');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Karma Balance API working</span>\n\nUser: ${data.data.username}\nGolden Karma: ${data.data.goldenKarma}\nRegular Karma: ${data.data.regularKarma}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Karma Balance API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Karma Balance API error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testKarmaPackages() {
+            const resultDiv = document.getElementById('packagesResult');
+            resultDiv.innerHTML = '<span class="info">Testing Karma Packages API...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/packages');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Karma Packages API working</span>\n\nPackages: ${data.data.packages.length}\nFirst package: ${data.data.packages[0]?.package_name || 'N/A'}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Karma Packages API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Karma Packages API error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testKarmaTransactions() {
+            const resultDiv = document.getElementById('transactionsResult');
+            resultDiv.innerHTML = '<span class="info">Testing Karma Transactions API...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/transactions?userId=2&page=1&limit=10');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Karma Transactions API working</span>\n\nTransactions: ${data.data.transactions.length}\nTotal Records: ${data.data.pagination.totalRecords}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Karma Transactions API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Karma Transactions API error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testChampionAPI() {
+            const resultDiv = document.getElementById('championResult');
+            resultDiv.innerHTML = '<span class="info">Testing Champion API...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions?userId=2');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Champion API working</span>\n\nSubscriptions: ${data.data.subscriptions.length}\nTotal Count: ${data.data.totalCount}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Champion API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Champion API error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testAllAPIs() {
+            const resultDiv = document.getElementById('allApisResult');
+            resultDiv.innerHTML = '<span class="info">Testing all APIs...</span>';
+            
+            const apis = [
+                { name: 'Karma Balance', url: 'http://localhost:5000/api/karma/balance?userId=2' },
+                { name: 'Karma Packages', url: 'http://localhost:5000/api/karma/packages' },
+                { name: 'Karma Transactions', url: 'http://localhost:5000/api/karma/transactions?userId=2&page=1&limit=10' },
+                { name: 'Champion Subscriptions', url: 'http://localhost:5000/api/champion/user-subscriptions?userId=2' }
+            ];
+            
+            let results = '';
+            let allSuccess = true;
+            
+            for (const api of apis) {
+                try {
+                    const response = await fetch(api.url);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        results += `<span class="success">✅ ${api.name}: Success</span>\n`;
+                    } else {
+                        results += `<span class="error">❌ ${api.name}: ${data.message}</span>\n`;
+                        allSuccess = false;
+                    }
+                } catch (error) {
+                    results += `<span class="error">❌ ${api.name}: ${error.message}</span>\n`;
+                    allSuccess = false;
+                }
+            }
+            
+            if (allSuccess) {
+                resultDiv.innerHTML = `<span class="success">✅ All APIs working correctly!</span>\n\n${results}`;
+            } else {
+                resultDiv.innerHTML = `<span class="error">❌ Some APIs failed</span>\n\n${results}`;
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            console.log('🔧 API Fix Test page loaded');
+            console.log('Testing fixed API endpoints...');
+            
+            // Auto-run basic tests
+            setTimeout(() => {
+                testKarmaBalance();
+                testKarmaPackages();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

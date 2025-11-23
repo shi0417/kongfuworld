@@ -1,0 +1,1 @@
+select * from chapter_access_log order by id desc;

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试收藏更新时间功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试收藏更新时间功能</h1>
+        <p>此页面用于测试favorite表的updated_at字段功能</p>
+        
+        <div class="form-group">
+            <label for="userId">用户ID:</label>
+            <input type="number" id="userId" value="1003">
+        </div>
+        
+        <div class="form-group">
+            <label for="novelId">小说ID:</label>
+            <input type="number" id="novelId" value="10">
+        </div>
+        
+        <div class="form-group">
+            <label for="chapterId">章节ID:</label>
+            <input type="number" id="chapterId" value="1314">
+        </div>
+        
+        <div class="form-group">
+            <label for="novelName">小说名称:</label>
+            <input type="text" id="novelName" value="西游记">
+        </div>
+        
+        <div class="form-group">
+            <label for="chapterName">章节名称:</label>
+            <input type="text" id="chapterName" value="第十八回 观音院唐僧脱难 高老庄行者降魔">
+        </div>
+        
+        <button onclick="toggleFavorite()">切换收藏状态</button>
+        <button onclick="checkFavorite()">检查收藏状态</button>
+        <button onclick="getFavoriteList()">获取收藏列表</button>
+        <button onclick="checkUpdatedAt()">检查更新时间</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        function getFormData() {
+            return {
+                user_id: parseInt(document.getElementById('userId').value),
+                novel_id: parseInt(document.getElementById('novelId').value),
+                chapter_id: parseInt(document.getElementById('chapterId').value),
+                novel_name: document.getElementById('novelName').value,
+                chapter_name: document.getElementById('chapterName').value
+            };
+        }
+        
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+        
+        async function toggleFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                const message = `切换收藏状态结果:
+成功: ${result.success}
+消息: ${result.message}
+收藏状态: ${result.is_favorite}
+时间: ${new Date().toLocaleString()}`;
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: data.user_id,
+                        novel_id: data.novel_id,
+                        chapter_id: data.chapter_id
+                    })
+                });
+                const result = await response.json();
+                
+                const message = `检查收藏状态结果:
+成功: ${result.success}
+收藏状态: ${result.is_favorite}
+时间: ${new Date().toLocaleString()}`;
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getFavoriteList() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch(`${API_BASE}/favorite/list/${userId}`);
+                const result = await response.json();
+                
+                let message = `收藏列表结果:
+成功: ${result.success}
+收藏数量: ${result.favorites ? result.favorites.length : 0}
+
+收藏详情:`;
+                
+                if (result.favorites && result.favorites.length > 0) {
+                    result.favorites.forEach((fav, index) => {
+                        message += `
+${index + 1}. 小说: ${fav.novel_name}
+   章节: ${fav.chapter_name}
+   状态: ${fav.favorite_status ? '已收藏' : '未收藏'}
+   更新时间: ${fav.updated_at || '未知'}`;
+                    });
+                }
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkUpdatedAt() {
+            const userId = document.getElementById('userId').value;
+            try {
+                // 直接查询数据库中的updated_at字段
+                const response = await fetch(`${API_BASE}/favorite/list/${userId}`);
+                const result = await response.json();
+                
+                let message = `更新时间检查结果:
+成功: ${result.success}
+
+收藏记录的更新时间:`;
+                
+                if (result.favorites && result.favorites.length > 0) {
+                    result.favorites.forEach((fav, index) => {
+                        message += `
+${index + 1}. 小说: ${fav.novel_name} - 章节: ${fav.chapter_name}
+   更新时间: ${fav.updated_at || '未设置'}
+   状态: ${fav.favorite_status ? '已收藏' : '未收藏'}`;
+                    });
+                } else {
+                    message += `
+暂无收藏记录`;
+                }
+                
+                showResult('result', message, result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('result', `错误: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karma 颜色区分测试</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #404040;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+        
+        th {
+            background: #333333;
+            color: #ffffff;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #404040;
+        }
+        
+        td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #404040;
+            color: #cccccc;
+        }
+        
+        tr:hover {
+            background: #2a2a2a;
+        }
+        
+        /* 基于Amount列的颜色区分 */
+        .purchaseRow {
+            background: rgba(33, 150, 243, 0.1) !important; /* 蓝色背景 - 购买数据 */
+        }
+        
+        .spendRow {
+            background: rgba(255, 152, 0, 0.1) !important; /* 橙色背景 - 消耗数据 */
+        }
+        
+        .purchaseRow:hover {
+            background: rgba(33, 150, 243, 0.2) !important;
+        }
+        
+        .spendRow:hover {
+            background: rgba(255, 152, 0, 0.2) !important;
+        }
+        
+        /* 交易类型颜色区分 */
+        .transactionType {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        /* 购买类型 - 蓝色 */
+        .transactionType.purchase {
+            background: #2196F3;
+            color: #ffffff;
+        }
+        
+        /* 消耗类型 - 橙色 */
+        .transactionType.spend {
+            background: #FF9800;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Karma 颜色区分测试</h1>
+        
+        <div class="test-section">
+            <h2 class="section-title">Karma Acquired 表格</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>Golden Karma</th>
+                        <th>Type</th>
+                        <th>Balance Before</th>
+                        <th>Balance After</th>
+                        <th>Time</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 红色框：消耗数据 (Amount = $0) -->
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td>33</td>
+                        <td><span class="transactionType spend">Spend</span></td>
+                        <td>139658</td>
+                        <td>139625</td>
+                        <td>2025/10/19</td>
+                        <td>解锁章节:一号大秘 第32章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td>54</td>
+                        <td><span class="transactionType spend">Spend</span></td>
+                        <td>139712</td>
+                        <td>139658</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第31章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td>61</td>
+                        <td><span class="transactionType spend">Spend</span></td>
+                        <td>139773</td>
+                        <td>139712</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第30章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td>11</td>
+                        <td><span class="transactionType spend">Spend</span></td>
+                        <td>139784</td>
+                        <td>139773</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第29章</td>
+                    </tr>
+                    
+                    <!-- 蓝色框：购买数据 (Amount > $0) -->
+                    <tr class="purchaseRow">
+                        <td>$4.99</td>
+                        <td>1000</td>
+                        <td><span class="transactionType purchase">Purchase</span></td>
+                        <td>138784</td>
+                        <td>139784</td>
+                        <td>2025/10/18</td>
+                        <td>购买Starter Pack</td>
+                    </tr>
+                    <tr class="purchaseRow">
+                        <td>$19.99</td>
+                        <td>4800</td>
+                        <td><span class="transactionType purchase">Purchase</span></td>
+                        <td>133984</td>
+                        <td>138784</td>
+                        <td>2025/10/17</td>
+                        <td>购买Popular Pack</td>
+                    </tr>
+                    <tr class="purchaseRow">
+                        <td>$49.99</td>
+                        <td>12500</td>
+                        <td><span class="transactionType purchase">Purchase</span></td>
+                        <td>121484</td>
+                        <td>133984</td>
+                        <td>2025/10/16</td>
+                        <td>购买Premium Pack</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="test-section">
+            <h2 class="section-title">Karma Spent 表格</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>Golden Karma</th>
+                        <th>Type</th>
+                        <th>Time</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>-</td>
+                        <td>33</td>
+                        <td><span class="transactionType unlock">Chapter Unlock</span></td>
+                        <td>2025/10/19</td>
+                        <td>一号大秘 - Chapter 32: 神秘力量</td>
+                    </tr>
+                    <tr>
+                        <td>-</td>
+                        <td>54</td>
+                        <td><span class="transactionType unlock">Chapter Unlock</span></td>
+                        <td>2025/10/18</td>
+                        <td>一号大秘 - Chapter 31: 修炼突破</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="test-section">
+            <h2 class="section-title">基于Amount列的颜色区分说明</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Background Color</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td><span class="transactionType spend">Spend</span></td>
+                        <td>橙色背景</td>
+                        <td>消耗Karma数据 (解锁章节等)</td>
+                    </tr>
+                    <tr class="purchaseRow">
+                        <td>$4.99</td>
+                        <td><span class="transactionType purchase">Purchase</span></td>
+                        <td>蓝色背景</td>
+                        <td>购买Karma数据 (付费购买)</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px;">
+                <h3 style="color: #ffffff; margin-top: 0;">区分规则</h3>
+                <ul style="color: #cccccc;">
+                    <li><strong>红色框 (橙色背景)</strong>：Amount = $0 的数据，表示消耗Karma</li>
+                    <li><strong>蓝色框 (蓝色背景)</strong>：Amount > $0 的数据，表示购买Karma</li>
+                    <li>根据Amount列的值自动判断并应用相应的颜色</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

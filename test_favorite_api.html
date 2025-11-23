@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收藏功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>收藏功能测试页面</h1>
+        
+        <div class="test-section">
+            <h3>测试参数设置</h3>
+            <label>用户ID:</label>
+            <input type="number" id="userId" value="1" placeholder="输入用户ID">
+            
+            <label>小说ID:</label>
+            <input type="number" id="novelId" value="1" placeholder="输入小说ID">
+            
+            <label>小说名称:</label>
+            <input type="text" id="novelName" value="测试小说" placeholder="输入小说名称">
+            
+            <label>章节ID:</label>
+            <input type="number" id="chapterId" value="1" placeholder="输入章节ID">
+            
+            <label>章节名称:</label>
+            <input type="text" id="chapterName" value="第一章 测试章节" placeholder="输入章节名称">
+        </div>
+
+        <div class="test-section">
+            <h3>收藏操作测试</h3>
+            <button onclick="addFavorite()">添加收藏</button>
+            <button onclick="removeFavorite()">取消收藏</button>
+            <button onclick="toggleFavorite()">切换收藏</button>
+            <button onclick="checkFavorite()">检查收藏状态</button>
+            <div id="favoriteResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>收藏列表测试</h3>
+            <button onclick="getFavoriteList()">获取收藏列表</button>
+            <button onclick="getFavoriteStats()">获取收藏统计</button>
+            <div id="listResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>API端点测试</h3>
+            <p>测试以下API端点：</p>
+            <ul>
+                <li><code>POST /api/favorite/add</code> - 添加收藏</li>
+                <li><code>POST /api/favorite/remove</code> - 取消收藏</li>
+                <li><code>POST /api/favorite/toggle</code> - 切换收藏</li>
+                <li><code>POST /api/favorite/check</code> - 检查收藏状态</li>
+                <li><code>GET /api/favorite/list/:user_id</code> - 获取收藏列表</li>
+                <li><code>GET /api/favorite/stats/:user_id</code> - 获取收藏统计</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        function getFormData() {
+            return {
+                user_id: parseInt(document.getElementById('userId').value),
+                novel_id: parseInt(document.getElementById('novelId').value),
+                novel_name: document.getElementById('novelName').value,
+                chapter_id: parseInt(document.getElementById('chapterId').value),
+                chapter_name: document.getElementById('chapterName').value
+            };
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        async function addFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                showResult('favoriteResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('favoriteResult', `错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function removeFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/remove`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: data.user_id,
+                        novel_id: data.novel_id,
+                        chapter_id: data.chapter_id
+                    })
+                });
+                const result = await response.json();
+                showResult('favoriteResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('favoriteResult', `错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function toggleFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                showResult('favoriteResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('favoriteResult', `错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkFavorite() {
+            const data = getFormData();
+            try {
+                const response = await fetch(`${API_BASE}/favorite/check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: data.user_id,
+                        novel_id: data.novel_id,
+                        chapter_id: data.chapter_id
+                    })
+                });
+                const result = await response.json();
+                showResult('favoriteResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('favoriteResult', `错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function getFavoriteList() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch(`${API_BASE}/favorite/list/${userId}`);
+                const result = await response.json();
+                showResult('listResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('listResult', `错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function getFavoriteStats() {
+            const userId = document.getElementById('userId').value;
+            try {
+                const response = await fetch(`${API_BASE}/favorite/stats/${userId}`);
+                const result = await response.json();
+                showResult('listResult', JSON.stringify(result, null, 2), result.success ? 'success' : 'error');
+            } catch (error) {
+                showResult('listResult', `错误: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

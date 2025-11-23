@@ -1,0 +1,1 @@
+select * from novel_champion_config;

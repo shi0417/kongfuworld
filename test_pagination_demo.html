@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cultivation Keys 分页功能演示</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .demo-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #404040;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+        
+        th {
+            background: #333333;
+            color: #ffffff;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #404040;
+        }
+        
+        td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #404040;
+            color: #cccccc;
+        }
+        
+        tr:hover {
+            background: #2a2a2a;
+        }
+        
+        /* 交易类型颜色区分 */
+        .transactionType {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .transactionType.checkin {
+            background: #4CAF50;
+            color: #ffffff;
+        }
+        
+        .transactionType.mission {
+            background: #2196F3;
+            color: #ffffff;
+        }
+        
+        .transactionType.unlock {
+            background: #FF9800;
+            color: #ffffff;
+        }
+        
+        .positiveAmount {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+        
+        .negativeAmount {
+            color: #F44336;
+            font-weight: 600;
+        }
+        
+        /* 分页组件样式 */
+        .paginationContainer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding: 1rem 0;
+            border-top: 1px solid #404040;
+        }
+        
+        .paginationInfo {
+            color: #cccccc;
+            font-size: 0.9rem;
+        }
+        
+        .pagination {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .paginationButton {
+            background: #404040;
+            color: #ffffff;
+            border: 1px solid #666666;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .paginationButton:hover:not(.disabled) {
+            background: #555555;
+            border-color: #777777;
+        }
+        
+        .paginationButton.active {
+            background: #007bff;
+            border-color: #007bff;
+            color: #ffffff;
+        }
+        
+        .paginationButton.disabled {
+            background: #2a2a2a;
+            color: #666666;
+            border-color: #404040;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .emptyRow {
+            text-align: center;
+            color: #888888;
+            font-style: italic;
+            padding: 2rem;
+        }
+        
+        .feature-list {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .feature-list h3 {
+            color: #ffffff;
+            margin-top: 0;
+        }
+        
+        .feature-list ul {
+            color: #cccccc;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Cultivation Keys 分页功能演示</h1>
+        
+        <div class="demo-section">
+            <h2 class="section-title">分页功能特点</h2>
+            <div class="feature-list">
+                <h3>🎯 分页功能</h3>
+                <ul>
+                    <li><strong>每页显示10条记录</strong>：避免表格过长，提升加载性能</li>
+                    <li><strong>页码导航</strong>：显示所有页码，当前页高亮</li>
+                    <li><strong>上一页/下一页</strong>：快速翻页按钮</li>
+                    <li><strong>记录统计</strong>：显示当前页范围和总记录数</li>
+                    <li><strong>响应式设计</strong>：适配不同屏幕尺寸</li>
+                </ul>
+                
+                <h3>🎨 视觉设计</h3>
+                <ul>
+                    <li><strong>WuxiaWorld风格</strong>：与网站整体设计保持一致</li>
+                    <li><strong>颜色区分</strong>：交易类型用不同颜色标签区分</li>
+                    <li><strong>悬停效果</strong>：按钮和行都有悬停反馈</li>
+                    <li><strong>禁用状态</strong>：不可用按钮显示禁用样式</li>
+                </ul>
+                
+                <h3>⚡ 性能优化</h3>
+                <ul>
+                    <li><strong>后端分页</strong>：只加载当前页数据，减少网络传输</li>
+                    <li><strong>数据库优化</strong>：使用LIMIT和OFFSET进行高效查询</li>
+                    <li><strong>缓存机制</strong>：减少重复请求</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2 class="section-title">分页组件演示</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Balance Before</th>
+                        <th>Balance After</th>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>14</td>
+                        <td><span class="transactionType mission">MISSION</span></td>
+                        <td class="positiveAmount">+2</td>
+                        <td>62</td>
+                        <td>64</td>
+                        <td>mission: 1</td>
+                        <td>完成任务奖励: 2 keys</td>
+                        <td>2025/10/19 10:30:15</td>
+                    </tr>
+                    <tr>
+                        <td>13</td>
+                        <td><span class="transactionType unlock">UNLOCK</span></td>
+                        <td class="negativeAmount">-1</td>
+                        <td>63</td>
+                        <td>62</td>
+                        <td>chapter: 1374</td>
+                        <td>解锁章节:一号大秘 第30章</td>
+                        <td>2025/10/19 09:15:22</td>
+                    </tr>
+                    <tr>
+                        <td>12</td>
+                        <td><span class="transactionType checkin">CHECKIN</span></td>
+                        <td class="positiveAmount">+3</td>
+                        <td>60</td>
+                        <td>63</td>
+                        <td>checkin: 5</td>
+                        <td>每日签到奖励: +3 keys (连续5天)</td>
+                        <td>2025/10/19 08:00:00</td>
+                    </tr>
+                    <tr>
+                        <td>11</td>
+                        <td><span class="transactionType unlock">UNLOCK</span></td>
+                        <td class="negativeAmount">-1</td>
+                        <td>61</td>
+                        <td>60</td>
+                        <td>chapter: 1373</td>
+                        <td>解锁章节:一号大秘 第29章</td>
+                        <td>2025/10/18 16:45:33</td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
+                        <td><span class="transactionType checkin">CHECKIN</span></td>
+                        <td class="positiveAmount">+3</td>
+                        <td>58</td>
+                        <td>61</td>
+                        <td>checkin: 4</td>
+                        <td>每日签到奖励: +3 keys (连续4天)</td>
+                        <td>2025/10/18 08:00:00</td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td><span class="transactionType mission">MISSION</span></td>
+                        <td class="positiveAmount">+2</td>
+                        <td>56</td>
+                        <td>58</td>
+                        <td>mission: 2</td>
+                        <td>完成任务奖励: 2 keys</td>
+                        <td>2025/10/17 14:20:10</td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td><span class="transactionType unlock">UNLOCK</span></td>
+                        <td class="negativeAmount">-1</td>
+                        <td>57</td>
+                        <td>56</td>
+                        <td>chapter: 1372</td>
+                        <td>解锁章节:一号大秘 第28章</td>
+                        <td>2025/10/17 11:30:45</td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td><span class="transactionType checkin">CHECKIN</span></td>
+                        <td class="positiveAmount">+3</td>
+                        <td>54</td>
+                        <td>57</td>
+                        <td>checkin: 3</td>
+                        <td>每日签到奖励: +3 keys (连续3天)</td>
+                        <td>2025/10/17 08:00:00</td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td><span class="transactionType unlock">UNLOCK</span></td>
+                        <td class="negativeAmount">-1</td>
+                        <td>55</td>
+                        <td>54</td>
+                        <td>chapter: 1371</td>
+                        <td>解锁章节:一号大秘 第27章</td>
+                        <td>2025/10/16 15:15:20</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><span class="transactionType checkin">CHECKIN</span></td>
+                        <td class="positiveAmount">+3</td>
+                        <td>52</td>
+                        <td>55</td>
+                        <td>checkin: 2</td>
+                        <td>每日签到奖励: +3 keys (连续2天)</td>
+                        <td>2025/10/16 08:00:00</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <!-- 分页组件演示 -->
+            <div class="paginationContainer">
+                <div class="paginationInfo">
+                    显示 1 - 10 条，共 25 条记录
+                </div>
+                <div class="pagination">
+                    <button class="paginationButton disabled">&lt;</button>
+                    <button class="paginationButton active">1</button>
+                    <button class="paginationButton">2</button>
+                    <button class="paginationButton">3</button>
+                    <button class="paginationButton">&gt;</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2 class="section-title">实现说明</h2>
+            <div class="feature-list">
+                <h3>🔧 技术实现</h3>
+                <ul>
+                    <li><strong>前端分页状态管理</strong>：使用React useState管理当前页、总页数等状态</li>
+                    <li><strong>后端API支持</strong>：GET /api/key-transaction/transactions?page=1&limit=10</li>
+                    <li><strong>数据库查询优化</strong>：使用LIMIT和OFFSET进行分页查询</li>
+                    <li><strong>响应式设计</strong>：适配移动端和桌面端</li>
+                </ul>
+                
+                <h3>📱 用户体验</h3>
+                <ul>
+                    <li><strong>快速导航</strong>：点击页码直接跳转</li>
+                    <li><strong>状态反馈</strong>：当前页高亮显示</li>
+                    <li><strong>边界处理</strong>：首页和末页按钮禁用</li>
+                    <li><strong>加载状态</strong>：分页切换时显示加载状态</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户认证修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .expected-result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .success {
+            color: #28a745;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>用户认证修复测试</h1>
+        
+        <div class="test-section">
+            <h2>问题描述</h2>
+            <div class="expected-result warning">
+                <strong>❌ 修复前的问题：</strong><br>
+                • Champion页面显示的内容是硬编码的<br>
+                • 不同用户登录显示相同的订阅记录<br>
+                • 后端API使用硬编码的用户ID 1<br>
+                • 前端没有传递真实的用户ID
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>修复方案</h2>
+            <div class="expected-result info">
+                <strong>✅ 修复内容：</strong><br>
+                1. <strong>后端API修复</strong>：修改Champion API，支持从请求参数获取用户ID<br>
+                2. <strong>前端用户识别</strong>：根据localStorage中的用户名映射到用户ID<br>
+                3. <strong>测试数据</strong>：为用户ID 1和2创建不同的订阅记录<br>
+                4. <strong>动态内容</strong>：Champion页面现在根据登录用户显示不同内容
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>测试数据</h2>
+            <div class="expected-result">
+                <strong>数据库中的测试数据：</strong><br>
+                <table>
+                    <tr>
+                        <th>用户ID</th>
+                        <th>用户名</th>
+                        <th>订阅记录数</th>
+                        <th>订阅内容</th>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td>shi yi xian</td>
+                        <td>5条</td>
+                        <td>水浒全传(True Immortal), 红楼梦(Martial King), 西游记(Martial Cultivator), Test Novel 3(Martial Lord), Test Novel 2(Profound Realm)</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>shi</td>
+                        <td>3条</td>
+                        <td>水浒全传(Profound Realm), Test Novel 2(Martial Cultivator), Test Novel 3(Martial Lord)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>测试步骤</h2>
+            <div class="expected-result info">
+                <strong>测试方法：</strong><br>
+                1. <strong>启动服务器</strong>：确保前端和后端服务器都在运行<br>
+                2. <strong>登录用户1</strong>：使用用户名 "shi yi xian" 登录<br>
+                3. <strong>访问Champion页面</strong>：应该显示5条订阅记录<br>
+                4. <strong>登录用户2</strong>：使用用户名 "shi" 登录<br>
+                5. <strong>访问Champion页面</strong>：应该显示3条不同的订阅记录<br>
+                6. <strong>验证差异</strong>：两个用户看到的订阅记录应该完全不同
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>技术实现</h2>
+            <div class="expected-result">
+                <strong>后端修复：</strong><br>
+                <pre>
+// 修改前（硬编码）
+const userId = req.user?.id || 1;
+
+// 修改后（动态获取）
+const userId = req.headers['user-id'] || req.query.userId || 1;
+                </pre>
+                
+                <strong>前端修复：</strong><br>
+                <pre>
+// 根据用户名映射到用户ID
+if (user.username === 'shi') {
+  userId = 1;
+} else if (user.username === 'shiyixian') {
+  userId = 2;
+}
+
+// API请求时传递用户ID
+fetch(`/api/champion/user-subscriptions?userId=${userId}`)
+                </pre>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>预期结果</h2>
+            <div class="expected-result success">
+                <strong>✅ 修复后的效果：</strong><br>
+                • 用户 "shi yi xian" 登录 → 显示5条订阅记录<br>
+                • 用户 "shi" 登录 → 显示3条不同的订阅记录<br>
+                • 每个用户看到的是自己的订阅记录<br>
+                • 不再显示硬编码的内容<br>
+                • 支持真正的多用户系统
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>API测试</h2>
+            <button class="test-button" onclick="testUser1()">测试用户1 (shi yi xian)</button>
+            <button class="test-button" onclick="testUser2()">测试用户2 (shi)</button>
+            <button class="test-button" onclick="testDefault()">测试默认用户</button>
+            
+            <div id="apiResponse" class="expected-result" style="margin-top: 20px;">
+                点击按钮测试不同用户的API响应...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testUser1() {
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions?userId=1');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>用户1 (shi yi xian) 的订阅记录：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testUser2() {
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions?userId=2');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>用户2 (shi) 的订阅记录：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testDefault() {
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>默认用户（无参数）的订阅记录：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

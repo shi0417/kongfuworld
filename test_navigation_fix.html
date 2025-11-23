@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .expected-result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .success {
+            color: #28a745;
+        }
+        .info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>导航逻辑修复测试</h1>
+        
+        <div class="test-section">
+            <h2>修复后的导航逻辑</h2>
+            <p>现在所有右侧下拉菜单的按钮都会跳转到用户中心页面，并显示对应的选项卡内容：</p>
+            
+            <h3>测试链接：</h3>
+            <a href="http://localhost:3000/user-center?tab=karma" class="test-button">Karma Shop 按钮</a>
+            <a href="http://localhost:3000/user-center?tab=champion" class="test-button">Champion 按钮</a>
+            <a href="http://localhost:3000/user-center?tab=billing" class="test-button">Billing 按钮</a>
+            <a href="http://localhost:3000/user-center?tab=faq" class="test-button">FAQ 按钮</a>
+            
+            <div class="expected-result">
+                <strong>预期结果：</strong><br>
+                • 点击 Karma Shop → 跳转到 /user-center?tab=karma，显示 Karma 选项卡<br>
+                • 点击 Champion → 跳转到 /user-center?tab=champion，显示 Champion 选项卡<br>
+                • 点击 Billing → 跳转到 /user-center?tab=billing，显示 Billing 选项卡<br>
+                • 点击 FAQ → 跳转到 /user-center?tab=faq，显示 FAQ 选项卡
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>旧页面重定向测试</h2>
+            <p>旧的 /karma 页面现在会重定向到用户中心：</p>
+            
+            <a href="http://localhost:3000/karma" class="test-button">测试 /karma 重定向</a>
+            
+            <div class="expected-result">
+                <strong>预期结果：</strong><br>
+                • 访问 /karma → 自动重定向到 /user-center?tab=karma<br>
+                • 显示 Karma 选项卡内容
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>用户中心页面功能</h2>
+            <p>用户中心页面包含所有选项卡，可以在同一页面内切换：</p>
+            
+            <a href="http://localhost:3000/user-center" class="test-button">访问用户中心</a>
+            
+            <div class="expected-result">
+                <strong>功能说明：</strong><br>
+                • 左侧选项卡：Daily Rewards, Champion, Karma, Billing, FAQ<br>
+                • 可以在同一页面内切换不同选项卡<br>
+                • Champion 选项卡显示用户订阅状态<br>
+                • Karma 选项卡显示 Karma 余额和购买选项
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>修复总结</h2>
+            <div class="expected-result success">
+                <strong>✅ 已修复的问题：</strong><br>
+                1. Karma Shop 按钮现在跳转到 /user-center?tab=karma<br>
+                2. Champion 按钮跳转到 /user-center?tab=champion<br>
+                3. Billing 按钮跳转到 /user-center?tab=billing<br>
+                4. FAQ 按钮跳转到 /user-center?tab=faq<br>
+                5. 旧的 /karma 页面重定向到用户中心<br>
+                6. 用户中心页面支持 URL 参数指定默认选项卡<br>
+                7. 所有功能都集中在用户中心页面
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>测试步骤</h2>
+            <div class="expected-result info">
+                <strong>测试步骤：</strong><br>
+                1. 启动前端服务器：npm start<br>
+                2. 启动后端服务器：cd backend && npm start<br>
+                3. 访问 http://localhost:3000<br>
+                4. 点击钻石图标打开下拉菜单<br>
+                5. 测试各个按钮的跳转功能<br>
+                6. 验证选项卡切换功能<br>
+                7. 测试旧的 /karma 页面重定向
+            </div>
+        </div>
+    </div>
+</body>
+</html>

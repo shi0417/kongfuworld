@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Payment Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>💳 Stripe Payment Fix Test</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Stripe Payment Creation API</h3>
+            <button class="test-button" onclick="testStripePaymentCreation()">Test Payment Creation</button>
+            <div id="creationResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: API Response Structure</h3>
+            <button class="test-button" onclick="testAPIResponseStructure()">Test Response Structure</button>
+            <div id="structureResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: Frontend Data Access</h3>
+            <button class="test-button" onclick="testFrontendDataAccess()">Test Data Access</button>
+            <div id="dataAccessResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testStripePaymentCreation() {
+            const resultDiv = document.getElementById('creationResult');
+            resultDiv.innerHTML = '<span class="info">Testing Stripe payment creation...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/payment/stripe/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: 2,
+                        packageId: 1,
+                        amount: 4.99,
+                        currency: 'USD'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Stripe payment creation successful</span>\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Stripe payment creation failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testAPIResponseStructure() {
+            const resultDiv = document.getElementById('structureResult');
+            resultDiv.innerHTML = '<span class="info">Testing API response structure...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/payment/stripe/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: 2,
+                        packageId: 1,
+                        amount: 4.99,
+                        currency: 'USD'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const structure = {
+                        success: data.success,
+                        clientSecret: data.clientSecret ? 'Present' : 'Missing',
+                        paymentIntentId: data.paymentIntentId ? 'Present' : 'Missing',
+                        paymentRecordId: data.paymentRecordId ? 'Present' : 'Missing',
+                        hasDataProperty: data.data ? 'Yes' : 'No'
+                    };
+                    
+                    resultDiv.innerHTML = `<span class="success">✅ API response structure analysis</span>\n\n${JSON.stringify(structure, null, 2)}\n\nFull response:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ API response structure test failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ API response structure test error: ${error.message}</span>`;
+            }
+        }
+        
+        function testFrontendDataAccess() {
+            const resultDiv = document.getElementById('dataAccessResult');
+            
+            // Simulate the API response structure
+            const mockResponse = {
+                success: true,
+                clientSecret: 'pi_test_123_secret_456',
+                paymentIntentId: 'pi_test_123',
+                paymentRecordId: 'record_789'
+            };
+            
+            let result = '<span class="info">Testing frontend data access patterns...</span>\n\n';
+            
+            // Test old pattern (incorrect)
+            result += '<span class="error">❌ Old pattern (incorrect):</span>\n';
+            result += `result.data?.clientSecret: ${mockResponse.data?.clientSecret || 'undefined'}\n`;
+            result += `result.data?.paymentIntentId: ${mockResponse.data?.paymentIntentId || 'undefined'}\n\n`;
+            
+            // Test new pattern (correct)
+            result += '<span class="success">✅ New pattern (correct):</span>\n';
+            result += `result.clientSecret: ${mockResponse.clientSecret}\n`;
+            result += `result.paymentIntentId: ${mockResponse.paymentIntentId}\n\n`;
+            
+            // Test conditional logic
+            result += '<span class="info">Conditional logic test:</span>\n';
+            result += `result.success && result.clientSecret: ${mockResponse.success && mockResponse.clientSecret}\n`;
+            result += `result.success && result.data?.clientSecret: ${mockResponse.success && mockResponse.data?.clientSecret}\n`;
+            
+            resultDiv.innerHTML = result;
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            console.log('💳 Stripe Payment Fix Test page loaded');
+            console.log('Testing Stripe payment API fixes...');
+            
+            // Auto-run basic tests
+            setTimeout(() => {
+                testStripePaymentCreation();
+                testFrontendDataAccess();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

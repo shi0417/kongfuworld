@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmarks API Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .api-response {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .novel-item {
+            background-color: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4a9eff;
+        }
+        .novel-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+        .novel-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        .detail-label {
+            color: #888;
+        }
+        .detail-value {
+            color: #ccc;
+        }
+        .cover-test {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #444;
+            border-radius: 4px;
+        }
+        .cover-image {
+            width: 60px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 10px;
+            vertical-align: top;
+        }
+        .cover-placeholder {
+            width: 60px;
+            height: 80px;
+            background: linear-gradient(135deg, #4a9eff, #6bb6ff);
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin-right: 10px;
+            vertical-align: top;
+        }
+        .error {
+            color: #ff4444;
+            background-color: #2a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bookmarks API Debug</h1>
+        <p>测试API返回的数据结构，特别是novel_cover字段</p>
+        
+        <button onclick="testAPI()">测试API</button>
+        <button onclick="testCoverImages()">测试封面图片</button>
+        
+        <div id="apiResponse" class="api-response" style="display: none;"></div>
+        <div id="novelsList"></div>
+        <div id="coverTests"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            try {
+                console.log('开始测试API...');
+                const response = await fetch('http://localhost:5000/api/bookmarks/current-reads/1003');
+                const data = await response.json();
+                
+                console.log('API响应:', data);
+                
+                // 显示原始API响应
+                document.getElementById('apiResponse').style.display = 'block';
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+                
+                // 显示小说列表
+                if (data.success && data.data) {
+                    displayNovels(data.data);
+                } else {
+                    document.getElementById('novelsList').innerHTML = '<div class="error">API返回失败或没有数据</div>';
+                }
+                
+            } catch (error) {
+                console.error('API测试失败:', error);
+                document.getElementById('novelsList').innerHTML = `<div class="error">API测试失败: ${error.message}</div>`;
+            }
+        }
+        
+        function displayNovels(novels) {
+            const novelsList = document.getElementById('novelsList');
+            novelsList.innerHTML = '';
+            
+            novels.forEach((novel, index) => {
+                const novelDiv = document.createElement('div');
+                novelDiv.className = 'novel-item';
+                
+                novelDiv.innerHTML = `
+                    <div class="novel-title">${novel.novel_title || '未知小说'}</div>
+                    <div class="novel-details">
+                        <div><span class="detail-label">小说ID:</span> <span class="detail-value">${novel.novel_id}</span></div>
+                        <div><span class="detail-label">封面路径:</span> <span class="detail-value">${novel.novel_cover || '无封面'}</span></div>
+                        <div><span class="detail-label">最后阅读章节:</span> <span class="detail-value">${novel.last_read_chapter_id}</span></div>
+                        <div><span class="detail-label">总章节数:</span> <span class="detail-value">${novel.chapters}</span></div>
+                        <div><span class="detail-label">状态:</span> <span class="detail-value">${novel.novel_status}</span></div>
+                        <div><span class="detail-label">书签锁定:</span> <span class="detail-value">${novel.bookmark_closed}</span></div>
+                        <div><span class="detail-label">通知关闭:</span> <span class="detail-value">${novel.notification_off}</span></div>
+                    </div>
+                    <div class="cover-test">
+                        <strong>封面测试:</strong><br>
+                        ${novel.novel_cover ? 
+                            `<img src="${novel.novel_cover}" alt="${novel.novel_title}" class="cover-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                             <div class="cover-placeholder" style="display: none;">${(novel.novel_title || 'N').charAt(0)}</div>` :
+                            `<div class="cover-placeholder">${(novel.novel_title || 'N').charAt(0)}</div>`
+                        }
+                    </div>
+                `;
+                
+                novelsList.appendChild(novelDiv);
+            });
+        }
+        
+        function testCoverImages() {
+            const coverTests = document.getElementById('coverTests');
+            coverTests.innerHTML = '<h3>封面图片测试</h3>';
+            
+            const testCovers = [
+                '/covers/xiyouji.jpg',
+                '/covers/sanguo.jpg', 
+                '/covers/hongloumeng.jpg',
+                '/covers/shuihu.jpg',
+                '/covers/default.jpg'
+            ];
+            
+            testCovers.forEach(coverPath => {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'cover-test';
+                testDiv.innerHTML = `
+                    <strong>测试路径: ${coverPath}</strong><br>
+                    <img src="${coverPath}" alt="测试封面" class="cover-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                    <div class="cover-placeholder" style="display: none;">?</div>
+                    <br><small>如果图片加载失败，会显示占位符</small>
+                `;
+                coverTests.appendChild(testDiv);
+            });
+        }
+        
+        // 页面加载时自动测试API
+        window.onload = function() {
+            testAPI();
+        };
+    </script>
+</body>
+</html>

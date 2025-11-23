@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试BookmarkLocked API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试BookmarkLocked API</h1>
+        
+        <!-- 切换书签锁定状态 -->
+        <div class="test-section">
+            <h3>1. 切换章节书签锁定状态</h3>
+            <div>
+                <input type="number" id="userId" placeholder="用户ID" value="1003">
+                <input type="number" id="novelId" placeholder="小说ID" value="1">
+                <input type="number" id="chapterId" placeholder="章节ID" value="1">
+                <input type="number" id="bookmarkLocked" placeholder="锁定状态(0/1)" value="1">
+            </div>
+            <button onclick="toggleBookmarkLock()">切换书签锁定状态</button>
+            <div id="toggleResult" class="result"></div>
+        </div>
+
+        <!-- 获取书签锁定状态 -->
+        <div class="test-section">
+            <h3>2. 获取章节书签锁定状态</h3>
+            <div>
+                <input type="number" id="getUserId" placeholder="用户ID" value="1003">
+                <input type="number" id="getNovelId" placeholder="小说ID" value="1">
+                <input type="number" id="getChapterId" placeholder="章节ID" value="1">
+            </div>
+            <button onclick="getBookmarkLockStatus()">获取书签锁定状态</button>
+            <div id="getStatusResult" class="result"></div>
+        </div>
+
+        <!-- 获取用户所有书签锁定状态 -->
+        <div class="test-section">
+            <h3>3. 获取用户所有书签锁定状态</h3>
+            <div>
+                <input type="number" id="getAllUserId" placeholder="用户ID" value="1003">
+            </div>
+            <button onclick="getAllUserBookmarkLocks()">获取用户所有书签锁定状态</button>
+            <div id="getAllResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                const data = await response.json();
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function toggleBookmarkLock() {
+            const userId = document.getElementById('userId').value;
+            const novelId = document.getElementById('novelId').value;
+            const chapterId = document.getElementById('chapterId').value;
+            const bookmarkLocked = document.getElementById('bookmarkLocked').value;
+
+            const result = await makeRequest(`${API_BASE_URL}/api/bookmarklocked/toggle`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    user_id: parseInt(userId),
+                    novel_id: parseInt(novelId),
+                    chapter_id: parseInt(chapterId),
+                    bookmark_locked: parseInt(bookmarkLocked)
+                })
+            });
+
+            const resultDiv = document.getElementById('toggleResult');
+            resultDiv.className = 'result ' + (result.success ? 'success' : 'error');
+            resultDiv.textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function getBookmarkLockStatus() {
+            const userId = document.getElementById('getUserId').value;
+            const novelId = document.getElementById('getNovelId').value;
+            const chapterId = document.getElementById('getChapterId').value;
+
+            const result = await makeRequest(`${API_BASE_URL}/api/bookmarklocked/status/${userId}/${novelId}/${chapterId}`);
+
+            const resultDiv = document.getElementById('getStatusResult');
+            resultDiv.className = 'result ' + (result.success ? 'success' : 'error');
+            resultDiv.textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function getAllUserBookmarkLocks() {
+            const userId = document.getElementById('getAllUserId').value;
+
+            const result = await makeRequest(`${API_BASE_URL}/api/bookmarklocked/user/${userId}`);
+
+            const resultDiv = document.getElementById('getAllResult');
+            resultDiv.className = 'result ' + (result.success ? 'success' : 'error');
+            resultDiv.textContent = JSON.stringify(result, null, 2);
+        }
+    </script>
+</body>
+</html>

@@ -1,10 +1,10 @@
-// 章节解锁API路由
+// Chapter unlock API routes
 const express = require('express');
 const mysql = require('mysql2/promise');
 const router = express.Router();
 const { recordKeyTransaction } = require('../key_transaction_helper');
 
-// 数据库配置
+// Database configuration
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -13,7 +13,7 @@ const dbConfig = {
   charset: 'utf8mb4'
 };
 
-// 使用Key解锁章节
+// Unlock chapter with Key
 router.post('/unlock-with-key/:chapterId/:userId', async (req, res) => {
   let db;
   try {
@@ -21,11 +21,11 @@ router.post('/unlock-with-key/:chapterId/:userId', async (req, res) => {
     
     db = await mysql.createConnection(dbConfig);
     
-    // 开始事务
+    // Start transaction
     await db.query('START TRANSACTION');
     
     try {
-      // 1. 检查章节是否存在
+      // 1. Check if chapter exists
       const [chapters] = await db.execute(`
         SELECT c.*, n.title as novel_title 
       FROM chapter c
@@ -36,24 +36,24 @@ router.post('/unlock-with-key/:chapterId/:userId', async (req, res) => {
       if (chapters.length === 0) {
         return res.status(404).json({
           success: false,
-          message: '章节不存在'
+          message: 'Chapter not found'
         });
       }
       
       const chapter = chapters[0];
       
-      // 2. 检查用户是否存在
+      // 2. Check if user exists
       const [users] = await db.execute('SELECT * FROM user WHERE id = ?', [userId]);
       if (users.length === 0) {
         return res.status(404).json({
           success: false,
-          message: '用户不存在'
+          message: 'User not found'
         });
       }
       
       const user = users[0];
       
-      // 3. 检查章节是否已经解锁
+      // 3. Check if chapter is already unlocked
       const [existingUnlocks] = await db.execute(`
           SELECT * FROM chapter_unlocks 
         WHERE user_id = ? AND chapter_id = ? AND status = 'unlocked'
@@ -62,67 +62,67 @@ router.post('/unlock-with-key/:chapterId/:userId', async (req, res) => {
       if (existingUnlocks.length > 0) {
         return res.status(400).json({
           success: false,
-          message: '章节已经解锁'
+          message: 'Chapter already unlocked'
         });
       }
       
-      // 4. 检查章节是否需要Key解锁
-      if (!chapter.is_premium || chapter.key_cost <= 0) {
+      // 4. Check if chapter requires Key unlock
+      if (!chapter.unlock_price || chapter.unlock_price <= 0 || chapter.key_cost <= 0) {
         return res.status(400).json({
           success: false,
-          message: '该章节不需要Key解锁'
+          message: 'This chapter does not require Key unlock'
         });
       }
       
-      // 5. 检查用户Key余额是否足够
+      // 5. Check if user has sufficient Key balance
       if (user.points < chapter.key_cost) {
         return res.status(400).json({
           success: false,
-          message: `Key余额不足，需要${chapter.key_cost}个Key，当前余额${user.points}个`
+          message: `Insufficient Key balance. Required: ${chapter.key_cost} Keys, Current balance: ${user.points} Keys`
         });
       }
       
-      // 6. 记录Key消耗
+      // 6. Record Key consumption
       const keyTransaction = await recordKeyTransaction(
         db,
         userId,
         'unlock',
-        -chapter.key_cost, // 负数表示消耗
+        -chapter.key_cost, // Negative number indicates consumption
         chapterId,
         'chapter',
-        `解锁章节: ${chapter.novel_title} 第${chapter.chapter_number}章`
+        `Unlock chapter: ${chapter.novel_title} Chapter ${chapter.chapter_number}`
       );
       
-      // 7. 检查是否已存在解锁记录
+      // 7. Check if unlock record already exists
       const [unlockRecords] = await db.execute(`
       SELECT * FROM chapter_unlocks 
       WHERE user_id = ? AND chapter_id = ?
     `, [userId, chapterId]);
     
       if (unlockRecords.length > 0) {
-        // 如果已存在记录，更新为Key解锁
+        // If record exists, update to Key unlock
         await db.execute(`
           UPDATE chapter_unlocks 
           SET unlock_method = 'key', cost = ?, status = 'unlocked', unlocked_at = NOW()
           WHERE user_id = ? AND chapter_id = ?
         `, [chapter.key_cost, userId, chapterId]);
-        console.log('✅ 更新现有解锁记录为Key解锁');
+        console.log('✅ Updated existing unlock record to Key unlock');
       } else {
-        // 如果不存在记录，插入新的Key解锁记录
+        // If no record exists, insert new Key unlock record
         await db.execute(`
           INSERT INTO chapter_unlocks (
             user_id, chapter_id, unlock_method, cost, status, unlocked_at
           ) VALUES (?, ?, 'key', ?, 'unlocked', NOW())
         `, [userId, chapterId, chapter.key_cost]);
-        console.log('✅ 创建新的Key解锁记录');
+        console.log('✅ Created new Key unlock record');
       }
       
-      // 提交事务
+      // Commit transaction
       await db.query('COMMIT');
 
     res.json({
       success: true,
-        message: '章节解锁成功',
+        message: 'Chapter unlocked successfully',
       data: {
           chapterId: chapterId,
           novelTitle: chapter.novel_title,
@@ -201,70 +201,70 @@ router.post('/unlock-with-karma/:chapterId/:userId', async (req, res) => {
       if (existingUnlocks.length > 0) {
         return res.status(400).json({
           success: false,
-          message: '章节已经解锁'
+          message: 'Chapter already unlocked'
         });
       }
       
-      // 4. 检查章节是否需要Karma解锁
-      if (!chapter.is_premium || chapter.unlock_price <= 0) {
+      // 4. Check if chapter requires Karma unlock
+      if (!chapter.unlock_price || chapter.unlock_price <= 0) {
         return res.status(400).json({
           success: false,
-          message: '该章节不需要Karma解锁'
+          message: 'This chapter does not require Karma unlock'
         });
       }
       
-      // 5. 检查用户Golden Karma余额
+      // 5. Check user Golden Karma balance
       if (user.golden_karma < chapter.unlock_price) {
         return res.status(400).json({
           success: false,
-          message: `Golden Karma余额不足，需要${chapter.unlock_price}个Golden Karma，当前余额${user.golden_karma}个`,
+          message: `Insufficient Golden Karma balance. Required: ${chapter.unlock_price} Golden Karma, Current balance: ${user.golden_karma} Golden Karma`,
           redirectUrl: 'http://localhost:3000/user-center?tab=karma',
           errorCode: 'INSUFFICIENT_KARMA'
         });
       }
       
-      // 6. 扣除Golden Karma余额
+      // 6. Deduct Golden Karma balance
       const newKarmaBalance = user.golden_karma - chapter.unlock_price;
       await db.execute('UPDATE user SET golden_karma = ? WHERE id = ?', [newKarmaBalance, userId]);
       
-      // 7. 记录Karma交易
+      // 7. Record Karma transaction
       await db.execute(`
         INSERT INTO user_karma_transactions (
           user_id, transaction_type, karma_amount, karma_type, balance_before, balance_after,
           chapter_id, description, status
         ) VALUES (?, 'consumption', ?, 'golden_karma', ?, ?, ?, ?, 'completed')
-      `, [userId, chapter.unlock_price, user.golden_karma, newKarmaBalance, chapterId, `解锁章节: ${chapter.novel_title} 第${chapter.chapter_number}章`]);
+      `, [userId, chapter.unlock_price, user.golden_karma, newKarmaBalance, chapterId, `Unlock chapter: ${chapter.novel_title} Chapter ${chapter.chapter_number}`]);
       
-      // 7. 检查是否已存在解锁记录
+      // 7. Check if unlock record already exists
       const [unlockRecords] = await db.execute(`
         SELECT * FROM chapter_unlocks 
         WHERE user_id = ? AND chapter_id = ?
       `, [userId, chapterId]);
       
       if (unlockRecords.length > 0) {
-        // 如果已存在记录，更新为Karma解锁
+        // If record exists, update to Karma unlock
         await db.execute(`
           UPDATE chapter_unlocks 
           SET unlock_method = 'karma', cost = ?, status = 'unlocked', unlocked_at = NOW()
           WHERE user_id = ? AND chapter_id = ?
         `, [chapter.unlock_price, userId, chapterId]);
-        console.log('✅ 更新现有解锁记录为Karma解锁');
+        console.log('✅ Updated existing unlock record to Karma unlock');
       } else {
-        // 如果不存在记录，插入新的Karma解锁记录
+        // If no record exists, insert new Karma unlock record
         await db.execute(`
           INSERT INTO chapter_unlocks (
             user_id, chapter_id, unlock_method, cost, status, unlocked_at
           ) VALUES (?, ?, 'karma', ?, 'unlocked', NOW())
         `, [userId, chapterId, chapter.unlock_price]);
-        console.log('✅ 创建新的Karma解锁记录');
+        console.log('✅ Created new Karma unlock record');
       }
       
-      // 提交事务
+      // Commit transaction
       await db.query('COMMIT');
 
       res.json({
         success: true,
-        message: '章节解锁成功',
+        message: 'Chapter unlocked successfully',
         data: {
           chapterId: chapterId,
           novelTitle: chapter.novel_title,
@@ -276,16 +276,16 @@ router.post('/unlock-with-karma/:chapterId/:userId', async (req, res) => {
       });
       
     } catch (error) {
-      // 回滚事务
+      // Rollback transaction
       await db.query('ROLLBACK');
       throw error;
     }
 
   } catch (error) {
-    console.error('Karma解锁章节失败:', error);
+    console.error('Karma unlock chapter failed:', error);
     res.status(500).json({
       success: false,
-      message: '解锁章节失败',
+      message: 'Failed to unlock chapter',
       error: error.message
     });
   } finally {
@@ -411,7 +411,7 @@ router.post('/start-time-unlock/:chapterId/:userId', async (req, res) => {
     }
     
     const prevChapterData = prevChapter[0];
-    const isPrevChapterFree = !prevChapterData.is_premium;
+    const isPrevChapterFree = !prevChapterData.unlock_price || prevChapterData.unlock_price <= 0;
     const isPrevChapterUnlocked = prevChapterData.unlock_status === 'unlocked';
     
     if (!isPrevChapterFree && !isPrevChapterUnlocked) {
@@ -656,7 +656,7 @@ router.get('/status/:chapterId/:userId', async (req, res) => {
           chapterId: chapterId,
         novelTitle: chapter.novel_title,
         chapterNumber: chapter.chapter_number,
-        isPremium: chapter.is_premium,
+        unlock_price: chapter.unlock_price || 0,
         keyCost: chapter.key_cost,
         unlockPrice: chapter.unlock_price,
         isUnlocked: isUnlocked,

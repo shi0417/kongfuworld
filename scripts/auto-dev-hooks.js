@@ -82,7 +82,7 @@ class AutoDevHooks {
     this.log('🚀 运行Chat开发前自动检查...');
     
     try {
-      const output = execSync('npm run auto:check', { encoding: 'utf8' });
+      const output = execSync('npm run auto:start', { encoding: 'utf8' });
       this.log('✅ 开发前检查完成');
       this.log(`📊 检查结果:\n${output}`);
       return { success: true, output };
@@ -99,7 +99,7 @@ class AutoDevHooks {
     this.log('🔍 运行开发过程中自动检查...');
     
     try {
-      const output = execSync('npm run check:pre-commit', { encoding: 'utf8' });
+      const output = execSync('npm run auto:during', { encoding: 'utf8' });
       this.log('✅ 开发中检查完成');
       this.log(`📊 检查结果:\n${output}`);
       return { success: true, output };
@@ -116,7 +116,7 @@ class AutoDevHooks {
     this.log('🏁 运行开发完成后自动检查...');
     
     try {
-      const output = execSync('npm run check:all', { encoding: 'utf8' });
+      const output = execSync('npm run auto:post', { encoding: 'utf8' });
       this.log('✅ 开发后检查完成');
       this.log(`📊 检查结果:\n${output}`);
       return { success: true, output };

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Champion API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .api-response {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+        .status-active { color: #28a745; }
+        .status-expired { color: #dc3545; }
+        .status-inactive { color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Champion API Test Page</h1>
+        
+        <div class="test-section">
+            <h2>API Endpoints Test</h2>
+            <button onclick="testUserSubscriptions()">Test User Subscriptions API</button>
+            <button onclick="testChampionConfig()">Test Champion Config API</button>
+            <button onclick="testChampionStatus()">Test Champion Status API</button>
+        </div>
+
+        <div class="test-section">
+            <h2>API Response</h2>
+            <div id="apiResponse" class="api-response">Click a button above to test the API...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>User Subscriptions Table</h2>
+            <div id="subscriptionsTable"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api/champion';
+        
+        async function testUserSubscriptions() {
+            try {
+                const response = await fetch(`${API_BASE}/user-subscriptions`);
+                const data = await response.json();
+                
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+                
+                if (data.success && data.data.subscriptions) {
+                    displaySubscriptionsTable(data.data.subscriptions);
+                }
+            } catch (error) {
+                document.getElementById('apiResponse').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testChampionConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config/1`);
+                const data = await response.json();
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testChampionStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status/1`);
+                const data = await response.json();
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        function displaySubscriptionsTable(subscriptions) {
+            const tableContainer = document.getElementById('subscriptionsTable');
+            
+            if (subscriptions.length === 0) {
+                tableContainer.innerHTML = '<p>No subscriptions found</p>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Novel</th>
+                            <th>Extra Chapters</th>
+                            <th>Tier</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Active Until</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            subscriptions.forEach((sub, index) => {
+                const statusClass = `status-${sub.status}`;
+                const endDate = new Date(sub.end_date).toLocaleDateString();
+                
+                tableHTML += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${sub.novel_title}</td>
+                        <td>${sub.advance_chapters || 0}</td>
+                        <td>${sub.tier_name}</td>
+                        <td>$${sub.monthly_price}</td>
+                        <td class="${statusClass}">${sub.status}</td>
+                        <td>${endDate}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            tableContainer.innerHTML = tableHTML;
+        }
+        
+        // Auto-test on page load
+        window.onload = function() {
+            testUserSubscriptions();
+        };
+    </script>
+</body>
+</html>

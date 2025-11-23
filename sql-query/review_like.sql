@@ -1,0 +1,1 @@
+select * from review_like;

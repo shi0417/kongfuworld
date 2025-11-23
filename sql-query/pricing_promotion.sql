@@ -1,0 +1,1 @@
+select * from pricing_promotion;

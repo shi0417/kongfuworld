@@ -1,0 +1,1 @@
+select * from paragraph_comment order by id desc;

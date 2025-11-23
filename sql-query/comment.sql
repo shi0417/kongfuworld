@@ -1,0 +1,1 @@
+select * from comment order by id desc;

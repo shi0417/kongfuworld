@@ -1,0 +1,1 @@
+select * from payout_gateway_transaction;

@@ -1,0 +1,1 @@
+select * from user_karma_transactions;

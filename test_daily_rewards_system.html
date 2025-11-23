@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Rewards System Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #404040;
+        }
+        .test-button {
+            background: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #4ade80;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗝️ Daily Rewards System Test</h1>
+        
+        <div class="test-section">
+            <h2>1. 数据库连接测试</h2>
+            <button class="test-button" onclick="testDatabaseConnection()">测试数据库连接</button>
+            <div id="db-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. 任务系统API测试</h2>
+            <button class="test-button" onclick="testMissionAPI()">测试任务API</button>
+            <div id="mission-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. 签到系统API测试</h2>
+            <button class="test-button" onclick="testCheckinAPI()">测试签到API</button>
+            <div id="checkin-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. 页面访问测试</h2>
+            <p>请访问以下页面测试Daily Rewards界面：</p>
+            <ul>
+                <li><a href="http://localhost:3000/user-center?tab=daily-rewards" target="_blank" style="color: #007bff;">User Center - Daily Rewards</a></li>
+                <li><a href="http://localhost:3000/daily-rewards" target="_blank" style="color: #007bff;">独立 Daily Rewards 页面</a></li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>5. 功能说明</h2>
+            <h3>Login Rewards (签到奖励)</h3>
+            <ul>
+                <li>7天循环签到系统</li>
+                <li>连续签到天数追踪</li>
+                <li>钥匙奖励：3-6把钥匙/天</li>
+                <li>防重复签到机制</li>
+            </ul>
+            
+            <h3>Mission Rewards (任务奖励)</h3>
+            <ul>
+                <li>阅读任务：Read 2/5/10 chapters</li>
+                <li>自动进度追踪：阅读章节时自动更新</li>
+                <li>奖励领取：完成任务后可领取钥匙</li>
+                <li>状态管理：In Progress / Completed / Claimed</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function testDatabaseConnection() {
+            const resultDiv = document.getElementById('db-result');
+            resultDiv.innerHTML = '正在测试数据库连接...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/mission/user/1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ 数据库连接成功！</span>\n\n任务数据：\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 数据库连接失败：${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ 连接错误：${error.message}</span>`;
+            }
+        }
+
+        async function testMissionAPI() {
+            const resultDiv = document.getElementById('mission-result');
+            resultDiv.innerHTML = '正在测试任务API...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/mission/user/1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ 任务API测试成功！</span>\n\n任务列表：\n${JSON.stringify(data.data.missions, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 任务API测试失败：${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ API错误：${error.message}</span>`;
+            }
+        }
+
+        async function testCheckinAPI() {
+            const resultDiv = document.getElementById('checkin-result');
+            resultDiv.innerHTML = '正在测试签到API...';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/checkin/status/1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ 签到API测试成功！</span>\n\n签到状态：\n${JSON.stringify(data.data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ 签到API测试失败：${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ API错误：${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+select * from reader_spending;

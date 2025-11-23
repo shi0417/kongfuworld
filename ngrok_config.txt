@@ -1,0 +1,13 @@
+# Ngrok Configuration
+# Authtoken已配置到系统，无需手动设置
+
+# 使用方法：
+# 1. 运行 start_ngrok.bat 启动 ngrok
+# 2. 访问 http://localhost:4040 查看公网 URL
+# 3. 配置 PayPal Webhook: https://your-ngrok-url/api/admin/webhooks/paypal
+
+# Authtoken 已通过以下命令配置：
+# C:\ngrok\ngrok.exe config add-authtoken 35dkzvf9m6xfJCiWdTCWeCygUr3_2NqCnjDak5wGuM7pDQrrn
+
+# 注意：请妥善保管 authtoken，不要泄露给他人
+

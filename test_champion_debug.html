@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Champion Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🏆 Champion Debug Test</h1>
+        
+        <div class="test-section">
+            <h3>Test 1: Champion API (Fixed)</h3>
+            <button class="test-button" onclick="testChampionAPI()">Test Champion API</button>
+            <div id="championResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: User Authentication</h3>
+            <button class="test-button" onclick="checkUserAuth()">Check Auth</button>
+            <div id="authResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: API Response Structure</h3>
+            <button class="test-button" onclick="testAPIStructure()">Test Structure</button>
+            <div id="structureResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testChampionAPI() {
+            const resultDiv = document.getElementById('championResult');
+            resultDiv.innerHTML = '<span class="info">Testing Champion API...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions?userId=2');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ Champion API working</span>\n\nSubscriptions: ${data.data.subscriptions.length}\nTotal Count: ${data.data.totalCount}\n\nFirst subscription:\n${JSON.stringify(data.data.subscriptions[0], null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Champion API failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Champion API error: ${error.message}</span>`;
+            }
+        }
+        
+        function checkUserAuth() {
+            const resultDiv = document.getElementById('authResult');
+            
+            const user = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            
+            let result = '<span class="info">Checking user authentication...</span>\n\n';
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    result += `<span class="success">✅ User data found:</span>\n`;
+                    result += `Username: ${userData.username}\n`;
+                    result += `ID: ${userData.id}\n`;
+                    result += `Email: ${userData.email}\n`;
+                } catch (error) {
+                    result += `<span class="error">❌ User data parse error: ${error.message}</span>\n`;
+                }
+            } else {
+                result += `<span class="error">❌ No user data in localStorage</span>\n`;
+            }
+            
+            if (token) {
+                result += `\n<span class="success">✅ Token found: ${token.substring(0, 20)}...</span>\n`;
+            } else {
+                result += `\n<span class="error">❌ No token in localStorage</span>\n`;
+            }
+            
+            resultDiv.innerHTML = result;
+        }
+        
+        async function testAPIStructure() {
+            const resultDiv = document.getElementById('structureResult');
+            resultDiv.innerHTML = '<span class="info">Testing API response structure...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/champion/user-subscriptions?userId=2');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const structure = {
+                        success: data.success,
+                        data: {
+                            subscriptions: data.data.subscriptions.length,
+                            totalCount: data.data.totalCount,
+                            firstSubscription: data.data.subscriptions[0] ? {
+                                id: data.data.subscriptions[0].id,
+                                novel_title: data.data.subscriptions[0].novel_title,
+                                tier_name: data.data.subscriptions[0].tier_name,
+                                status: data.data.subscriptions[0].status
+                            } : null
+                        }
+                    };
+                    
+                    resultDiv.innerHTML = `<span class="success">✅ API structure analysis</span>\n\n${JSON.stringify(structure, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ API structure test failed: ${data.message}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ API structure test error: ${error.message}</span>`;
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            console.log('🏆 Champion Debug Test page loaded');
+            console.log('Testing Champion API endpoints...');
+            
+            // Auto-run basic tests
+            setTimeout(() => {
+                testChampionAPI();
+                checkUserAuth();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

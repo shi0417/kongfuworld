@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karma系统测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .expected-result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+        .package-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .package-card {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .package-amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        .package-price {
+            font-size: 18px;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Karma系统完整测试</h1>
+        
+        <div class="test-section">
+            <h2>系统概述</h2>
+            <div class="expected-result info">
+                <strong>✅ Karma系统功能：</strong><br>
+                • 用户Karma余额管理（Golden Karma + Regular Karma）<br>
+                • Karma套餐购买（5个不同套餐，带奖励）<br>
+                • Karma交易记录（购买、消费、奖励等）<br>
+                • 章节Karma消费配置<br>
+                • 与现有支付系统集成（Stripe + PayPal）<br>
+                • 前端动态数据显示
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>数据库表结构</h2>
+            <div class="expected-result">
+                <strong>已创建的表：</strong><br>
+                1. <strong>user_karma_transactions</strong> - Karma交易记录表<br>
+                2. <strong>karma_packages</strong> - Karma套餐配置表<br>
+                3. <strong>user表</strong> - 已有karma和balance字段
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>API端点测试</h2>
+            <button class="test-button" onclick="testBalance()">测试用户余额</button>
+            <button class="test-button" onclick="testPackages()">测试套餐列表</button>
+            <button class="test-button" onclick="testTransactions()">测试交易记录</button>
+            <button class="test-button" onclick="testPurchase()">测试购买Karma</button>
+            
+            <div id="apiResponse" class="expected-result" style="margin-top: 20px;">
+                点击按钮测试API响应...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Karma套餐展示</h2>
+            <div id="packagesDisplay" class="package-grid">
+                <!-- 套餐将通过JavaScript动态加载 -->
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>前端集成测试</h2>
+            <div class="expected-result info">
+                <strong>测试步骤：</strong><br>
+                1. 启动前端和后端服务器<br>
+                2. 访问 http://localhost:3000/user-center?tab=karma<br>
+                3. 检查Karma余额显示（应该显示真实数据）<br>
+                4. 检查套餐列表（应该从数据库加载）<br>
+                5. 测试购买功能（点击BUY按钮）<br>
+                6. 检查交易记录（Karma Acquired/Karma Spent）
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>功能特性</h2>
+            <div class="expected-result success">
+                <strong>✅ 已实现的功能：</strong><br>
+                • 用户Karma余额实时显示<br>
+                • 5个Karma套餐（1000-20000 Karma）<br>
+                • 套餐奖励系统（10%-30%奖励）<br>
+                • 交易记录完整追踪<br>
+                • 购买/消费/奖励分类显示<br>
+                • 用户身份识别（支持多用户）<br>
+                • 错误处理和加载状态<br>
+                • 响应式设计
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>与Wuxiaworld.com对比</h2>
+            <div class="expected-result">
+                <strong>参考Wuxiaworld.com的设计：</strong><br>
+                • ✅ 相同的Karma显示方式（黑白太极符号）<br>
+                • ✅ 相同的套餐价格结构<br>
+                • ✅ 相同的交易记录格式<br>
+                • ✅ 相同的购买流程<br>
+                • ✅ 相同的用户界面布局<br>
+                • ✅ 支持Stripe和PayPal支付<br>
+                • ✅ 完整的数据库记录系统
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试用户余额
+        async function testBalance() {
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/balance?userId=1');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>用户1 Karma余额：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // 测试套餐列表
+        async function testPackages() {
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/packages');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>Karma套餐列表：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+                
+                // 显示套餐卡片
+                if (data.success && data.data.packages) {
+                    displayPackages(data.data.packages);
+                }
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // 测试交易记录
+        async function testTransactions() {
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/transactions?userId=1');
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>用户1 交易记录：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // 测试购买Karma
+        async function testPurchase() {
+            try {
+                const response = await fetch('http://localhost:5000/api/karma/purchase', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: 1,
+                        packageId: 1,
+                        paymentMethod: 'stripe'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('apiResponse').innerHTML = 
+                    '<strong>购买测试结果：</strong><br>' + 
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('apiResponse').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // 显示套餐卡片
+        function displayPackages(packages) {
+            const container = document.getElementById('packagesDisplay');
+            container.innerHTML = packages.map(pkg => `
+                <div class="package-card">
+                    <div class="package-amount">${(pkg.karma_amount + pkg.bonus_karma).toLocaleString()}</div>
+                    <div>Golden Karma</div>
+                    <div class="package-price">$${pkg.price}</div>
+                    ${pkg.bonus_karma > 0 ? `<div style="color: #ffd700;">+${pkg.bonus_karma} Bonus</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        // 页面加载时自动加载套餐
+        window.onload = function() {
+            testPackages();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+select * from mission_completion_log order by id desc;

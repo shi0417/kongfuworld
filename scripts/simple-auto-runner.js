@@ -226,9 +226,77 @@ class SimpleAutoRunner {
   }
 
   /**
+   * 检查数据库连接方式一致性 ⚠️ 新增
+   */
+  checkDatabaseConnectionConsistency() {
+    this.log('🔍 检查数据库连接方式一致性...');
+    
+    const dbFiles = [
+      ...this.getAllFiles('backend', ['.js']).filter(f => 
+        f.includes('daily_checkin') || 
+        f.includes('key_transaction') || 
+        f.includes('routes')
+      )
+    ];
+    
+    const issues = [];
+    const connectionTypes = {};
+    
+    dbFiles.forEach(file => {
+      try {
+        const content = fs.readFileSync(file, 'utf8');
+        
+        // 检查连接方式
+        const usesPromise = /require\(['"]mysql2\/promise['"]\)/.test(content);
+        const usesCallback = /require\(['"]mysql2['"]\)/.test(content);
+        const usesExecute = /db\.execute\(/.test(content);
+        const usesQuery = /db\.query\(/.test(content);
+        
+        if (usesCallback && !usesPromise) {
+          issues.push(`${file} - 使用回调式连接，应改为Promise式`);
+          this.log(`   ❌ ${file} 使用回调式连接 (mysql2)`);
+        } else if (usesPromise) {
+          this.log(`   ✅ ${file} 使用Promise式连接 (mysql2/promise)`);
+        }
+        
+        if (usesQuery && !usesExecute) {
+          issues.push(`${file} - 使用db.query()，应改为db.execute()`);
+          this.log(`   ❌ ${file} 使用db.query()，应改为db.execute()`);
+        } else if (usesExecute) {
+          this.log(`   ✅ ${file} 使用db.execute()`);
+        }
+        
+        // 记录连接类型
+        if (usesPromise) {
+          connectionTypes[file] = 'promise';
+        } else if (usesCallback) {
+          connectionTypes[file] = 'callback';
+        }
+        
+      } catch (error) {
+        this.log(`   ❌ 读取文件失败: ${file} - ${error.message}`, 'ERROR');
+      }
+    });
+    
+    // 检查一致性
+    const promiseFiles = Object.values(connectionTypes).filter(type => type === 'promise').length;
+    const callbackFiles = Object.values(connectionTypes).filter(type => type === 'callback').length;
+    
+    if (promiseFiles > 0 && callbackFiles > 0) {
+      this.log(`⚠️  发现混合使用连接方式：${promiseFiles}个Promise式，${callbackFiles}个回调式`);
+    } else if (issues.length > 0) {
+      this.log(`⚠️  发现 ${issues.length} 个数据库连接方式问题`);
+    } else {
+      this.log('✅ 数据库连接方式一致性检查通过');
+    }
+    
+    return issues;
+  }
+
+  /**
    * 生成检查报告
    */
-  generateReport(apiResults, transactionIssues, errorHandlingIssues) {
+  generateReport(apiResults, transactionIssues, errorHandlingIssues, dbConnectionIssues) {
     this.log('\n📊 自动开发检查报告');
     this.log('='.repeat(50));
     
@@ -255,6 +323,16 @@ class SimpleAutoRunner {
       this.log('\n✅ 数据库事务检查通过');
     }
     
+    // 数据库连接方式一致性 ⚠️ 新增
+    if (dbConnectionIssues.length > 0) {
+      this.log(`\n⚠️  发现 ${dbConnectionIssues.length} 个数据库连接方式问题`);
+      dbConnectionIssues.forEach(issue => {
+        this.log(`   - ${issue}`);
+      });
+    } else {
+      this.log('\n✅ 数据库连接方式一致性检查通过');
+    }
+    
     // 错误处理
     if (errorHandlingIssues.length > 0) {
       this.log(`\n⚠️  发现 ${errorHandlingIssues.length} 个错误处理问题`);
@@ -263,7 +341,7 @@ class SimpleAutoRunner {
     }
     
     // 总结
-    const totalIssues = apiIssues + transactionIssues.length + errorHandlingIssues.length;
+    const totalIssues = apiIssues + transactionIssues.length + errorHandlingIssues.length + dbConnectionIssues.length;
     
     if (totalIssues === 0) {
       this.log('\n🎉 所有检查通过！项目状态良好');
@@ -278,6 +356,7 @@ class SimpleAutoRunner {
       totalIssues,
       apiIssues,
       transactionIssues: transactionIssues.length,
+      dbConnectionIssues: dbConnectionIssues.length,
       errorHandlingIssues: errorHandlingIssues.length
     };
   }
@@ -293,9 +372,10 @@ class SimpleAutoRunner {
     const apiResults = this.checkAPIConsistency();
     const transactionIssues = this.checkDatabaseTransactions();
     const errorHandlingIssues = this.checkErrorHandling();
+    const dbConnectionIssues = this.checkDatabaseConnectionConsistency(); // ⚠️ 新增
     
     // 生成报告
-    const report = this.generateReport(apiResults, transactionIssues, errorHandlingIssues);
+    const report = this.generateReport(apiResults, transactionIssues, errorHandlingIssues, dbConnectionIssues);
     
     // 返回检查结果
     return {

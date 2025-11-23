@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试收藏章节API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        button {
+            background-color: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        .result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #ff4444;
+            color: white;
+        }
+        .success {
+            background-color: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试收藏章节API</h1>
+        
+        <div class="test-section">
+            <h2>测试获取收藏章节列表</h2>
+            <button onclick="testFavoriteChapters()">获取收藏章节列表</button>
+            <button onclick="testFavoriteChaptersWithPagination()">测试分页功能</button>
+            <div id="favoriteResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        const USER_ID = 1003; // 测试用户ID
+
+        async function testFavoriteChapters() {
+            const resultDiv = document.getElementById('favoriteResult');
+            resultDiv.textContent = '正在获取收藏章节列表...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/bookmarks/favorite-chapters/${USER_ID}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `成功获取收藏章节列表:\n\n` + 
+                        `总数: ${data.data.length} 本小说\n` +
+                        `分页信息: ${JSON.stringify(data.pagination, null, 2)}\n\n` +
+                        `小说列表:\n${JSON.stringify(data.data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `获取失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+
+        async function testFavoriteChaptersWithPagination() {
+            const resultDiv = document.getElementById('favoriteResult');
+            resultDiv.textContent = '正在测试分页功能...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/bookmarks/favorite-chapters/${USER_ID}?page=1&limit=5`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `分页测试成功:\n\n` + 
+                        `当前页: ${data.pagination.currentPage}\n` +
+                        `总页数: ${data.pagination.totalPages}\n` +
+                        `每页数量: ${data.pagination.itemsPerPage}\n` +
+                        `总项目数: ${data.pagination.totalItems}\n` +
+                        `有下一页: ${data.pagination.hasNextPage}\n` +
+                        `有上一页: ${data.pagination.hasPrevPage}\n\n` +
+                        `当前页数据:\n${JSON.stringify(data.data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `分页测试失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `分页测试请求失败: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

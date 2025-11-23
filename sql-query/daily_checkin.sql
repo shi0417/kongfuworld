@@ -1,0 +1,1 @@
+select updated_at,t.* from daily_checkin t order by updated_at desc;

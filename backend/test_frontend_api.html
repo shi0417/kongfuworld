@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试章节解锁API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>测试章节解锁API</h1>
+    
+    <div>
+        <button onclick="testChapterStatus()">测试章节1358状态</button>
+        <button onclick="testChapter1361Status()">测试章节1361状态</button>
+        <button onclick="clearResults()">清除结果</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testChapterStatus() {
+            addResult('开始测试章节1358状态...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/chapter-unlock/status/1358/1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult(`✅ API调用成功: isUnlocked=${data.data.isUnlocked}`, 'success');
+                    addResult(`📊 详细信息: 章节${data.data.chapterId}, 小说${data.data.novelTitle}, 解锁方法${data.data.unlockMethod}`, 'info');
+                    
+                    if (data.data.isUnlocked) {
+                        addResult('🎉 章节已解锁，应该显示解锁状态！', 'success');
+                    } else {
+                        addResult('🔒 章节未解锁，显示锁定状态', 'error');
+                    }
+                } else {
+                    addResult(`❌ API调用失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testChapter1361Status() {
+            addResult('开始测试章节1361状态...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/chapter-unlock/status/1361/1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult(`✅ API调用成功: isUnlocked=${data.data.isUnlocked}`, 'success');
+                    addResult(`📊 详细信息: 章节${data.data.chapterId}, 小说${data.data.novelTitle}, 解锁方法${data.data.unlockMethod}`, 'info');
+                    
+                    if (data.data.isUnlocked) {
+                        addResult('🎉 章节已解锁，应该显示解锁状态！', 'success');
+                    } else {
+                        addResult('🔒 章节未解锁，显示锁定状态', 'error');
+                    }
+                } else {
+                    addResult(`❌ API调用失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动测试
+        window.onload = function() {
+            addResult('页面加载完成，可以开始测试', 'info');
+        };
+    </script>
+</body>
+</html>

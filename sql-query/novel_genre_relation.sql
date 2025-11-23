@@ -1,0 +1,1 @@
+select * from novel_genre_relation;

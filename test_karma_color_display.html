@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karma Golden Karma 颜色显示测试</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .demo-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #404040;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+        
+        th {
+            background: #333333;
+            color: #ffffff;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #404040;
+        }
+        
+        td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #404040;
+            color: #cccccc;
+        }
+        
+        tr:hover {
+            background: #2a2a2a;
+        }
+        
+        /* 基于Amount列的颜色区分 */
+        .purchaseRow {
+            background: rgba(33, 150, 243, 0.1) !important; /* 蓝色背景 - 购买数据 */
+        }
+        
+        .spendRow {
+            background: rgba(255, 152, 0, 0.1) !important; /* 橙色背景 - 消耗数据 */
+        }
+        
+        .purchaseRow:hover {
+            background: rgba(33, 150, 243, 0.2) !important;
+        }
+        
+        .spendRow:hover {
+            background: rgba(255, 152, 0, 0.2) !important;
+        }
+        
+        /* 交易类型颜色区分 */
+        .transactionType {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        /* 购买类型 - 蓝色 */
+        .transactionType.purchase {
+            background: #2196F3;
+            color: #ffffff;
+        }
+        
+        /* 消耗类型 - 橙色 */
+        .transactionType.spend {
+            background: #FF9800;
+            color: #ffffff;
+        }
+        
+        /* Golden Karma 数值颜色区分 */
+        .positiveKarma {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+        
+        .negativeKarma {
+            color: #F44336;
+            font-weight: 600;
+        }
+        
+        .feature-list {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .feature-list h3 {
+            color: #ffffff;
+            margin-top: 0;
+        }
+        
+        .feature-list ul {
+            color: #cccccc;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Karma Golden Karma 颜色显示功能</h1>
+        
+        <div class="demo-section">
+            <h2 class="section-title">功能说明</h2>
+            <div class="feature-list">
+                <h3>🎨 Golden Karma 颜色区分</h3>
+                <ul>
+                    <li><strong>Amount = $0 的数据</strong>：Golden Karma显示为红色，前面加"-"号</li>
+                    <li><strong>Amount > $0 的数据</strong>：Golden Karma显示为绿色，前面加"+"号</li>
+                    <li><strong>视觉区分</strong>：通过颜色和符号快速识别购买和消耗</li>
+                    <li><strong>用户体验</strong>：更直观地显示Karma变动情况</li>
+                </ul>
+                
+                <h3>🔧 技术实现</h3>
+                <ul>
+                    <li><strong>条件判断</strong>：根据 `amount_paid` 字段判断是否为购买</li>
+                    <li><strong>样式应用</strong>：使用 `positiveKarma` 和 `negativeKarma` 类</li>
+                    <li><strong>符号添加</strong>：购买显示"+"，消耗显示"-"</li>
+                    <li><strong>颜色区分</strong>：绿色表示增加，红色表示减少</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2 class="section-title">效果演示</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>Golden Karma</th>
+                        <th>Type</th>
+                        <th>Balance Before</th>
+                        <th>Balance After</th>
+                        <th>Time</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 购买数据 (Amount > $0) -->
+                    <tr class="purchaseRow">
+                        <td>$19.99</td>
+                        <td><span class="positiveKarma">+4800</span></td>
+                        <td><span class="transactionType purchase">PURCHASE</span></td>
+                        <td>140625</td>
+                        <td>145425</td>
+                        <td>2025/10/19</td>
+                        <td>购买Popular Pack</td>
+                    </tr>
+                    <tr class="purchaseRow">
+                        <td>$4.99</td>
+                        <td><span class="positiveKarma">+1000</span></td>
+                        <td><span class="transactionType purchase">PURCHASE</span></td>
+                        <td>139625</td>
+                        <td>140625</td>
+                        <td>2025/10/19</td>
+                        <td>购买Starter Pack</td>
+                    </tr>
+                    
+                    <!-- 消耗数据 (Amount = $0) -->
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td><span class="negativeKarma">-33</span></td>
+                        <td><span class="transactionType spend">SPEND</span></td>
+                        <td>139658</td>
+                        <td>139625</td>
+                        <td>2025/10/19</td>
+                        <td>解锁章节:一号大秘 第32章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td><span class="negativeKarma">-54</span></td>
+                        <td><span class="transactionType spend">SPEND</span></td>
+                        <td>139712</td>
+                        <td>139658</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第29章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td><span class="negativeKarma">-61</span></td>
+                        <td><span class="transactionType spend">SPEND</span></td>
+                        <td>139773</td>
+                        <td>139712</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第25章</td>
+                    </tr>
+                    <tr class="spendRow">
+                        <td>$0</td>
+                        <td><span class="negativeKarma">-11</span></td>
+                        <td><span class="transactionType spend">SPEND</span></td>
+                        <td>139784</td>
+                        <td>139773</td>
+                        <td>2025/10/18</td>
+                        <td>解锁章节:一号大秘 第24章</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="demo-section">
+            <h2 class="section-title">实现代码</h2>
+            <div class="feature-list">
+                <h3>🔧 React 组件代码</h3>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 4px; color: #cccccc; overflow-x: auto;">
+{`<td>
+  <span className={isPurchase ? styles.positiveKarma : styles.negativeKarma}>
+    {isPurchase ? '+' : '-'}{transaction.karma_amount}
+  </span>
+</td>`}
+                </pre>
+                
+                <h3>🎨 CSS 样式代码</h3>
+                <pre style="background: #1a1a1a; padding: 15px; border-radius: 4px; color: #cccccc; overflow-x: auto;">
+{`/* Golden Karma 数值颜色区分 */
+.positiveKarma {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.negativeKarma {
+  color: #F44336;
+  font-weight: 600;
+}`}
+                </pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

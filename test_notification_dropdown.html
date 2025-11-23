@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notification Dropdown</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .test-description {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .test-button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background: #1565c0;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #1976d2;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .notification-preview {
+            background: #333;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .notification-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px 20px;
+            border-bottom: 1px solid #444;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .notification-item:hover {
+            background: #3a3a3a;
+        }
+        .notification-content {
+            flex: 1;
+            margin-right: 12px;
+        }
+        .notification-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .notification-message {
+            font-size: 0.85rem;
+            color: #ccc;
+            margin-bottom: 6px;
+        }
+        .notification-time {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        .read-button {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>通知下拉菜单测试</h1>
+        
+        <div class="test-section">
+            <div class="test-title">1. 测试获取通知数据</div>
+            <div class="test-description">测试从API获取unlock和ChapterUpdates&Marketing类型的通知数据</div>
+            <button class="test-button" onclick="testFetchNotifications()">获取通知数据</button>
+            <div id="fetch-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. 测试未读计数</div>
+            <div class="test-description">测试计算未读通知数量的逻辑</div>
+            <button class="test-button" onclick="testUnreadCount()">计算未读数量</button>
+            <div id="count-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. 测试标记已读</div>
+            <div class="test-description">测试标记单个通知为已读的功能</div>
+            <button class="test-button" onclick="testMarkAsRead()">标记已读</button>
+            <div id="mark-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. 通知下拉菜单预览</div>
+            <div class="test-description">模拟通知下拉菜单的显示效果</div>
+            <button class="test-button" onclick="showNotificationPreview()">显示预览</button>
+            <div id="preview-container" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. 测试跳转逻辑</div>
+            <div class="test-description">测试不同类型通知的跳转逻辑</div>
+            <button class="test-button" onclick="testNavigation()">测试跳转</button>
+            <div id="nav-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        let testNotifications = [];
+
+        // 测试获取通知数据
+        async function testFetchNotifications() {
+            const resultDiv = document.getElementById('fetch-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '正在获取通知数据...';
+
+            try {
+                // 模拟用户ID为1
+                const userId = 1;
+                
+                // 获取unlock类型的通知（用于显示）
+                const unlockResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=unlock&page=1&limit=5`);
+                const unlockData = await unlockResponse.json();
+                
+                // 获取chapter_marketing类型的通知（用于显示）
+                const marketingResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=chapter_marketing&page=1&limit=5`);
+                const marketingData = await marketingResponse.json();
+                
+                const displayNotifications = [
+                    ...(unlockData.success ? unlockData.data.notifications : []),
+                    ...(marketingData.success ? marketingData.data.notifications : [])
+                ];
+                
+                // 按时间排序
+                displayNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                
+                testNotifications = displayNotifications.slice(0, 10);
+                
+                // 获取所有未读通知的总数量
+                const unlockAllResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=unlock&page=1&limit=1000`);
+                const unlockAllData = await unlockAllResponse.json();
+                
+                const marketingAllResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=chapter_marketing&page=1&limit=1000`);
+                const marketingAllData = await marketingAllResponse.json();
+                
+                const allNotifications = [
+                    ...(unlockAllData.success ? unlockAllData.data.notifications : []),
+                    ...(marketingAllData.success ? marketingAllData.data.notifications : [])
+                ];
+                
+                const totalUnread = allNotifications.filter(n => {
+                    if (n.isTimeUnlock) {
+                        return n.readed !== 1;
+                    } else {
+                        return n.is_read !== 1;
+                    }
+                }).length;
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>成功获取通知数据！</strong><br>
+                    显示的通知：${testNotifications.length} 条<br>
+                    所有通知总数：${allNotifications.length} 条<br>
+                    <strong>所有未读通知总数：${totalUnread} 条</strong><br>
+                    <br>
+                    <strong>显示的通知列表：</strong><br>
+                    <pre>${JSON.stringify(testNotifications, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>获取通知失败：</strong><br>${error.message}`;
+            }
+        }
+
+        // 测试未读计数
+        async function testUnreadCount() {
+            const resultDiv = document.getElementById('count-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '正在计算未读数量...';
+            
+            try {
+                const userId = 1;
+                
+                // 获取所有通知数据来计算总未读数量
+                const unlockAllResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=unlock&page=1&limit=1000`);
+                const unlockAllData = await unlockAllResponse.json();
+                
+                const marketingAllResponse = await fetch(`${API_BASE}/user/${userId}/notifications?type=chapter_marketing&page=1&limit=1000`);
+                const marketingAllData = await marketingAllResponse.json();
+                
+                const allNotifications = [
+                    ...(unlockAllData.success ? unlockAllData.data.notifications : []),
+                    ...(marketingAllData.success ? marketingAllData.data.notifications : [])
+                ];
+                
+                const totalUnread = allNotifications.filter(n => {
+                    if (n.isTimeUnlock) {
+                        return n.readed !== 1;
+                    } else {
+                        return n.is_read !== 1;
+                    }
+                });
+                
+                const displayUnread = testNotifications.filter(n => {
+                    if (n.isTimeUnlock) {
+                        return n.readed !== 1;
+                    } else {
+                        return n.is_read !== 1;
+                    }
+                });
+
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>未读通知统计对比：</strong><br>
+                    <br>
+                    <strong>下拉列表中的通知：</strong><br>
+                    - 总通知数：${testNotifications.length}<br>
+                    - 未读通知数：${displayUnread.length}<br>
+                    - 已读通知数：${testNotifications.length - displayUnread.length}<br>
+                    <br>
+                    <strong>所有通知（响铃数字显示）：</strong><br>
+                    - 总通知数：${allNotifications.length}<br>
+                    - <strong>未读通知总数：${totalUnread.length}</strong><br>
+                    - 已读通知数：${allNotifications.length - totalUnread.length}<br>
+                    <br>
+                    <strong>响铃上显示的数字应该是：${totalUnread.length}</strong><br>
+                    <br>
+                    <strong>所有未读通知详情：</strong><br>
+                    ${totalUnread.map(n => `- ${n.novel_title}: ${n.message}`).join('<br>')}
+                `;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>计算未读数量失败：</strong><br>${error.message}`;
+            }
+        }
+
+        // 测试标记已读
+        async function testMarkAsRead() {
+            const resultDiv = document.getElementById('mark-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '正在测试标记已读...';
+
+            if (testNotifications.length === 0) {
+                resultDiv.innerHTML = '请先获取通知数据';
+                return;
+            }
+
+            try {
+                const userId = 1;
+                const notificationId = testNotifications[0].id;
+                
+                const response = await fetch(`${API_BASE}/user/${userId}/notifications/${notificationId}/read`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <strong>标记已读成功！</strong><br>
+                        通知ID：${notificationId}<br>
+                        小说标题：${testNotifications[0].novel_title}<br>
+                        消息：${testNotifications[0].message}
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>标记已读失败：</strong><br>${result.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>标记已读失败：</strong><br>${error.message}`;
+            }
+        }
+
+        // 显示通知预览
+        function showNotificationPreview() {
+            const container = document.getElementById('preview-container');
+            container.style.display = 'block';
+            
+            if (testNotifications.length === 0) {
+                container.innerHTML = '<div class="result">请先获取通知数据</div>';
+                return;
+            }
+
+            const unreadCount = testNotifications.filter(n => {
+                if (n.isTimeUnlock) {
+                    return n.readed !== 1;
+                } else {
+                    return n.is_read !== 1;
+                }
+            }).length;
+
+            let html = `
+                <div class="notification-preview">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #444; background: #2a2a2a;">
+                        <span style="font-weight: 600; font-size: 1rem;">Notifications ${unreadCount}</span>
+                        <button style="background: #1976d2; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer;">VIEW ALL</button>
+                    </div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+            `;
+
+            testNotifications.forEach(notification => {
+                const isRead = notification.isTimeUnlock ? notification.readed === 1 : notification.is_read === 1;
+                html += `
+                    <div class="notification-item" style="${isRead ? 'opacity: 0.7; background: #2a2a2a;' : ''}" onclick="handleNotificationClick('${notification.id}', ${notification.isTimeUnlock}, ${notification.novel_id}, ${notification.chapter_id})">
+                        <div class="notification-content">
+                            <div class="notification-title">${notification.novel_title}</div>
+                            <div class="notification-message">${notification.message}</div>
+                            <div class="notification-time">${notification.timeAgo}</div>
+                        </div>
+                        ${!isRead ? '<button class="read-button" onclick="event.stopPropagation(); markNotificationAsRead(\'' + notification.id + '\')">READ</button>' : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div style="padding: 12px 20px; border-top: 1px solid #444; background: #2a2a2a;">
+                        <button style="background: transparent; color: #1976d2; border: none; font-size: 0.85rem; cursor: pointer; text-decoration: underline;">Mark all as read</button>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 处理通知点击
+        function handleNotificationClick(notificationId, isTimeUnlock, novelId, chapterId) {
+            let url;
+            if (isTimeUnlock) {
+                // Unlock类型：跳转到章节页
+                url = `/novel/${novelId}/chapter/${chapterId}`;
+            } else {
+                // ChapterUpdates&Marketing类型：跳转到小说详情页
+                url = `/book/${novelId}`;
+            }
+            
+            alert(`点击通知 ${notificationId}，将跳转到：${url}`);
+        }
+
+        // 标记通知为已读
+        async function markNotificationAsRead(notificationId) {
+            try {
+                const userId = 1;
+                const response = await fetch(`${API_BASE}/user/${userId}/notifications/${notificationId}/read`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert(`通知 ${notificationId} 已标记为已读`);
+                    // 重新显示预览
+                    showNotificationPreview();
+                } else {
+                    alert(`标记失败：${result.message}`);
+                }
+            } catch (error) {
+                alert(`标记失败：${error.message}`);
+            }
+        }
+
+        // 测试跳转逻辑
+        function testNavigation() {
+            const resultDiv = document.getElementById('nav-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            if (testNotifications.length === 0) {
+                resultDiv.innerHTML = '请先获取通知数据';
+                return;
+            }
+
+            let html = '<strong>跳转逻辑测试：</strong><br><br>';
+            
+            testNotifications.forEach((notification, index) => {
+                let url;
+                let type;
+                
+                if (notification.isTimeUnlock) {
+                    // Unlock类型：跳转到章节页
+                    url = `/novel/${notification.novel_id}/chapter/${notification.chapter_id}`;
+                    type = 'Unlock';
+                } else {
+                    // ChapterUpdates&Marketing类型：跳转到小说详情页
+                    url = `/book/${notification.novel_id}`;
+                    type = 'ChapterUpdates&Marketing';
+                }
+                
+                html += `
+                    <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>通知 ${index + 1}:</strong><br>
+                        类型: ${type}<br>
+                        小说: ${notification.novel_title}<br>
+                        跳转URL: <code>${url}</code><br>
+                        消息: ${notification.message}
+                    </div>
+                `;
+            });
+
+            resultDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

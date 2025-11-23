@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test NavBar Layout Changes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .test-description {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .test-button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .test-button:hover {
+            background: #1565c0;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #1976d2;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        .layout-preview {
+            background: #222;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .layout-item {
+            display: inline-block;
+            margin-right: 20px;
+            padding: 5px 10px;
+            background: #333;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .layout-item.highlight {
+            background: #1976d2;
+        }
+        .layout-item.search {
+            background: #444;
+            border: 1px solid #666;
+        }
+        .responsive-test {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .screen-size {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .screen-size h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .mock-navbar {
+            background: #222;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .mock-navbar.desktop {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mock-navbar.mobile {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .mock-item {
+            padding: 5px 8px;
+            background: #333;
+            border-radius: 3px;
+            margin: 2px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>导航栏布局修改测试</h1>
+        
+        <div class="test-section">
+            <div class="test-title">1. 新布局预览</div>
+            <div class="test-description">查看修改后的导航栏布局结构</div>
+            
+            <div class="layout-preview">
+                <div style="margin-bottom: 10px;">
+                    <strong>桌面端布局：</strong>
+                </div>
+                <div>
+                    <span class="layout-item">KongFuWorld</span>
+                    <span class="layout-item">Series</span>
+                    <span class="layout-item">Bookmarks</span>
+                    <span class="layout-item">Forum</span>
+                    <span class="layout-item">Resources ▼</span>
+                    <span class="layout-item highlight">Writers' Zone</span>
+                    <span class="layout-item search">🔍 Search</span>
+                    <span class="layout-item">💎</span>
+                    <span class="layout-item">🔔 18</span>
+                    <span class="layout-item">👤 shi yi xian</span>
+                </div>
+            </div>
+            
+            <div class="result success">
+                <strong>布局说明：</strong><br>
+                • 左侧：Logo + 导航链接（包括新增的"Writers' Zone"）<br>
+                • 中间：搜索栏（移动到右侧区域）<br>
+                • 右侧：钻石按钮 + 通知按钮 + 用户头像
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. 响应式设计测试</div>
+            <div class="test-description">测试不同屏幕尺寸下的布局表现</div>
+            
+            <div class="responsive-test">
+                <div class="screen-size">
+                    <h4>桌面端 (>1024px)</h4>
+                    <div class="mock-navbar desktop">
+                        <div>
+                            <span class="mock-item">KongFuWorld</span>
+                            <span class="mock-item">Series</span>
+                            <span class="mock-item">Bookmarks</span>
+                            <span class="mock-item">Forum</span>
+                            <span class="mock-item">Resources</span>
+                            <span class="mock-item">Writers' Zone</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">🔍 Search</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">💎</span>
+                            <span class="mock-item">🔔</span>
+                            <span class="mock-item">👤</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="screen-size">
+                    <h4>平板端 (768px-1024px)</h4>
+                    <div class="mock-navbar desktop">
+                        <div>
+                            <span class="mock-item">KongFuWorld</span>
+                            <span class="mock-item">Series</span>
+                            <span class="mock-item">Bookmarks</span>
+                            <span class="mock-item">Forum</span>
+                            <span class="mock-item">Resources</span>
+                            <span class="mock-item">Writers' Zone</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">🔍 Search</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">💎</span>
+                            <span class="mock-item">🔔</span>
+                            <span class="mock-item">👤</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="screen-size">
+                    <h4>移动端 (<768px)</h4>
+                    <div class="mock-navbar mobile">
+                        <div>
+                            <span class="mock-item">💎</span>
+                            <span class="mock-item">🔔</span>
+                            <span class="mock-item">👤</span>
+                            <span class="mock-item">KongFuWorld</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">Series</span>
+                            <span class="mock-item">Bookmarks</span>
+                            <span class="mock-item">Forum</span>
+                            <span class="mock-item">Resources</span>
+                            <span class="mock-item">Writers' Zone</span>
+                        </div>
+                        <div>
+                            <span class="mock-item">🔍 Search</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. 功能测试</div>
+            <div class="test-description">测试新添加的"Writers' Zone"按钮功能</div>
+            
+            <a href="http://localhost:3000" class="test-button" target="_blank">访问首页测试布局</a>
+            <a href="http://localhost:3000/writers-zone" class="test-button" target="_blank">测试Writers' Zone页面</a>
+            
+            <div class="result">
+                <strong>测试步骤：</strong><br>
+                1. 访问首页查看新的导航栏布局<br>
+                2. 点击"Writers' Zone"按钮测试跳转功能<br>
+                3. 测试搜索栏在右侧的显示效果<br>
+                4. 调整浏览器窗口大小测试响应式设计
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. CSS样式说明</div>
+            <div class="test-description">新增和修改的CSS样式</div>
+            
+            <div class="result">
+                <strong>新增样式：</strong><br>
+                • <code>.searchContainerRight</code> - 右侧搜索栏容器<br>
+                • 响应式断点更新 - 支持新的布局结构<br>
+                <br>
+                <strong>修改内容：</strong><br>
+                • 保留原有的 <code>.searchContainer</code> 用于兼容性<br>
+                • 更新移动端响应式规则<br>
+                • 调整搜索栏宽度和位置
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. 注意事项</div>
+            <div class="test-description">使用新布局时需要注意的事项</div>
+            
+            <div class="result warning">
+                <strong>重要提醒：</strong><br>
+                1. <strong>Writers' Zone页面：</strong> 需要创建对应的路由和页面组件<br>
+                2. <strong>搜索功能：</strong> 搜索栏位置改变但功能保持不变<br>
+                3. <strong>响应式设计：</strong> 在移动设备上布局会自动调整<br>
+                4. <strong>浏览器兼容性：</strong> 确保在不同浏览器中正常显示
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 添加一些交互功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 模拟点击测试
+            const testButtons = document.querySelectorAll('.test-button');
+            testButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    console.log('测试按钮被点击:', this.textContent);
+                });
+            });
+            
+            // 显示当前屏幕尺寸
+            function updateScreenSize() {
+                const width = window.innerWidth;
+                let size = '桌面端';
+                if (width < 768) {
+                    size = '移动端';
+                } else if (width < 1024) {
+                    size = '平板端';
+                }
+                console.log('当前屏幕尺寸:', width + 'px (' + size + ')');
+            }
+            
+            updateScreenSize();
+            window.addEventListener('resize', updateScreenSize);
+        });
+    </script>
+</body>
+</html>

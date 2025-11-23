@@ -1,0 +1,1 @@
+select * from reading_log order by id desc;

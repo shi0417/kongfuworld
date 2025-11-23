@@ -1,0 +1,1 @@
+select * from key_transaction order by id desc;

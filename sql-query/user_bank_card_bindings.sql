@@ -1,0 +1,1 @@
+select * from user_bank_card_bindings;

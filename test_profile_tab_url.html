@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Profile Tab URL Parameters</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .test-description {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .test-button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .test-button:hover {
+            background: #1565c0;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #1976d2;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .url-example {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .current-url {
+            background: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            border-left: 4px solid #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Profile页面URL参数测试</h1>
+        
+        <div class="current-url">
+            <strong>当前URL:</strong> <span id="current-url"></span>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">1. 测试URL参数处理</div>
+            <div class="test-description">测试Profile页面是否正确读取URL参数并设置对应的选项卡</div>
+            
+            <h4>测试链接：</h4>
+            <a href="http://localhost:3000/profile" class="test-button" target="_blank">默认选项卡 (profile)</a>
+            <a href="http://localhost:3000/profile?tab=notifications" class="test-button" target="_blank">通知选项卡 (notifications)</a>
+            <a href="http://localhost:3000/profile?tab=settings" class="test-button" target="_blank">设置选项卡 (settings)</a>
+            
+            <div class="result">
+                <strong>测试步骤：</strong><br>
+                1. 点击上面的链接打开Profile页面<br>
+                2. 检查页面是否正确显示对应的选项卡<br>
+                3. 特别测试"通知选项卡"链接，确认页面切换到Notifications选项卡
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. 测试通知下拉菜单的"VIEW ALL"按钮</div>
+            <div class="test-description">测试点击通知下拉菜单的"VIEW ALL"按钮后是否正确跳转到Notifications选项卡</div>
+            
+            <div class="result">
+                <strong>测试步骤：</strong><br>
+                1. 登录后访问 <code>http://localhost:3000/profile</code><br>
+                2. 点击导航栏的响铃按钮打开通知下拉菜单<br>
+                3. 点击"VIEW ALL"按钮<br>
+                4. 检查URL是否变为 <code>http://localhost:3000/profile?tab=notifications</code><br>
+                5. 检查页面是否正确切换到Notifications选项卡
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. URL参数格式说明</div>
+            <div class="test-description">Profile页面支持的URL参数格式</div>
+            
+            <div class="url-example">
+                <strong>支持的URL格式：</strong><br>
+                • <code>http://localhost:3000/profile</code> - 默认显示Edit Profile选项卡<br>
+                • <code>http://localhost:3000/profile?tab=profile</code> - 显示Edit Profile选项卡<br>
+                • <code>http://localhost:3000/profile?tab=notifications</code> - 显示Notifications选项卡<br>
+                • <code>http://localhost:3000/profile?tab=settings</code> - 显示Settings选项卡
+            </div>
+            
+            <div class="result">
+                <strong>实现原理：</strong><br>
+                1. 使用 <code>useLocation()</code> hook获取当前URL<br>
+                2. 使用 <code>URLSearchParams</code> 解析查询参数<br>
+                3. 根据 <code>tab</code> 参数设置对应的选项卡状态<br>
+                4. 当URL变化时自动更新选项卡显示
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. 常见问题排查</div>
+            <div class="test-description">如果URL参数处理不工作，可能的原因和解决方案</div>
+            
+            <div class="result">
+                <strong>可能的问题：</strong><br>
+                1. <strong>React Router版本问题：</strong> 确保使用正确的React Router版本<br>
+                2. <strong>useLocation hook未导入：</strong> 检查是否正确导入了useLocation<br>
+                3. <strong>useEffect依赖项：</strong> 确保useEffect的依赖项包含location.search<br>
+                4. <strong>选项卡状态初始化：</strong> 确保选项卡状态正确初始化<br>
+                5. <strong>浏览器缓存：</strong> 清除浏览器缓存后重新测试
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示当前URL
+        document.getElementById('current-url').textContent = window.location.href;
+        
+        // 监听URL变化
+        window.addEventListener('popstate', function() {
+            document.getElementById('current-url').textContent = window.location.href;
+        });
+    </script>
+</body>
+</html>
