@@ -1,0 +1,361 @@
+/* 章节展示组件样式 - WuxiaWorld风格 */
+.chapterDisplay {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  background: #0f1419;
+  min-height: 100vh;
+}
+
+/* 加载状态 - WuxiaWorld样式 */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #aaa;
+  background: #0f1419;
+  min-height: 400px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #333;
+  border-top: 3px solid #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 最新章节信息 - 重新设计排版 */
+.latestChapter {
+  background: #1a1f2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.latestChapter:hover {
+  background: #23272F;
+  border-color: #444;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.latestChapterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.latestLabel {
+  color: #2196f3;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.latestChapterDate {
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.latestChapterContent {
+  display: flex;
+  align-items: flex-start;
+}
+
+.latestChapterTitle {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  flex: 1;
+}
+
+/* 排序选项 - WuxiaWorld样式 */
+.sortOptions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 0;
+}
+
+.sortSelect {
+  background: #1a1f2e;
+  border: 1px solid #333;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sortSelect:hover {
+  background: #23272F;
+  border-color: #444;
+}
+
+.sortSelect:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* 卷列表 - WuxiaWorld样式 */
+.volumesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.volumeCard {
+  background: #1a1f2e;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  border: 1px solid #333;
+  margin-bottom: 8px;
+}
+
+.volumeCard:hover {
+  background: #23272F;
+  border-color: #444;
+}
+
+/* 卷卡片头部 - WuxiaWorld样式 */
+.volumeCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #333;
+}
+
+.volumeCardHeader:hover {
+  background: #23272F;
+}
+
+.volumeCardNumber {
+  background: #2196f3;
+  color: #fff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 20px;
+  min-width: 50px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.volumeCardContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.volumeCardTitle {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.volumeCardRange {
+  color: #aaa;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.volumeCardStats {
+  color: #666;
+  font-size: 12px;
+  font-weight: 500;
+  background: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.volumeCardExpand {
+  color: #aaa;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+  padding: 8px;
+}
+
+.volumeCardHeader:hover .volumeCardExpand {
+  transform: scale(1.1);
+  color: #2196f3;
+}
+
+/* 卷内章节列表 - WuxiaWorld样式 */
+.volumeChaptersList {
+  background: #1a1f2e;
+  border-top: 1px solid #333;
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.volumeChapterItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #23272F;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid #333;
+  margin-bottom: 4px;
+}
+
+.volumeChapterItem:hover {
+  background: #2a2f3a;
+  border-color: #444;
+  transform: translateX(2px);
+}
+
+.volumeChapterInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.volumeChapterNumber {
+  color: #2196f3;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.volumeChapterTitle {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.volumeChapterMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.volumeChapterDate {
+  color: #666;
+  font-size: 12px;
+}
+
+.volumeChapterStatus {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .chapterDisplay {
+    padding: 0 16px;
+  }
+  
+  .latestChapter {
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  
+  .latestChapterTitle {
+    font-size: 16px;
+  }
+  
+  .volumesList {
+    gap: 12px;
+  }
+  
+  .volumeCardHeader {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+  
+  .volumeCardNumber {
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+  
+  .volumeCardTitle {
+    font-size: 16px;
+  }
+  
+  .volumeChaptersList {
+    grid-template-columns: 1fr;
+    padding: 12px 16px;
+  }
+  
+  .volumeChapterItem {
+    padding: 10px 12px;
+  }
+  
+  .volumeChapterTitle {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .latestChapter {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  
+  .latestChapterHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .latestChapterTitle {
+    font-size: 15px;
+  }
+  
+  .volumeCardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .volumeCardStats {
+    align-self: flex-end;
+  }
+  
+  .volumeChapterItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .volumeChapterMeta {
+    align-self: flex-end;
+  }
+}

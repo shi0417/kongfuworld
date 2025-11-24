@@ -1,0 +1,340 @@
+.reviewSection {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid #333;
+}
+
+.sectionTitle {
+  font-weight: 700;
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: #fff;
+}
+
+.statsContainer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.statsItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statsValue {
+  color: #4caf50;
+}
+
+.statsLabel {
+  font-weight: 400;
+  font-size: 20px;
+  color: #fff;
+}
+
+.reviewFormContainer {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.reviewForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formHeader {
+  text-align: right;
+  font-size: 15px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.formTitle {
+  color: #aaa;
+}
+
+.formSubtitle {
+  text-align: center;
+  font-weight: 600;
+  font-size: 20px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.recommendButtons {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.recommendButton {
+  background: none;
+  border: none;
+  font-size: 40px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.recommendButton:hover {
+  color: #fff;
+}
+
+.recommendButton.recommended {
+  color: #4caf50;
+}
+
+.recommendButton.notRecommended {
+  color: #d32f2f;
+}
+
+.ratingContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.ratingSelect {
+  background: #18191A;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.reviewTextarea {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 8px;
+  border: none;
+  background: #18191A;
+  color: #fff;
+  font-size: 16px;
+  padding: 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.reviewTextarea:focus {
+  outline: none;
+  border: 1px solid #2196f3;
+}
+
+.formFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.wordCount {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.errorText {
+  color: #d32f2f;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.cancelButton {
+  background: none;
+  border: 1px solid #2196f3;
+  color: #2196f3;
+  border-radius: 20px;
+  padding: 6px 22px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background: #2196f3;
+  color: #fff;
+}
+
+.submitButton {
+  background: #444;
+  border: none;
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 22px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submitButton:not(:disabled):hover {
+  background: #2196f3;
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.errorMessage {
+  background: #d32f2f;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.reviewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.reviewItem {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.userAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.username {
+  font-weight: 700;
+  color: #fff;
+}
+
+.vipBadge {
+  background: #a259f7;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+.reviewDate {
+  color: #aaa;
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.recommendedBadge {
+  color: #4caf50;
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.reviewContent {
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.reviewActions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  color: #aaa;
+  font-size: 15px;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.actionButton:hover {
+  color: #fff;
+}
+
+.noReviews {
+  text-align: center;
+  color: #aaa;
+  font-size: 16px;
+  padding: 40px;
+  background: #23272F;
+  border-radius: 16px;
+}
+
+.loading {
+  text-align: center;
+  color: #aaa;
+  padding: 40px;
+  font-size: 16px;
+}
+
+.loginPrompt {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.loginMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loginMessage p {
+  color: #aaa;
+  font-size: 16px;
+  margin: 0;
+}
+
+.loginButton {
+  background: #d32f2f;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 32px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.loginButton:hover {
+  background: #b71c1c;
+}

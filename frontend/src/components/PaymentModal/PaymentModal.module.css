@@ -1,0 +1,301 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.title {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: #333;
+  color: #fff;
+}
+
+.subscriptionDetails {
+  margin-bottom: 24px;
+}
+
+.planText {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.billingText {
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.termsLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.checkbox {
+  margin: 0;
+  accent-color: #2196f3;
+}
+
+.refundLink {
+  color: #2196f3;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.refundLink:hover {
+  color: #1976d2;
+}
+
+.orderSummary {
+  background-color: #23272F;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.summaryTitle {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.itemText {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.itemPrice {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid #333;
+}
+
+.totalLabel {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.totalPrice {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.paymentMethods {
+  margin-bottom: 24px;
+}
+
+.paymentTitle {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.paymentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.paymentOption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #23272F;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.paymentOption:hover {
+  background-color: #2a2f3a;
+}
+
+.paymentOption.selected {
+  border-color: #2196f3;
+  background-color: #1e3a5f;
+}
+
+.paymentInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.paymentLogo {
+  color: #2196f3;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.paymentText {
+  color: #fff;
+  font-size: 14px;
+}
+
+.radioButton {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.radioButton.checked {
+  border-color: #2196f3;
+  background-color: #2196f3;
+}
+
+.checkmark {
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.addCardLink {
+  color: #2196f3;
+  font-size: 14px;
+  text-decoration: none;
+  margin-bottom: 8px;
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.addCardLink:hover {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+.securityText {
+  color: #aaa;
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancelButton {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  background-color: #444;
+}
+
+.confirmButton {
+  background-color: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirmButton:hover:not(.disabled) {
+  background-color: #1976d2;
+}
+
+.confirmButton.disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}

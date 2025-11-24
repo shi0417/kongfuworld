@@ -1,0 +1,270 @@
+import React from 'react';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import FacebookLogin from 'react-facebook-login';
+import AppleSignin from 'react-apple-signin-auth';
+import styles from './SocialLogin.module.css';
+
+interface SocialLoginProps {
+  onGoogleSuccess?: (response: any) => void;
+  onGoogleError?: (error: any) => void;
+  onFacebookSuccess?: (response: any) => void;
+  onFacebookFailure?: (error: any) => void;
+  onAppleSuccess?: (response: any) => void;
+  onAppleError?: (error: any) => void;
+}
+
+const SocialLogin: React.FC<SocialLoginProps> = ({
+  onGoogleSuccess,
+  onGoogleError,
+  onFacebookSuccess,
+  onFacebookFailure,
+  onAppleSuccess,
+  onAppleError
+}) => {
+  // Google OAuth配置
+  const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '804347936135-h7t7lvcfobidto0vma40jfq30f6jgp08.apps.googleusercontent.com';
+  
+  // Facebook OAuth配置
+  const FACEBOOK_APP_ID = process.env.REACT_APP_FACEBOOK_APP_ID || '989475010031730';
+  
+  // 检查Facebook应用状态
+  const checkFacebookAppStatus = () => {
+    console.log('Facebook App ID:', FACEBOOK_APP_ID);
+    console.log('当前域名:', window.location.hostname);
+    console.log('当前URL:', window.location.href);
+    
+    // 如果应用被禁用，显示提示
+    if (FACEBOOK_APP_ID === '789137810752485') {
+      console.warn('⚠️ Facebook应用可能被禁用，请检查Facebook开发者控制台');
+    }
+  };
+  
+  
+  // Apple OAuth配置
+  const APPLE_CLIENT_ID = process.env.REACT_APP_APPLE_CLIENT_ID || 'your-apple-client-id';
+
+  const handleGoogleSuccess = (credentialResponse: any) => {
+    console.log('Google登录成功:', credentialResponse);
+    if (onGoogleSuccess) {
+      onGoogleSuccess(credentialResponse);
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.log('Google登录失败');
+    if (onGoogleError) {
+      onGoogleError('Google login failed. Please configure a valid Google Client ID.');
+    }
+  };
+
+  const handleFacebookResponse = (response: any) => {
+    console.log('Facebook登录响应:', response);
+    console.log('Facebook App ID:', FACEBOOK_APP_ID);
+    console.log('Current URL:', window.location.href);
+    
+    if (response.accessToken && onFacebookSuccess) {
+      console.log('Facebook登录成功，访问令牌:', response.accessToken);
+      onFacebookSuccess(response);
+    } else {
+      console.log('Facebook登录失败，响应:', response);
+      if (onFacebookFailure) {
+        onFacebookFailure(response);
+      }
+    }
+  };
+
+  const handleFacebookFailure = (response: any) => {
+    console.log('Facebook登录失败:', response);
+    console.error('Facebook登录错误详情:', {
+      error: response,
+      appId: FACEBOOK_APP_ID,
+      currentUrl: window.location.href,
+      userAgent: navigator.userAgent
+    });
+    if (onFacebookFailure) {
+      onFacebookFailure(response);
+    }
+  };
+
+  const handleAppleResponse = (response: any) => {
+    console.log('Apple登录成功:', response);
+    if (onAppleSuccess) {
+      onAppleSuccess(response);
+    }
+  };
+
+  const handleAppleError = (error: any) => {
+    console.log('Apple登录失败:', error);
+    if (onAppleError) {
+      onAppleError(error);
+    }
+  };
+
+  // 检查是否为开发环境
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isGoogleConfigured = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('your-google-client-id');
+  const isFacebookConfigured = FACEBOOK_APP_ID && !FACEBOOK_APP_ID.includes('your-facebook-app-id');
+
+  return (
+    <div className={styles.socialLogin}>
+      <div className={styles.separator}>
+        <span className={styles.separatorText}>Or</span>
+      </div>
+      
+      {/* 开发环境提示 */}
+      {isDevelopment && !isGoogleConfigured && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '8px 12px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          color: '#856404'
+        }}>
+          ⚠️ Google login requires a valid Client ID. Configure REACT_APP_GOOGLE_CLIENT_ID in your .env file.
+        </div>
+      )}
+      
+      {isDevelopment && !isFacebookConfigured && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '8px 12px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          color: '#856404'
+        }}>
+          ⚠️ Facebook login requires proper domain configuration. Check Facebook App settings and network connection.
+        </div>
+      )}
+      
+      {isDevelopment && FACEBOOK_APP_ID === '989475010031730' && (
+        <div style={{
+          background: '#d4edda',
+          border: '1px solid #c3e6cb',
+          borderRadius: '4px',
+          padding: '8px 12px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          color: '#155724'
+        }}>
+          ✅ 使用新的测试应用！App ID: 989475010031730
+        </div>
+      )}
+      
+      <div className={styles.socialButtons}>
+        {/* Google登录 */}
+        <div className={styles.socialButton}>
+          {isGoogleConfigured ? (
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              useOneTap={false}
+              theme="outline"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
+              logo_alignment="left"
+              width="300"
+            />
+          ) : (
+            <button
+              onClick={() => alert('Please configure Google Client ID in .env file')}
+              style={{
+                width: '100%',
+                height: '48px',
+                backgroundColor: '#4285f4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" style={{ marginRight: '8px' }}>
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Continue with Google
+            </button>
+          )}
+        </div>
+
+        {/* Facebook登录 */}
+        <div className={styles.socialButton}>
+          <FacebookLogin
+            appId={FACEBOOK_APP_ID}
+            fields="name,email,picture"
+            callback={handleFacebookResponse}
+            onFailure={handleFacebookFailure}
+            cssClass={styles.facebookButton}
+            textButton="Continue with Facebook"
+            size="medium"
+            language="en_US"
+            isDisabled={false}
+            scope="email,public_profile"
+            returnScopes={true}
+            redirectUri={window.location.origin}
+          />
+        </div>
+
+        {/* Apple登录 */}
+        <div className={styles.socialButton}>
+          <AppleSignin
+            authOptions={{
+              clientId: APPLE_CLIENT_ID,
+              scope: 'name email',
+              redirectURI: window.location.origin,
+              state: 'apple',
+              nonce: 'nonce',
+              usePopup: true
+            }}
+            onSuccess={handleAppleResponse}
+            onError={handleAppleError}
+            render={(props) => (
+              <button
+                {...props}
+                className={styles.appleButton}
+                style={{
+                  width: '100%',
+                  height: '48px',
+                  backgroundColor: '#000000',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  style={{ marginRight: '8px' }}
+                >
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+                Continue with Apple
+              </button>
+            )}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SocialLogin;

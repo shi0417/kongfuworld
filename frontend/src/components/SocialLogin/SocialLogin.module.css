@@ -1,0 +1,105 @@
+.socialLogin {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.separator {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.separator::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #e0e0e0;
+}
+
+.separatorText {
+  background-color: white;
+  padding: 0 16px;
+  color: #666;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.socialButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.socialButton {
+  width: 100%;
+}
+
+.facebookButton {
+  width: 100% !important;
+  height: 48px !important;
+  background-color: #1877F2 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.facebookButton:hover {
+  background-color: #166FE5 !important;
+}
+
+.appleButton {
+  width: 100%;
+  height: 48px;
+  background-color: #000000;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.appleButton:hover {
+  background-color: #333333;
+}
+
+/* Google按钮样式覆盖 */
+.socialButton :global(.google-login-button) {
+  width: 100% !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .socialButtons {
+    gap: 10px;
+  }
+  
+  .socialButton {
+    height: 44px;
+  }
+  
+  .facebookButton,
+  .appleButton {
+    height: 44px !important;
+    font-size: 14px !important;
+  }
+}

@@ -1,0 +1,151 @@
+/* Billing Tab Content Styles */
+.billingContent {
+  width: 100%;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #cccccc;
+  margin-bottom: 40px;
+}
+
+.billingSections {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.section {
+  background-color: #2a2a2a;
+  border-radius: 12px;
+  padding: 30px;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+.billingTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.billingTable th {
+  background-color: #333;
+  color: #ffffff;
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid #444;
+}
+
+.billingTable td {
+  padding: 15px 12px;
+  border-bottom: 1px solid #333;
+  color: #cccccc;
+}
+
+.emptyRow {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 40px;
+}
+
+.paymentMethods {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.paymentMethod {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background-color: #333;
+  border-radius: 8px;
+  border: 1px solid #444;
+}
+
+.methodIcon {
+  font-size: 2rem;
+}
+
+.methodInfo {
+  flex: 1;
+}
+
+.methodName {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 5px;
+}
+
+.methodDetails {
+  font-size: 0.9rem;
+  color: #cccccc;
+}
+
+.methodButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.methodButton:hover {
+  background-color: #0056b3;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .section {
+    padding: 20px;
+  }
+  
+  .paymentMethod {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .methodButton {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .billingTable {
+    font-size: 0.8rem;
+  }
+  
+  .billingTable th,
+  .billingTable td {
+    padding: 10px 8px;
+  }
+}

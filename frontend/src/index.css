@@ -1,0 +1,78 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px; /* 增加基础字体大小 */
+  line-height: 1.6; /* 增加行高提升可读性 */
+}
+
+/* 全局字体大小调整 */
+* {
+  font-size: inherit;
+}
+
+/* 标题字体大小调整 - 移除!important避免覆盖组件样式 */
+h1 {
+  font-size: 2.5rem; /* 40px */
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2rem; /* 32px */
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.75rem; /* 28px */
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 500;
+}
+
+h5 {
+  font-size: 1.25rem; /* 20px */
+  font-weight: 500;
+}
+
+h6 {
+  font-size: 1.125rem; /* 18px */
+  font-weight: 500;
+}
+
+/* 段落字体调整 - 移除!important */
+p {
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.7;
+}
+
+/* 按钮字体调整 - 移除!important */
+button {
+  font-size: 1rem; /* 16px */
+  font-weight: 500;
+}
+
+/* 输入框字体调整 - 移除!important */
+input, textarea, select {
+  font-size: 1rem; /* 16px */
+}
+
+/* 小字体元素调整 - 移除!important */
+small, .small {
+  font-size: 0.875rem; /* 14px */
+}
+
+/* 超小字体调整 - 移除!important */
+.smaller {
+  font-size: 0.75rem; /* 12px */
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

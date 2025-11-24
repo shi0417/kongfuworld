@@ -1,0 +1,58 @@
+.reportButtonContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.menuButton {
+  background: transparent;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.menuButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.menuIcon {
+  display: block;
+  transform: rotate(90deg);
+  font-weight: bold;
+}
+
+.menuDropdown {
+  /* position 和位置由内联样式控制（fixed定位） */
+  background: #2a2f38;
+  border: 1px solid #404040;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.reportMenuItem {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: #e0e0e0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.reportMenuItem:hover {
+  background: #333842;
+  color: #fff;
+}
+

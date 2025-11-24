@@ -1,0 +1,97 @@
+/* AuthorIncome 模块样式 */
+
+.tabContent {
+  padding: 20px;
+}
+
+.tabHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tabHeader h2 {
+  margin: 0;
+}
+
+.dateFilter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dateFilter input,
+.dateFilter select {
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.searchButton {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.searchButton:hover {
+  background: #0056b3;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.paymentTable {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.paymentTable h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.paymentTable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.paymentTable th,
+.paymentTable td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.paymentTable th {
+  background: #f5f5f5;
+  font-weight: bold;
+}
+
+.paymentTable tr:hover {
+  background: #f9f9f9;
+}
+
+.emptyCell {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+}
+

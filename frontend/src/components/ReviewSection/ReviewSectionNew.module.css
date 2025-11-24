@@ -1,0 +1,831 @@
+/* 评论区域样式 - 匹配wuxiaworld.com */
+.reviewSection {
+  margin-top: 2rem;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+}
+
+.reviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #333;
+}
+
+.reviewStats {
+  display: flex;
+  align-items: center;
+}
+
+.reviewActions {
+  display: flex;
+  align-items: center;
+}
+
+.writeReviewButton {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.writeReviewButton:hover {
+  background: #1976d2;
+}
+
+/* 统计信息样式 */
+.statsContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.statsItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.statsValue {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.statsLabel {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+/* 评论表单样式 */
+.reviewFormContainer {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #23272F;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.reviewForm {
+  max-width: 100%;
+}
+
+.recommendationSection {
+  margin-bottom: 1.5rem;
+}
+
+.recommendationSection p {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.recommendationRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.recommendationButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.recommendButton {
+  background: #333;
+  border: 2px solid #555;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.2s;
+}
+
+.recommendButton:hover {
+  background: #444;
+}
+
+.recommendButton.selected {
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.ratingSection {
+  margin-bottom: 1.5rem;
+}
+
+.ratingSection label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+.ratingSectionInline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ratingSectionInline label {
+  display: inline-block;
+  margin-bottom: 0;
+  color: #fff;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ratingSelect {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.contentSection {
+  margin-bottom: 1.5rem;
+}
+
+.contentSection label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+.reviewTextarea {
+  width: 100%;
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 20pt;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.reviewTextarea::placeholder {
+  color: #aaa;
+}
+
+.formFooter {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: 0.5rem;
+  gap: 1rem;
+}
+
+.wordWarningContainer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.wordWarning {
+  color: #d32f2f;
+  font-size: 0.8rem;
+}
+
+.wordCount {
+  font-size: 0.8rem;
+  color: #aaa;
+  white-space: nowrap;
+  text-align: center;
+  justify-self: center;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-shrink: 0;
+  justify-self: end;
+}
+
+.cancelButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background: #333;
+}
+
+.submitButton {
+  background: #2196f3;
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submitButton:disabled {
+  background: #666;
+  cursor: not-allowed;
+}
+
+/* 登录提示样式 */
+.loginPrompt {
+  text-align: center;
+  padding: 2rem;
+}
+
+.loginMessage {
+  background: #333;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #555;
+}
+
+.loginMessage p {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.loginButton {
+  background: #d32f2f;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.loginButton:hover {
+  background: #b71c1c;
+}
+
+/* 评论列表样式 */
+.reviewsList {
+  margin-top: 1rem;
+}
+
+.reviewItem {
+  background: #23272F;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.reviewItem:hover {
+  border-color: #555;
+}
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.125rem; /* 再减少50% */
+  gap: 0.75rem;
+}
+
+.avatarContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.userInfoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.userInfoLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ratingContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.star {
+  font-size: 0.8rem;
+  color: #ffd700;
+}
+
+.username {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.vipBadge {
+  background: #ff9800;
+  color: #000;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.reviewDate {
+  color: #aaa;
+  font-size: 0.8rem;
+}
+
+.recommendedBadge {
+  background: #4caf50;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.reviewContent {
+  color: #fff;
+  line-height: 1.4;
+  margin-bottom: 0.25rem; /* 再减少50% */
+  margin-left: 52px; /* 对齐到用户名位置 */
+  margin-top: 0.125rem; /* 再减少50% */
+  font-size: 20pt; /* 20号字体 */
+}
+
+.showMoreButton {
+  background: transparent;
+  border: none;
+  color: #2196f3;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  margin-top: 0.5rem;
+}
+
+.showMoreButton:hover {
+  color: #1976d2;
+}
+
+.viewRepliesWrapper {
+  display: flex;
+  align-items: center;
+  margin-left: 52px; /* 对齐到用户名位置 */
+  margin-top: 0.5rem;
+}
+
+.likeButton,
+.dislikeButton,
+.commentButton,
+.shareButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.likeButton:hover,
+.dislikeButton:hover,
+.commentButton:hover,
+.shareButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+.likeButton.liked {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+.dislikeButton.disliked {
+  background: #f44336;
+  color: white;
+  border-color: #f44336;
+}
+
+/* 查看全部按钮 */
+.viewAllContainer {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.viewAllButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.viewAllButton:hover {
+  background: #333;
+}
+
+/* 错误消息 */
+.errorMessage {
+  background: #d32f2f;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* 加载状态 */
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #aaa;
+  font-size: 1rem;
+}
+
+/* 回复功能样式 */
+.repliesContainer {
+  margin-top: 1rem;
+  padding-left: 1rem;
+  border-left: 2px solid #333;
+}
+
+.toggleRepliesButton {
+  background: transparent;
+  border: none;
+  color: #2196f3;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  margin-bottom: 0.5rem;
+}
+
+.toggleRepliesButton:hover {
+  color: #1976d2;
+}
+
+.toggleRepliesButtonCompact {
+  background: transparent;
+  border: none;
+  color: #2196f3;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  padding: 0;
+  margin: 0;
+}
+
+.toggleRepliesButtonCompact:hover {
+  color: #1976d2;
+}
+
+.repliesContainerCompact {
+  margin-top: 0.375rem; /* 再减少50% */
+  margin-left: 0; /* 从左边开始，不额外缩进 */
+  padding-left: 40px; /* 创建明显的缩进 */
+  border-left: 2px solid #333; /* 垂直连接线 */
+  width: 100%; /* 占据整行 */
+  display: block; /* 确保是块级元素，独占一行 */
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.repliesWrapperCompact {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.replyControls {
+  margin-top: 0.125rem; /* 再减少50% */
+  margin-left: 52px; /* 对齐到用户名位置（红色框位置） */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: calc(100% - 52px); /* 占据剩余宽度 */
+  flex-wrap: wrap; /* 允许换行 */
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: calc(100% - 52px); /* 确保不超出父容器 */
+}
+
+.repliesList {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.repliesList::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #333;
+}
+
+.replyItem {
+  background: #18191A;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  margin-left: 0; /* 子评论本身不额外缩进，缩进由容器控制 */
+  position: relative;
+  transition: border-color 0.2s, background-color 0.2s;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.replyItem:last-child {
+  margin-bottom: 0;
+}
+
+.replyItem:hover {
+  border-color: #3a3a3a;
+  background: #1e1e1e;
+}
+
+.replyHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.replyAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.replyUsername {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.replyDate {
+  color: #aaa;
+  font-size: 0.75rem;
+  margin-left: 0; /* 移除自动推到右边，紧跟在用户名后面 */
+}
+
+.replyContent {
+  color: #e0e0e0;
+  font-size: 20pt; /* 20号字体 */
+  line-height: 1.4;
+  margin-bottom: 0.25rem; /* 减少间距 */
+  padding-left: 0;
+  word-wrap: break-word;
+}
+
+.replyActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.replyActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+}
+
+.replyLikeButton,
+.replyDislikeButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.2s;
+}
+
+.replyLikeButton:hover,
+.replyDislikeButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+.replyFormContainer {
+  margin-top: 0;
+}
+
+.replyFormContainerCompact {
+  margin-top: 0.375rem; /* 再减少50% */
+  margin-left: 0;
+  padding-left: 40px; /* 与子评论相同的缩进 */
+  border-left: 2px solid #333; /* 与子评论相同的垂直连接线 */
+  width: 100%;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.addReplyButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.addReplyButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+.editButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.editButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+.editForm {
+  margin-top: 0.5rem;
+  margin-left: 52px;
+}
+
+.replyForm {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 1rem;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.replyTextarea {
+  width: 100%;
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 20pt;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  margin-bottom: 0.75rem;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
+  max-width: 100%; /* 确保不超出父容器 */
+}
+
+.replyTextarea::placeholder {
+  color: #aaa;
+}
+
+.replyFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.cancelReplyButton {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.cancelReplyButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+.submitReplyButton {
+  background: #2196f3;
+  border: none;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.submitReplyButton:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submitReplyButton:disabled {
+  background: #666;
+  cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .reviewHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .reviewActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .formActions {
+    flex-direction: column;
+  }
+  
+  .reviewActions {
+    flex-wrap: wrap;
+  }
+  
+  .repliesContainer {
+    padding-left: 0.5rem;
+  }
+}

@@ -1,0 +1,9 @@
+.section {
+  margin: 2rem 0;
+}
+.list {
+  display: flex;
+  overflow-x: auto;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+} 

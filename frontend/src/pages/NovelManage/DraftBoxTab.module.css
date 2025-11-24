@@ -1,0 +1,145 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summarySection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.summaryText {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.wordCount {
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.sortButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sortBtn {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.sortBtn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+.draftsTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-secondary);
+}
+
+.draftsTable th,
+.draftsTable td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.draftsTable th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.draftsTable td {
+  color: var(--text-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionLink {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.actionLink:hover {
+  color: #ff9900;
+}
+
+.submitBtn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: #ff9900;
+  opacity: 0.9;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deleteBtn {
+  color: #ff4444;
+}
+
+.deleteBtn:hover {
+  color: #cc0000;
+}
+
+.noDrafts {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+.error {
+  background: #ffeeee;
+  color: #cc0000;
+  padding: 12px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+}
+

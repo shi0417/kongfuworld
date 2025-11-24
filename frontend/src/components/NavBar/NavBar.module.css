@@ -1,0 +1,473 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  height: 60px;
+  background: #222;
+  color: #fff;
+  position: relative;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-right: 2rem;
+}
+
+/* 左侧导航链接 */
+.leftNav {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.navLink {
+  color: #fff;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+  font-weight: 500;
+}
+
+.navLink:hover {
+  color: #ccc;
+}
+
+/* 搜索栏 - 居中（保留原样式用于兼容性） */
+.searchContainer {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  max-width: 400px;
+}
+
+/* 搜索栏 - 右侧位置 */
+.searchContainerRight {
+  margin-left: auto;
+  margin-right: 1rem;
+  width: 300px;
+  max-width: 300px;
+}
+
+.searchBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #333;
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  border: 1px solid #444;
+  transition: all 0.2s;
+}
+
+.searchBar:focus-within {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 216, 0.2);
+}
+
+.searchIcon {
+  color: #999;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.searchInput {
+  background: transparent;
+  border: none;
+  color: #fff;
+  outline: none;
+  flex: 1;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.searchInput::placeholder {
+  color: #999;
+}
+
+/* 右侧按钮 - 靠右放置 */
+.rightNav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.iconButton {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid #444;
+}
+
+.iconButton:hover {
+  background: #444;
+}
+
+.diamondIcon,
+.bellIcon {
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.notificationBadge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #1976d2;
+  color: #fff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* 钻石下拉菜单样式 */
+.diamondDropdown {
+  position: absolute;
+  right: 0;
+  top: 50px;
+  background: #333;
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 280px;
+  z-index: 1000;
+  padding: 20px;
+  border: 1px solid #444;
+}
+
+/* 用户资源/货币部分 */
+.resourcesSection {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #444;
+}
+
+.resourceItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.yellowYinYang {
+  color: #ffd700;
+  font-size: 1.1rem;
+}
+
+.grayYinYang {
+  color: #999;
+  font-size: 1.1rem;
+}
+
+.keyIcon {
+  color: #ffd700;
+  font-size: 1.1rem;
+}
+
+.karmaShopButton {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.karmaShopButton:hover {
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+  transform: translateY(-1px);
+}
+
+/* 每日奖励部分 */
+.dailyRewardsSection {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #444;
+}
+
+.sectionTitle {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sectionDescription {
+  margin: 0 0 12px 0;
+  font-size: 0.85rem;
+  color: #ccc;
+  line-height: 1.4;
+}
+
+.viewMissionsButton {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.viewMissionsButton:hover {
+  background: #1565c0;
+}
+
+/* 导航链接部分 */
+.navigationSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navItem {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #fff;
+  transition: background 0.2s;
+}
+
+.navItem:hover {
+  background: #444;
+}
+
+/* 通知下拉菜单样式 */
+.notificationDropdown {
+  position: absolute;
+  right: 0;
+  top: 50px;
+  background: #333;
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 350px;
+  max-width: 400px;
+  z-index: 1000;
+  border: 1px solid #444;
+  max-height: 500px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notificationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #444;
+  background: #2a2a2a;
+}
+
+.notificationHeader span {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.viewAllButton {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.viewAllButton:hover {
+  background: #1565c0;
+}
+
+.notificationList {
+  max-height: 300px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.notificationItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #444;
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.notificationItem:hover {
+  background: #3a3a3a;
+}
+
+.notificationItem.read {
+  opacity: 0.7;
+  background: #2a2a2a;
+}
+
+.notificationItem.read:hover {
+  background: #3a3a3a;
+}
+
+.notificationContent {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.notificationTitle {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.notificationMessage {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.notificationTime {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.readButton {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.readButton:hover {
+  background: #1565c0;
+}
+
+.notificationFooter {
+  padding: 12px 20px;
+  border-top: 1px solid #444;
+  background: #2a2a2a;
+}
+
+.markAllReadButton {
+  background: transparent;
+  color: #1976d2;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markAllReadButton:hover {
+  color: #1565c0;
+}
+
+.menu {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (max-width: 1024px) {
+  .searchContainer {
+    width: 300px;
+  }
+  .searchContainerRight {
+    width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .logo {
+    margin-right: 1rem;
+  }
+  
+  .leftNav {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+    gap: 1rem;
+  }
+  
+  .searchContainer,
+  .searchContainerRight {
+    order: 3;
+    position: static;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  
+  .rightNav {
+    order: 1;
+    gap: 0.5rem;
+    margin-left: 0;
+  }
+  
+  .iconButton {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .leftNav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .navLink {
+    font-size: 0.9rem;
+  }
+} 

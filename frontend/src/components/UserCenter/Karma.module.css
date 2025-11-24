@@ -1,0 +1,336 @@
+/* Karma Tab Content Styles */
+.karmaContent {
+  width: 100%;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #ffffff;
+}
+
+/* Current Karma display */
+.currentKarma {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 40px;
+  justify-content: center;
+}
+
+.karmaItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.blackYinYang {
+  font-size: 2rem;
+  color: #ffffff;
+}
+
+.yellowYinYang {
+  font-size: 2rem;
+  color: #ffd700;
+}
+
+/* Purchase Golden Karma section */
+.purchaseSection {
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.karmaPackages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.karmaPackage {
+  background-color: #2a2a2a;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #333;
+}
+
+.karmaPackage:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 123, 255, 0.2);
+}
+
+.packageContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.packageIcon {
+  margin-bottom: 15px;
+}
+
+.packageDetails {
+  text-align: center;
+}
+
+.amount {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 5px;
+}
+
+.label {
+  font-size: 0.9rem;
+  color: #cccccc;
+  margin-bottom: 10px;
+}
+
+.price {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd700;
+  margin-bottom: 15px;
+}
+
+.buyButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+
+.buyButton:hover {
+  background-color: #0056b3;
+}
+
+/* Collapsible sections */
+.collapsibleSection {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  cursor: pointer;
+  background-color: #333;
+  transition: background-color 0.3s ease;
+}
+
+.sectionHeader:hover {
+  background-color: #444;
+}
+
+.sectionHeader .sectionTitle {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #ffffff;
+}
+
+.caret {
+  font-size: 1.2rem;
+  color: #cccccc;
+  transition: transform 0.3s ease;
+}
+
+.tableContainer {
+  padding: 0;
+}
+
+.karmaTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.karmaTable th {
+  background-color: #333;
+  color: #ffffff;
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid #444;
+}
+
+.karmaTable td {
+  padding: 15px 12px;
+  border-bottom: 1px solid #333;
+  color: #cccccc;
+}
+
+.emptyRow {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 40px;
+}
+
+/* Color distinction based on Amount column */
+.purchaseRow {
+  background: rgba(33, 150, 243, 0.1) !important; /* Blue background - purchase data */
+}
+
+.spendRow {
+  background: rgba(255, 152, 0, 0.1) !important; /* Orange background - spend data */
+}
+
+.purchaseRow:hover {
+  background: rgba(33, 150, 243, 0.2) !important;
+}
+
+.spendRow:hover {
+  background: rgba(255, 152, 0, 0.2) !important;
+}
+
+/* Transaction type color distinction */
+.transactionType {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Purchase type - blue */
+.transactionType.purchase {
+  background: #2196F3;
+  color: #ffffff;
+}
+
+/* Spend type - orange */
+.transactionType.spend {
+  background: #FF9800;
+  color: #ffffff;
+}
+
+/* Golden Karma value color distinction */
+.positiveKarma {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.negativeKarma {
+  color: #F44336;
+  font-weight: 600;
+}
+
+/* Pagination component styles */
+.paginationContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid #404040;
+}
+
+.paginationInfo {
+  color: #cccccc;
+  font-size: 0.9rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.paginationButton {
+  background: #404040;
+  color: #ffffff;
+  border: 1px solid #666666;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  min-width: 40px;
+  text-align: center;
+}
+
+.paginationButton:hover:not(.disabled) {
+  background: #555555;
+  border-color: #777777;
+}
+
+.paginationButton.active {
+  background: #007bff;
+  border-color: #007bff;
+  color: #ffffff;
+}
+
+.paginationButton.disabled {
+  background: #2a2a2a;
+  color: #666666;
+  border-color: #404040;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .currentKarma {
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .karmaPackages {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .karmaPackage {
+    padding: 15px;
+  }
+  
+  .amount {
+    font-size: 1.2rem;
+  }
+  
+  .price {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .karmaPackages {
+    grid-template-columns: 1fr;
+  }
+  
+  .karmaTable {
+    font-size: 0.8rem;
+  }
+  
+  .karmaTable th,
+  .karmaTable td {
+    padding: 10px 8px;
+  }
+}

@@ -1,0 +1,391 @@
+/* Champion Tab Content Styles */
+.championContent {
+  width: 100%;
+}
+
+/* Loading Container */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #cccccc;
+  margin: 0;
+}
+
+/* Championed Novels Section */
+.championedNovelsSection {
+  margin-bottom: 60px;
+}
+
+.sectionTitle {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+/* No Records */
+.noRecords {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.noRecordsTable {
+  overflow-x: auto;
+}
+
+/* Subscription Table */
+.subscriptionTableContainer {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.subscriptionTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.subscriptionTable thead {
+  background-color: #333;
+}
+
+.subscriptionTable th {
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #ffffff;
+  border-bottom: 1px solid #444;
+}
+
+.subscriptionTable td {
+  padding: 15px 12px;
+  border-bottom: 1px solid #333;
+  color: #cccccc;
+}
+
+.subscriptionRow:hover {
+  background-color: #333;
+}
+
+.emptyRow {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 40px;
+}
+
+/* Novel Info */
+.novelInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.novelTitle {
+  font-weight: 500;
+  color: #ffffff;
+}
+
+/* Status Badges */
+.statusActive {
+  background-color: #28a745;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.statusExpired {
+  background-color: #dc3545;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.statusInactive {
+  background-color: #6c757d;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+/* Tier Badges */
+.tierBadge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: white;
+}
+
+.tierMartialCultivator {
+  background-color: #17a2b8;
+}
+
+.tierProfoundRealm {
+  background-color: #6f42c1;
+}
+
+.tierMartialLord {
+  background-color: #fd7e14;
+}
+
+.tierDefault {
+  background-color: #6c757d;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background-color: #2a2a2a;
+}
+
+.pageButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.pageButton:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.pageButton:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  color: #cccccc;
+  font-size: 0.9rem;
+}
+
+/* Benefits Section */
+.benefitsSection {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+  border-radius: 12px;
+  padding: 40px;
+  margin-bottom: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.benefitsSection::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23333" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.benefitsHeader {
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.benefitsTitle {
+  font-size: 2.2rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #ffffff;
+}
+
+.benefitsSubtitle {
+  font-size: 1.1rem;
+  color: #cccccc;
+  margin: 0;
+}
+
+.benefitsCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+  position: relative;
+  z-index: 1;
+}
+
+.benefitCard {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.benefitCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 123, 255, 0.2);
+}
+
+.benefitIcon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.benefitTitle {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #ffffff;
+}
+
+.benefitDescription {
+  font-size: 1rem;
+  color: #cccccc;
+  line-height: 1.4;
+}
+
+/* FAQ Section */
+.faqSection {
+  background-color: #2a2a2a;
+  border-radius: 12px;
+  padding: 40px;
+}
+
+.faqTitle {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #ffffff;
+  text-align: center;
+}
+
+.faqItem {
+  margin-bottom: 25px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 20px;
+}
+
+.faqItem:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.faqQuestion {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.faqQuestion:hover {
+  color: #007bff;
+}
+
+.faqAnswer {
+  font-size: 1rem;
+  color: #cccccc;
+  line-height: 1.6;
+  padding-left: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .benefitsTitle {
+    font-size: 1.8rem;
+  }
+  
+  .benefitsCards {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .benefitCard {
+    padding: 25px 15px;
+  }
+  
+  .subscriptionTable {
+    font-size: 0.8rem;
+  }
+  
+  .subscriptionTable th,
+  .subscriptionTable td {
+    padding: 10px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .benefitsSection,
+  .faqSection {
+    padding: 25px 20px;
+  }
+  
+  .benefitCard {
+    padding: 20px 15px;
+  }
+  
+  .benefitIcon {
+    font-size: 2.5rem;
+  }
+}

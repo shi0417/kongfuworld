@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token调试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .clear-btn { background-color: #dc3545; }
+        .clear-btn:hover { background-color: #c82333; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Token调试工具</h1>
+        
+        <div class="section" id="tokenStatus">
+            <h3>Token状态</h3>
+            <div id="tokenInfo"></div>
+        </div>
+
+        <div class="section">
+            <h3>操作</h3>
+            <button onclick="checkToken()">检查Token</button>
+            <button onclick="testReviewAPI()">测试评论API</button>
+            <button onclick="clearAuth()" class="clear-btn">清除认证数据</button>
+            <button onclick="loginTest()">模拟登录</button>
+        </div>
+
+        <div class="section" id="apiResults">
+            <h3>API测试结果</h3>
+            <div id="apiInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkToken() {
+            const userStr = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            
+            const tokenInfo = document.getElementById('tokenInfo');
+            const statusDiv = document.getElementById('tokenStatus');
+            
+            let html = `
+                <p><strong>用户数据:</strong> ${userStr ? '存在' : '不存在'}</p>
+                <p><strong>Token:</strong> ${token ? '存在' : '不存在'}</p>
+            `;
+            
+            if (userStr) {
+                try {
+                    const userData = JSON.parse(userStr);
+                    html += `<p><strong>用户信息:</strong> ${JSON.stringify(userData, null, 2)}</p>`;
+                } catch (e) {
+                    html += `<p><strong>用户数据解析错误:</strong> ${e.message}</p>`;
+                }
+            }
+            
+            if (token) {
+                html += `<p><strong>Token长度:</strong> ${token.length}</p>`;
+                html += `<p><strong>Token前20位:</strong> ${token.substring(0, 20)}...</p>`;
+                
+                // 尝试解析JWT token
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    html += `<p><strong>Token过期时间:</strong> ${new Date(payload.exp * 1000).toLocaleString()}</p>`;
+                    html += `<p><strong>Token是否过期:</strong> ${payload.exp * 1000 < Date.now() ? '是' : '否'}</p>`;
+                } catch (e) {
+                    html += `<p><strong>Token解析错误:</strong> ${e.message}</p>`;
+                }
+            }
+            
+            tokenInfo.innerHTML = html;
+            
+            // 更新状态样式
+            if (userStr && token) {
+                statusDiv.className = 'section success';
+            } else {
+                statusDiv.className = 'section error';
+            }
+        }
+
+        async function testReviewAPI() {
+            const token = localStorage.getItem('token');
+            const apiInfo = document.getElementById('apiInfo');
+            
+            if (!token) {
+                apiInfo.innerHTML = '<p style="color: red;">❌ 没有找到token，请先登录</p>';
+                return;
+            }
+            
+            try {
+                // 测试获取评论统计
+                const response = await fetch('http://localhost:5000/api/novel/13/review-stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                let html = `
+                    <p><strong>API状态:</strong> ${response.status} ${response.statusText}</p>
+                    <p><strong>响应:</strong></p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                
+                if (response.status === 403) {
+                    html += '<p style="color: red;">❌ Token无效或已过期</p>';
+                } else if (response.status === 200) {
+                    html += '<p style="color: green;">✅ API调用成功</p>';
+                }
+                
+                apiInfo.innerHTML = html;
+            } catch (error) {
+                apiInfo.innerHTML = `<p style="color: red;">❌ API调用失败: ${error.message}</p>`;
+            }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            alert('认证数据已清除');
+            checkToken();
+        }
+
+        async function loginTest() {
+            try {
+                const response = await fetch('http://localhost:5000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'testuser',
+                        password: 'testpass'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.token) {
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('token', result.token);
+                    alert('模拟登录成功');
+                    checkToken();
+                } else {
+                    alert('登录失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('登录请求失败: ' + error.message);
+            }
+        }
+
+        // 页面加载时自动检查
+        window.onload = function() {
+            checkToken();
+        };
+    </script>
+</body>
+</html>

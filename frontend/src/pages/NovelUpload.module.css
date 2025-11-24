@@ -1,0 +1,1112 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Microsoft YaHei', sans-serif;
+}
+
+.title {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: bold;
+}
+
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.section h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.formGroup input,
+.formGroup textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.formGroup input:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.formGroup textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.uploadArea {
+  border: 3px dashed #3498db;
+  border-radius: 10px;
+  padding: 40px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s;
+  background: #f8f9fa;
+}
+
+.uploadArea:hover {
+  border-color: #2980b9;
+  background: #ecf0f1;
+}
+
+.uploadArea.dragover {
+  border-color: #27ae60;
+  background: #d5f4e6;
+  transform: scale(1.02);
+}
+
+.fileInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.uploadContent {
+  pointer-events: none;
+}
+
+.uploadIcon {
+  font-size: 3em;
+  margin-bottom: 15px;
+}
+
+.fileName {
+  color: #27ae60;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.fileTypes {
+  color: #7f8c8d;
+  font-size: 0.9em;
+  margin: 10px 0;
+}
+
+.fileList {
+  margin-top: 15px;
+  text-align: left;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.fileList p {
+  margin: 5px 0;
+  color: #2c3e50;
+}
+
+.fileListHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.fileListHeader p {
+  margin: 0;
+  font-weight: bold;
+}
+
+.clearAllButton {
+  padding: 5px 10px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.clearAllButton:hover {
+  background: #c0392b;
+}
+
+.fileItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 3px 0;
+  padding: 5px;
+  background: #ecf0f1;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
+}
+
+.fileList .fileName {
+  color: #3498db;
+  font-size: 0.9em;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  flex: 1;
+}
+
+.removeFileButton {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  transition: background-color 0.3s;
+}
+
+.removeFileButton:hover {
+  background: #c0392b;
+}
+
+.fileSortOptions,
+.chapterSortOptions {
+  margin: 15px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fileSortOptions label {
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.sortSelect {
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.sortSelect:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.reorderButton {
+  padding: 8px 12px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.reorderButton:hover {
+  background: #2980b9;
+}
+
+.progress {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e9ecef;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.progressInfo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.progressPercentage {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2c3e50;
+  min-width: 60px;
+}
+
+.progressStatus {
+  font-size: 16px;
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+.fileProgress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  font-size: 14px;
+  color: #7f8c8d;
+}
+
+.currentFile {
+  color: #3498db;
+  font-weight: 500;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressBar {
+  width: 100%;
+  height: 25px;
+  background: #ecf0f1;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db, #2980b9);
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.progressFill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.progressFill.uploading {
+  background: linear-gradient(90deg, #3498db, #2980b9);
+}
+
+.progressFill.parsing {
+  background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+
+.progressFill.processing {
+  background: linear-gradient(90deg, #9b59b6, #8e44ad);
+}
+
+.progressFill.completed {
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+}
+
+.progressFill.error {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+.progressDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.uploadStage {
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.completionInfo {
+  color: #27ae60;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.errorInfo {
+  color: #e74c3c;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.chapterSettings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.chapterRangeSetting {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background: #f8f9fa;
+}
+
+.settingHeader {
+  margin-bottom: 15px;
+}
+
+.settingHeader label {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.settingHeader input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+.rangeControls {
+  margin-left: 25px;
+}
+
+.rangeType {
+  margin-bottom: 15px;
+}
+
+.rangeType label {
+  display: inline-block;
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+.rangeType input[type="radio"] {
+  margin-right: 5px;
+}
+
+.rangeInputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rangeInputs input {
+  width: 80px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* 新增样式 */
+.uploadModeSelection {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  margin-right: 8px;
+  transform: scale(1.2);
+}
+
+.novelSelector {
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.searchBox {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.searchBox input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.searchBox button {
+  padding: 10px 15px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.searchBox button:hover {
+  background: #2980b9;
+}
+
+.novelList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.novelItem {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+}
+
+.novelItem:hover {
+  border-color: #3498db;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+}
+
+.novelItem.selected {
+  border-color: #3498db;
+  background: #ecf0f1;
+}
+
+.novelItem h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 1.1em;
+}
+
+.novelItem p {
+  margin: 4px 0;
+  color: #7f8c8d;
+  font-size: 13px;
+}
+
+.volumeConfig {
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.volumeConfig h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 1.2em;
+}
+
+.volumeRanges {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.volumeRange {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+}
+
+.volumeRange .rangeInputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.volumeRange .rangeInputs input[type="number"] {
+  width: 60px;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.volumeRange .rangeInputs input[type="text"] {
+  width: 120px;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.volumeTitleLabel {
+  color: #e74c3c;
+  font-size: 12px;
+  margin-left: 8px;
+  font-weight: bold;
+}
+
+.removeBtn {
+  padding: 6px 10px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+  font-size: 12px;
+}
+
+.removeBtn:hover {
+  background: #c0392b;
+}
+
+.addRangeBtn {
+  padding: 10px 15px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.addRangeBtn:hover {
+  background: #229954;
+}
+
+
+
+.batchUpdateBtn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.batchUpdateBtn:hover {
+  background: #2980b9;
+}
+
+.chaptersList {
+  max-height: 800px;
+  overflow-y: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chapterItem {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 15px;
+  background: white;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 删除按钮样式 */
+.deleteButton {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-left: 15px;
+  flex-shrink: 0;
+}
+
+.deleteButton:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.deleteButton:active {
+  transform: scale(0.95);
+}
+
+/* 第一行：章节标题和字数统计 */
+.chapterTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chapterTitleRow h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.2em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 第二行：章节号和自动递增设置 */
+.chapterNumberRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.chapterNumberEdit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+.chapterNumberEdit label {
+  color: #666;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.volumeEdit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+.volumeEdit label {
+  color: #666;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.chapterNumberInput {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.chapterNumberInput:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.wordCount {
+  background: #3498db;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* 第三行：章节设置选项 */
+.chapterSettings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settingItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.settingItem label {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.settingItem input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.settingItem input[type="number"] {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* 第四行：章节内容 */
+.chapterContent {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.submitSection {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.submitButton {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  font-size: 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: bold;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+}
+
+.submitButton:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 相似小说样式 */
+.similarNovels {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.similarNovels p {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-weight: bold;
+}
+
+.novelOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.newNovelBtn {
+  background: #27ae60;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+  align-self: flex-start;
+}
+
+.newNovelBtn:hover {
+  background: #229954;
+}
+
+.similarList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.similarNovel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  transition: box-shadow 0.3s;
+}
+
+.similarNovel:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.novelInfo h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 1.3em;
+}
+
+.novelInfo p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.continueBtn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.continueBtn:hover {
+  background: #c0392b;
+}
+
+/* 续传设置样式 */
+.continueSettings {
+  background: #ecf0f1;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.continueSettings .settingItem {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.continueSettings .settingItem label {
+  font-weight: bold;
+  color: #2c3e50;
+  min-width: 120px;
+}
+
+.continueSettings .settingItem span {
+  color: #666;
+}
+
+.continueSettings .settingItem input {
+  width: 100px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.hint {
+  color: #7f8c8d;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chapterNumberRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .chapterSettings {
+    flex-direction: column;
+  }
+  
+  .deleteButton {
+    width: 25px;
+    height: 25px;
+    font-size: 16px;
+    margin-left: 10px;
+  }
+  
+  .similarNovel {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .continueSettings .settingItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .rangeInputs {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* 已有章节信息样式 */
+.existingChapters {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.existingChapters h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 1.2em;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 8px;
+}
+
+.chaptersList {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: white;
+  margin-bottom: 15px;
+}
+
+.chapterItem {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.2s;
+}
+
+.chapterItem:last-child {
+  border-bottom: none;
+}
+
+.chapterItem:hover {
+  background-color: #f8f9fa;
+}
+
+.chapterNumber {
+  font-weight: bold;
+  color: #3498db;
+  min-width: 80px;
+  margin-right: 15px;
+}
+
+.chapterTitle {
+  flex: 1;
+  color: #2c3e50;
+  margin-right: 15px;
+}
+
+.volumeInfo {
+  color: #7f8c8d;
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.chapterSummary {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 6px;
+  padding: 15px;
+}
+
+.chapterSummary p {
+  margin: 5px 0;
+  color: #1976d2;
+  font-weight: 500;
+} 

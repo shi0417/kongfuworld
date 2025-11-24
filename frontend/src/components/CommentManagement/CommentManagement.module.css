@@ -1,0 +1,645 @@
+.container {
+  padding: 24px;
+  background: var(--bg-secondary, #fff);
+  border-radius: 8px;
+  color: var(--text-primary, #333);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.headerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.writeCommentBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.writeCommentBtn:hover {
+  background: #357abd;
+}
+
+.settingsBtn {
+  padding: 8px 12px;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary, #333);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.settingsBtn:hover {
+  background: var(--hover-bg, #e0e0e0);
+}
+
+/* 筛选区域 */
+.filters {
+  background: var(--bg-tertiary, #f9f9f9);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.filterRow {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filterRow:last-child {
+  margin-bottom: 0;
+}
+
+.filterItem {
+  flex: 1;
+  min-width: 200px;
+}
+
+.filterItem label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  font-size: 14px;
+}
+
+.select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.typeButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.typeButton {
+  padding: 6px 16px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.typeButton:hover {
+  background: var(--hover-bg, #f0f0f0);
+}
+
+.typeButton.active {
+  background: #ff8800;
+  color: white;
+  border-color: #ff8800;
+}
+
+.dateFilterContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dateButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.dateButton {
+  padding: 4px 12px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dateButton:hover {
+  background: var(--hover-bg, #f0f0f0);
+}
+
+.dateButton.active {
+  background: #ff8800;
+  color: white;
+  border-color: #ff8800;
+}
+
+.dateRangePicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-secondary, #fff);
+  flex: 0 0 auto;
+}
+
+.dateRangeInput {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #333);
+  font-size: 13px;
+  width: 110px;
+  outline: none;
+}
+
+.dateRangeInput::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.dateRangeInput::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.dateRangeSeparator {
+  color: var(--text-secondary, #666);
+  font-size: 13px;
+  padding: 0 2px;
+}
+
+.dateRangeIcon {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* 评论列表 */
+.commentsSection {
+  margin-top: 24px;
+}
+
+.commentsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border-color, #eee);
+}
+
+/* 举报原因筛选按钮 */
+.reportReasonFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-tertiary, #f9f9f9);
+  border-radius: 8px;
+}
+
+.reportReasonButton {
+  padding: 8px 16px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.reportReasonButton:hover {
+  background: var(--hover-bg, #f0f0f0);
+  border-color: var(--border-color, #ccc);
+}
+
+.reportReasonButton.active {
+  background: #ff8800;
+  color: white;
+  border-color: #ff8800;
+}
+
+.commentsHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  position: relative;
+}
+
+.commentsHeader h3::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: #ff8800;
+}
+
+.sortButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.sortButton {
+  padding: 6px 16px;
+  background: transparent;
+  color: var(--text-secondary, #666);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.sortButton:hover {
+  color: var(--text-primary, #333);
+}
+
+.sortButton.active {
+  color: #ff8800;
+  font-weight: 600;
+}
+
+.loading,
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary, #666);
+}
+
+.commentsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.commentItem {
+  background: var(--bg-tertiary, #f9f9f9);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #eee);
+}
+
+.commentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.userInfo {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.avatar,
+.avatarPlaceholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  background: var(--bg-secondary, #e0e0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.username {
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vipBadge {
+  background: #ffd700;
+  color: #333;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.authorBadge {
+  background: #4a90e2;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.commentMeta {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.commentType {
+  padding: 4px 12px;
+  background: #ff8800;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.commentContent {
+  margin-bottom: 12px;
+}
+
+.rating {
+  margin-bottom: 8px;
+  color: var(--text-primary, #333);
+  font-size: 14px;
+}
+
+.recommended {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #52c41a;
+  color: white;
+  border-radius: 3px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.reportCount {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #ff4d4f;
+  color: white;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  margin-right: 8px;
+}
+
+.commentContent p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--text-primary, #333);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.commentFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #eee);
+}
+
+.commentStats {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+}
+
+.replyCount {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.replyCount:hover {
+  color: #ff8800;
+}
+
+.replyButton {
+  padding: 6px 16px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.replyButton:hover {
+  background: #357abd;
+}
+
+/* 回复表单 */
+.replyForm {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #eee);
+}
+
+.replyTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.replyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancelButton {
+  padding: 6px 16px;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary, #333);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancelButton:hover {
+  background: var(--hover-bg, #e0e0e0);
+}
+
+.submitButton {
+  padding: 6px 16px;
+  background: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.submitButton:hover {
+  background: #73d13d;
+}
+
+/* 回复列表 */
+.repliesList {
+  margin-top: 16px;
+  padding-left: 24px;
+  border-left: 2px solid var(--border-color, #eee);
+}
+
+/* 嵌套评论样式 */
+.repliesList .commentItem {
+  margin-top: 12px;
+  margin-left: 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--border-color, #ddd);
+  background: var(--bg-secondary, #fff);
+}
+
+.replyItem {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--bg-secondary, #fff);
+  border-radius: 6px;
+}
+
+.replyHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.replyAvatar,
+.replyAvatarPlaceholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.replyAvatar {
+  object-fit: cover;
+}
+
+.replyAvatarPlaceholder {
+  background: var(--bg-tertiary, #e0e0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.replyUsername {
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.authorBadge {
+  background: #ff8800;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.replyDate {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin-left: auto;
+}
+
+.replyContent {
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.replyFooter {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+/* 分页 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color, #eee);
+}
+
+.pageButton {
+  padding: 8px 16px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.pageButton:hover:not(:disabled) {
+  background: var(--hover-bg, #f0f0f0);
+  border-color: #ff8800;
+}
+
+.pageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  color: var(--text-secondary, #666);
+  font-size: 14px;
+}
+

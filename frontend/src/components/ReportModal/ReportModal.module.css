@@ -1,0 +1,123 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999; /* 提高z-index，确保在所有元素之上 */
+}
+
+.modal {
+  background: #23272F;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+  margin-bottom: 20px;
+}
+
+.modalTitle {
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.commentAuthor {
+  font-size: 20px;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+.modalBody {
+  margin-bottom: 24px;
+}
+
+.reasonList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reasonItem {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  background: #2a2f38;
+}
+
+.reasonItem:hover {
+  background: #333842;
+}
+
+.radioInput {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #1976d2;
+}
+
+.reasonText {
+  color: #e0e0e0;
+  font-size: 20px;
+  flex: 1;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelButton {
+  background: transparent;
+  border: none;
+  color: #1976d2;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.cancelButton:hover {
+  background: rgba(25, 118, 210, 0.1);
+}
+
+.submitButton {
+  background: #1976d2;
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.submitButton:disabled {
+  background: #666;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+

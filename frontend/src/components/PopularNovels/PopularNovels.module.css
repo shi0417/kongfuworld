@@ -1,0 +1,32 @@
+.section {
+  margin: 2rem 0;
+}
+.list {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.novel {
+  width: 120px;
+  text-align: center;
+}
+.novel img {
+  width: 100%;
+  border-radius: 8px;
+}
+.title {
+  font-weight: bold;
+  margin-top: 0.5rem;
+}
+.author {
+  color: #888;
+  font-size: 0.9rem;
+}
+@media (max-width: 600px) {
+  .list {
+    gap: 0.5rem;
+  }
+  .novel {
+    width: 90px;
+  }
+} 

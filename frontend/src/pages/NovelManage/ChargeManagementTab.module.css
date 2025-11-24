@@ -1,0 +1,1184 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #cc0000;
+  background: #ffe6e6;
+  border-radius: 8px;
+  border: 1px solid #ff0000;
+}
+
+.message {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.message.success {
+  background: #e6ffe6;
+  color: #009900;
+  border: 1px solid #00cc00;
+}
+
+.message.error {
+  background: #ffe6e6;
+  color: #cc0000;
+  border: 1px solid #ff0000;
+}
+
+.settingsSection {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.settingsWrapper {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.settingsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
+}
+
+.currentSettingsDisplay {
+  flex: 1;
+  background: var(--bg-tertiary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  min-width: 300px;
+}
+
+.displayTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.displayContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settingDisplayItem {
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.displayText {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.settingRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settingLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 2rem;
+  margin-top: 0.5rem;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.radioLabel input[type="radio"] {
+  cursor: pointer;
+}
+
+.input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  width: 200px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.buttonRow {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.saveButton {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #ff9900;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.infoBox {
+  background: #fff9e6;
+  border: 1px solid #ffcc00;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.infoText {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.batchUpdateSection {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.batchUpdateButton {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.batchUpdateButton:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.batchUpdateButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.batchUpdateHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.chaptersSection {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.tableContainer {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.chaptersTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-tertiary);
+}
+
+.chaptersTable th,
+.chaptersTable td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chaptersTable th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.chaptersTable td {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.priceInput {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  width: 100px;
+}
+
+.priceInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.statusTag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-block;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.updateButton {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.updateButton:hover {
+  background: #ff9900;
+}
+
+.noChapters {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+/* 分页组件样式 - 与用户中心页面一致 */
+.paginationContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.paginationInfo {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.paginationButton {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  min-width: 40px;
+  text-align: center;
+}
+
+.paginationButton:hover:not(.disabled) {
+  background: var(--bg-hover, #555555);
+  border-color: var(--border-hover, #777777);
+}
+
+.paginationButton.active {
+  background: #007bff;
+  border-color: #007bff;
+  color: #ffffff;
+}
+
+.paginationButton.disabled {
+  background: var(--bg-disabled, #2a2a2a);
+  color: var(--text-disabled, #666666);
+  border-color: var(--border-disabled, #404040);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.inputHint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* 促销活动相关样式 */
+.promotionSection {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.promotionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.applyPromotionButton {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.applyPromotionButton:hover {
+  background: #ff9900;
+}
+
+.noPromotions {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.promotionsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.promotionCard {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.promotionCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.promotionDiscount {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.promotionStatus {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status_pending {
+  background: #fff9e6;
+  color: #cc9900;
+}
+
+.status_approved {
+  background: #e6ffe6;
+  color: #009900;
+}
+
+.status_rejected {
+  background: #ffe6e6;
+  color: #cc0000;
+}
+
+.status_scheduled {
+  background: #e6f3ff;
+  color: #0066cc;
+}
+
+.status_active {
+  background: #e6ffe6;
+  color: #009900;
+}
+
+.status_expired {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.promotionCardBody {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.promotionCardBody p {
+  margin: 0.25rem 0;
+}
+
+.promotionRemark {
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.promotionDisplay {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.promotionTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.promotionItem {
+  background: var(--bg-secondary);
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #4CAF50;
+}
+
+.promotionText {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.promotionTime {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.priceDisplay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.promotionBadge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* 弹窗样式 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modalHeader {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.modalClose:hover {
+  color: var(--text-primary);
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalFooter {
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.formInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.modalBtnCancel {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modalBtnCancel:hover {
+  background: var(--bg-hover, #555555);
+}
+
+.modalBtnSubmit {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modalBtnSubmit:hover {
+  background: #ff9900;
+}
+
+/* 只读配置展示 */
+.readOnlyConfig {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.configItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.configLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.configValue {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.configHint {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #fff9e6;
+  border: 1px solid #ffcc00;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* 预览区域 */
+.previewSection {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.activePromotionBanner {
+  background: #e6ffe6;
+  border: 1px solid #4CAF50;
+  color: #009900;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 14px;
+}
+
+.noPromotionBanner {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 14px;
+}
+
+.previewTable {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.previewTable table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-tertiary);
+}
+
+.previewTable th,
+.previewTable td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.previewTable th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.previewTable td {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.finalPrice {
+  font-weight: 600;
+  color: #ff6b00;
+}
+
+.reason {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* 服务器时间显示 */
+.serverTime {
+  margin-bottom: 1rem;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* 活动卡片 */
+.activePromotionCard,
+.nextPromotionCard {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.activePromotionCard {
+  border-left: 4px solid #4CAF50;
+}
+
+.nextPromotionCard {
+  border-left: 4px solid #2196f3;
+}
+
+.promotionCardHeader {
+  margin-bottom: 0.75rem;
+}
+
+.promotionBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary-color);
+  color: white;
+}
+
+.promotionCardBody p {
+  margin: 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.promotionTime {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.formHint {
+  margin-top: 0.5rem;
+  padding: 8px;
+  background: #fff9e6;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.modalBtnSubmit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 促销活动列表样式 */
+.promotionsListSection {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.promotionsListTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.promotionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.promotionListItem {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.promotionListItem:hover {
+  border-color: #444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.promotionListItemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.promotionListItemInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.promotionListItemType {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.promotionListItemStatus {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.promotionListItemBody {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.promotionListItemTime {
+  margin: 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.promotionListItemRemark {
+  margin: 0.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.promotionListItemReviewNote {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+  color: #1976d2;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.promotionListItemRejectReason {
+  margin: 0.5rem 0;
+  color: #cc0000;
+  font-weight: 500;
+}
+
+.noPromotionsMessage {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 1rem;
+}
+
+/* 促销活动列表项状态样式 */
+.promotionListItemStatus.status_pending {
+  background: #fff9e6;
+  color: #cc9900;
+}
+
+.promotionListItemStatus.status_approved {
+  background: #e6ffe6;
+  color: #009900;
+}
+
+.promotionListItemStatus.status_rejected {
+  background: #ffe6e6;
+  color: #cc0000;
+}
+
+.promotionListItemStatus.status_scheduled {
+  background: #e6f3ff;
+  color: #0066cc;
+}
+
+.promotionListItemStatus.status_active {
+  background: #e6ffe6;
+  color: #009900;
+}
+
+.promotionListItemStatus.status_expired {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+/* 促销活动列表项操作按钮 */
+.promotionListItemActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.promotionActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.promotionActionButton:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 107, 0, 0.15);
+}
+
+.promotionActionButton:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(255, 107, 0, 0.1);
+}
+
+.promotionActionButton svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.promotionActionButtonDanger {
+  border-color: #cc4444;
+  color: #cc4444;
+}
+
+.promotionActionButtonDanger:hover {
+  background: #ffe6e6;
+  border-color: #cc0000;
+  color: #cc0000;
+  box-shadow: 0 2px 8px rgba(204, 0, 0, 0.15);
+}
+
+.promotionActionButtonDanger:active {
+  box-shadow: 0 1px 4px rgba(204, 0, 0, 0.1);
+}
+
+/* 删除确认对话框样式 */
+.deleteConfirmOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.deleteConfirmModal {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--border-color);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.deleteConfirmIcon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.1) 0%, rgba(255, 107, 0, 0.05) 100%);
+  border-radius: 50%;
+  color: #ff6b00;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.deleteConfirmIcon svg {
+  width: 48px;
+  height: 48px;
+}
+
+.deleteConfirmTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.02em;
+}
+
+.deleteConfirmMessage {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0 0 2rem 0;
+  line-height: 1.6;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.deleteConfirmCancel,
+.deleteConfirmDelete {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 120px;
+}
+
+.deleteConfirmCancel {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.deleteConfirmCancel:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.deleteConfirmCancel:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.deleteConfirmDelete {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+}
+
+.deleteConfirmDelete:hover {
+  background: linear-gradient(135deg, #ff5555 0%, #dd0000 100%);
+  box-shadow: 0 6px 20px rgba(255, 68, 68, 0.4);
+  transform: translateY(-2px);
+}
+
+.deleteConfirmDelete:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .settingsWrapper {
+    flex-direction: column;
+  }
+
+  .currentSettingsDisplay {
+    min-width: 100%;
+  }
+  
+  .promotionsList {
+    grid-template-columns: 1fr;
+  }
+  
+  .previewTable {
+    font-size: 12px;
+  }
+  
+  .previewTable th,
+  .previewTable td {
+    padding: 8px;
+  }
+}
+

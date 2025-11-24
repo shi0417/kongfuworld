@@ -1,0 +1,321 @@
+/* 章节解锁模态框样式 - 完全匹配WuxiaWorld设计 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 0;
+  width: 420px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+  border: 1px solid #333;
+}
+
+/* 解锁容器 */
+.unlockContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 时间解锁区域 */
+.timeUnlockSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #333;
+}
+
+.clockIcon {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.timeInfo h2 {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.helpIcon {
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* 分隔线 */
+.separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.separator span {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: #1a1a1a;
+  padding: 0 16px;
+}
+
+/* 解锁按钮通用样式 */
+.keyUnlockButton, .karmaUnlockButton, .championUnlockButton {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.keyUnlockButton:hover, .karmaUnlockButton:hover, .championUnlockButton:hover {
+  background: #333;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+
+.keyUnlockButton:disabled, .karmaUnlockButton:disabled, .championUnlockButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.buttonIcon {
+  font-size: 1.5rem;
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+.buttonText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.buttonTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.buttonCost {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.buttonAction {
+  font-size: 0.9rem;
+  color: #4A90E2;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Champion订阅 */
+.championButton {
+  width: 260px;
+  height: 52px;
+  border-radius: 26px;
+  border: 1px solid #444;
+  background: #1A1A1A;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.championButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-color: #666;
+}
+
+.championLogo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.championButton p {
+  font-size: 0.75rem;
+  color: #ccc;
+  margin: 0;
+}
+
+/* 自动解锁设置 */
+.autoUnlockSection {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+  padding: 16px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #444;
+}
+
+.autoUnlockCheckbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: transparent;
+  margin-right: 12px;
+  cursor: pointer;
+  appearance: none;
+  position: relative;
+}
+
+.autoUnlockCheckbox:checked {
+  background: #4A90E2;
+  border-color: #4A90E2;
+}
+
+.autoUnlockCheckbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.autoUnlockSection label {
+  color: #ccc;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 用户资源显示 */
+.userResources {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.resourceItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ccc;
+  font-size: 0.875rem;
+}
+
+.resourceItem .keyIcon,
+.resourceItem .karmaIcon {
+  font-size: 1rem;
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 错误状态 */
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: #ff6b6b;
+}
+
+.error button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}

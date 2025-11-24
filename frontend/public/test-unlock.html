@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试解锁界面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 解锁界面测试</h1>
+        
+        <button class="test-button" onclick="testAPI()">测试API连接</button>
+        <button class="test-button" onclick="testUnlockModal()">测试解锁模态框</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '🔄 测试API连接中...';
+            
+            try {
+                console.log('🔍 开始测试API连接...');
+                const response = await fetch('http://localhost:5000/api/chapter-unlock/status/844/1');
+                console.log('📡 API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('📊 API返回数据:', data);
+                
+                resultDiv.textContent = `✅ API连接成功！
+状态码: ${response.status}
+数据: ${JSON.stringify(data, null, 2)}`;
+                
+            } catch (error) {
+                console.error('❌ API连接失败:', error);
+                resultDiv.textContent = `❌ API连接失败: ${error.message}`;
+            }
+        }
+        
+        function testUnlockModal() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = `🧪 解锁模态框测试
+请检查浏览器控制台中的调试信息：
+1. 打开浏览器开发者工具 (F12)
+2. 查看Console标签
+3. 点击锁定章节
+4. 查看是否有调试信息输出`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+/* NovelReview 模块样式 */
+/* 这些样式从主 AdminPanel.module.css 中提取，保持一致性 */
+
+.tabContent {
+  padding: 20px;
+}
+
+.tabHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tabHeader h2 {
+  margin: 0;
+}
+
+.filterButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.filterButtons button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.filterButtons button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.novelList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.novelCard {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: white;
+}
+
+.novelInfo {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.novelCover {
+  width: 120px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.novelDetails {
+  flex: 1;
+}
+
+.novelDetails h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.novelDetails p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.description {
+  color: #666;
+  font-size: 13px;
+}
+
+.novelActions {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+.viewButton,
+.approveButton,
+.rejectButton {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.viewButton {
+  background: #6c757d;
+  color: white;
+}
+
+.approveButton {
+  background: #28a745;
+  color: white;
+}
+
+.rejectButton {
+  background: #dc3545;
+  color: white;
+}
+
+.viewButton:hover,
+.approveButton:hover,
+.rejectButton:hover {
+  opacity: 0.9;
+}
+
+.viewButton:disabled,
+.approveButton:disabled,
+.rejectButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status.submitted {
+  background: #ffc107;
+  color: #000;
+}
+
+.status.reviewing {
+  background: #17a2b8;
+  color: white;
+}
+
+.status.approved {
+  background: #28a745;
+  color: white;
+}
+
+.status.rejected {
+  background: #dc3545;
+  color: white;
+}
+
+/* 模态框样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.modalHeader h2 {
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.closeButton:hover {
+  color: #000;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalCover {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.modalDetails {
+  margin-bottom: 20px;
+}
+
+.modalDetails p {
+  margin: 10px 0;
+}
+
+.modalDescription {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
+

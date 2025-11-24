@@ -1,0 +1,337 @@
+.karmaPage {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #fff;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 顶部导航 */
+.topNav {
+  display: flex;
+  justify-content: center;
+  background: #1a1a1a;
+  padding: 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.navItem {
+  padding: 1.5rem 2.5rem;
+  cursor: pointer;
+  color: #999;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 1.1rem;
+  position: relative;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 120px;
+  text-align: center;
+}
+
+.navItem:hover {
+  color: #fff;
+  background: #2a2a2a;
+  transform: translateY(-1px);
+}
+
+.navItem.active {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+  background: #1a1a1a;
+  font-weight: 700;
+}
+
+/* 主要内容 */
+.mainContent {
+  padding: 0 2rem 2rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+/* 当前Karma显示 */
+.currentKarma {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.karmaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.blackYinYang {
+  font-size: 1.8rem;
+  color: #fff;
+}
+
+.yellowYinYang {
+  font-size: 1.8rem;
+  color: #ffd700;
+}
+
+/* 购买部分 */
+.purchaseSection {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #333;
+}
+
+.sectionTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem 0;
+  color: #fff;
+}
+
+.karmaPackages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.karmaPackages > div:nth-child(4),
+.karmaPackages > div:nth-child(5) {
+  grid-column: span 1;
+}
+
+.karmaPackage {
+  background: #2a2a2a;
+  border-radius: 6px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #444;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.karmaPackage:hover {
+  background: #333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.packageContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex: 1;
+}
+
+.packageIcon {
+  margin-bottom: 0.75rem;
+}
+
+.packageDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.amount {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.label {
+  font-size: 0.85rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.price {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffd700;
+  margin-top: 0.25rem;
+}
+
+.buyButton {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.buyButton:hover {
+  background: #1565c0;
+  transform: translateY(-1px);
+}
+
+/* 可折叠部分 */
+.collapsibleSection {
+  background: #1a1a1a;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #333;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  background: #2a2a2a;
+  transition: background 0.2s;
+  border-bottom: 1px solid #333;
+}
+
+.sectionHeader:hover {
+  background: #333;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #fff;
+}
+
+.caret {
+  font-size: 0.9rem;
+  color: #999;
+  transition: transform 0.2s;
+}
+
+.tableContainer {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+.karmaTable {
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.karmaTable th {
+  text-align: left;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #444;
+  font-weight: 600;
+  color: #999;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.karmaTable td {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #333;
+  color: #ccc;
+}
+
+.emptyRow {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem 0;
+  font-size: 0.9rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .karmaPackages {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .karmaPackages > div:nth-child(5) {
+    grid-column: span 2;
+    max-width: 300px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .mainContent {
+    padding: 0 1rem 2rem 1rem;
+  }
+  
+  .karmaPackages {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .karmaPackages > div:nth-child(5) {
+    grid-column: span 1;
+    max-width: none;
+  }
+  
+  .currentKarma {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .topNav {
+    padding: 0;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  
+  .navItem {
+    padding: 1rem 1.5rem;
+    white-space: nowrap;
+    font-size: 1rem;
+    min-width: 100px;
+  }
+  
+  .pageTitle {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .karmaPackage {
+    padding: 1rem;
+  }
+  
+  .amount {
+    font-size: 1.2rem;
+  }
+  
+  .price {
+    font-size: 1rem;
+  }
+  
+  .buyButton {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}

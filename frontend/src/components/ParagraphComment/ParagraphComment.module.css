@@ -1,0 +1,676 @@
+/* 段落评论组件样式 */
+.paragraphComment {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* 评论数量按钮 */
+.commentButton {
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.7;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.commentButton:hover {
+  background: #444;
+  border-color: #666;
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+/* 有评论时的样式 - 使用更具体的选择器 */
+.commentButton.hasComments {
+  opacity: 1;
+  background: #2196f3;
+  border-color: #1976d2;
+}
+
+.commentCount {
+  line-height: 1;
+}
+
+/* 评论面板 */
+.commentPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100vh;
+  max-height: 100vh;
+  background: #1a1f2e;
+  border-left: 1px solid #333;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  /* 防止内容溢出和布局抖动 */
+  min-width: 0;
+  max-width: 50%;
+}
+
+.commentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #333;
+  background: #23272F;
+  gap: 16px;
+  min-height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.commentHeader h4 {
+  margin: 0;
+  padding: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: auto;
+  height: 100%;
+  line-height: 1;
+}
+
+.sortSelect {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* 添加评论 */
+.addComment {
+  padding: 20px 16px;
+  border-bottom: 1px solid #333;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  margin: 0;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  background: #1a1f2e;
+  /* 防止布局抖动：确保宽度稳定 */
+  min-width: 0;
+  /* 防止内容溢出 */
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.commentInput {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #23272F;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 80px;
+  margin: 0 0 16px 0;
+  /* 修复文字溢出问题：允许文本换行而不是隐藏 */
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 确保文本能够正确换行 */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  /* 防止屏幕抖动：确保宽度计算稳定 */
+  min-width: 0;
+  /* 防止输入时布局变化，使用 transform 优化性能 */
+  transform: translateZ(0);
+  /* 确保与提交按钮左对齐 */
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.commentInput:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.commentInput::placeholder {
+  color: #666;
+}
+
+.submitSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  /* 确保与输入框左对齐 */
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.submitButton {
+  background: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1976d2;
+  transform: translateY(-1px);
+}
+
+.submitButton:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.commentPolicy {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* 评论列表 */
+.commentsList {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  z-index: 0;
+}
+
+.commentItem {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 12px;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: visible;
+  min-height: auto;
+  /* 确保评论项能够正确限制嵌套内容的宽度 */
+  min-width: 0;
+  width: 100%;
+}
+
+.commentItem:last-child {
+  margin-bottom: 0;
+}
+
+.replyItem {
+  background: #18191A;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: visible;
+  min-height: auto;
+  /* 确保嵌套回复项不会超出父容器 */
+  min-width: 0;
+  width: 100%;
+}
+
+.avatarColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.contentColumn {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+  box-sizing: border-box;
+  /* 确保内容列能够正确限制嵌套内容的宽度 */
+  width: 100%;
+}
+
+.commentItemHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 0;
+  height: auto;
+  flex-direction: column;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.commentInfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  flex: 1;
+}
+
+.username {
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.commentDate {
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.commentContent {
+  color: #fff;
+  margin-bottom: 8px;
+  margin-top: 8px;
+  line-height: 1.6;
+  font-size: 18px;
+  flex: 1;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  white-space: normal;
+}
+
+/* 评论操作按钮 */
+.commentActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.commentActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.actionButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.actionButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.replyButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.replyButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.editButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.editButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.editForm {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.replyActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.repliesContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  /* 确保嵌套回复不会超出父容器 */
+  min-width: 0;
+}
+
+.replyFormContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* 确保嵌套回复表单不会超出父容器 */
+  min-width: 0;
+  /* 防止内容溢出，允许横向滚动作为备用方案 */
+  overflow-x: auto;
+  overflow-y: visible;
+  /* 确保内容不会超出父容器 */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.replyHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.replyInfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.replyDate {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.replyContent {
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.5;
+  font-size: 18px;
+}
+
+.toggleRepliesButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.toggleRepliesButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+/* 回复表单 */
+.replyForm {
+  margin-top: 16px;
+  padding: 16px;
+  background: #18191A;
+  border-radius: 8px;
+  /* 确保表单不会超出父容器 */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.replyTextarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 6px;
+  border: none;
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 18px;
+  padding: 12px;
+  margin-bottom: 12px;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+  max-width: 100%;
+  /* 确保文本区域不会超出父容器 */
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.replyTextarea::placeholder {
+  color: #666;
+}
+
+.replyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelButton {
+  background: none;
+  border: 1px solid #666;
+  color: #666;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  border-color: #aaa;
+  color: #aaa;
+}
+
+.submitButton {
+  background: #2196f3;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 回复区域 */
+.repliesSection {
+  margin-top: 8px;
+  padding-left: 20px;
+  border-left: 2px solid #333;
+}
+
+.repliesToggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.toggleRepliesButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.toggleRepliesButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.repliesList {
+  margin-top: 12px;
+}
+
+/* 加载状态 */
+.loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.noComments {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .commentPanel {
+    width: 100%;
+    right: 0;
+  }
+  
+  .commentInput {
+    font-size: 18px; /* 防止iOS缩放 */
+  }
+  
+  /* 在小屏幕上减少嵌套回复的左边距 */
+  .repliesContainerCompact,
+  .replyFormContainerCompact {
+    padding-left: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .commentPanel {
+    width: 100%;
+    right: 0;
+  }
+  
+  /* 在更小的屏幕上进一步减少嵌套回复的左边距 */
+  .repliesContainerCompact,
+  .replyFormContainerCompact {
+    padding-left: 12px;
+  }
+}

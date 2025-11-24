@@ -1,0 +1,146 @@
+.modalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modalBox {
+  background: #23272F;
+  border-radius: 24px;
+  padding: 40px 36px 32px 36px;
+  min-width: 420px;
+  max-width: 95vw;
+  box-shadow: 0 8px 40px #000a;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.subtitle {
+  color: #6cf;
+  font-size: 16px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.total {
+  font-size: 18px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.rewardsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+.rewardBox {
+  background: #18191A;
+  border-radius: 12px;
+  padding: 16px 12px;
+  min-width: 70px;
+  text-align: center;
+  font-weight: 600;
+  color: #ffb300;
+  border: 2px solid transparent;
+  transition: border 0.2s;
+}
+.rewardBox.active {
+  border: 2px solid #6cf;
+  color: #fff;
+  background: #23272F;
+}
+.progressBox {
+  display: flex;
+  align-items: center;
+  background: #18191A;
+  border-radius: 16px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 340px;
+  gap: 18px;
+}
+.badge {
+  font-size: 44px;
+  background: #23272F;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+.progressTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.progressDesc {
+  color: #aaa;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.progressBarWrap {
+  background: #333;
+  border-radius: 8px;
+  height: 8px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.progressBar {
+  background: linear-gradient(90deg, #1976d2 0%, #21a1ff 100%);
+  height: 8px;
+  border-radius: 8px;
+  transition: width 0.3s;
+}
+.progressText {
+  color: #aaa;
+  font-size: 13px;
+}
+.buttonRow {
+  display: flex;
+  gap: 18px;
+  margin-top: 12px;
+  width: 100%;
+  justify-content: center;
+}
+.signInBtn {
+  background: linear-gradient(90deg, #1976d2 0%, #21a1ff 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 32px;
+  cursor: pointer;
+  box-shadow: 0 2px 12px #1976d244;
+  transition: opacity 0.2s;
+}
+.signInBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.closeBtn {
+  background: #444;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 32px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.closeBtn:hover {
+  background: #666;
+} 

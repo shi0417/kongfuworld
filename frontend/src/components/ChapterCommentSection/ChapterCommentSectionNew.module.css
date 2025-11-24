@@ -1,0 +1,541 @@
+.commentSection {
+  max-width: 800px;
+  margin: 60px auto 0 auto;
+  padding: 0 24px;
+  color: #fff;
+}
+
+.loading {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #aaa;
+}
+
+/* 评论输入区域 */
+.commentForm {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.formTitle {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.commentTextarea {
+  width: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+  border: none;
+  background: #18191A;
+  color: #fff;
+  font-size: 20pt;
+  padding: 16px;
+  margin-bottom: 16px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.commentTextarea::placeholder {
+  color: #666;
+}
+
+.formFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.validationError {
+  color: #d32f2f;
+  font-size: 14px;
+}
+
+.wordCount {
+  font-size: 14px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.submitButton {
+  background: #2196f3;
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.errorMessage {
+  color: #d32f2f;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* 评论列表 */
+.commentsList {
+  margin-top: 20px;
+}
+
+.noComments {
+  text-align: center;
+  color: #aaa;
+  font-size: 1.1rem;
+  padding: 20px;
+  background: #23272F;
+  border-radius: 16px;
+}
+
+.commentItem {
+  background: #23272F;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.commentHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.commentInfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.username {
+  font-weight: 700;
+  color: #fff;
+  font-size: 16px;
+}
+
+.commentDate {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.commentContent {
+  color: #fff;
+  margin-bottom: 16px;
+  line-height: 1.6;
+  font-size: 20pt;
+}
+
+.commentActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.commentActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.actionButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.actionButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+/* 回复表单 */
+.replyForm {
+  margin-top: 16px;
+  padding: 16px;
+  background: #18191A;
+  border-radius: 8px;
+}
+
+.replyTextarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 6px;
+  border: none;
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 20pt;
+  padding: 12px;
+  margin-bottom: 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.replyTextarea::placeholder {
+  color: #666;
+}
+
+.replyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelButton {
+  background: none;
+  border: 1px solid #666;
+  color: #666;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  border-color: #aaa;
+  color: #aaa;
+}
+
+/* 回复列表 */
+.repliesList {
+  margin-top: 16px;
+  padding-left: 20px;
+  border-left: 2px solid #333;
+}
+
+.replyItem {
+  background: #18191A;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.replyHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.replyInfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.replyDate {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.replyContent {
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.5;
+  font-size: 20pt;
+}
+
+.replyActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.replyActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.editButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.editButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.editForm {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.repliesContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.replyFormContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* 回复组件样式 */
+.repliesSection {
+  margin-top: 16px;
+  padding-left: 20px;
+  border-left: 2px solid #333;
+}
+
+.repliesToggle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.toggleRepliesButton, .replyButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.toggleRepliesButton:hover, .replyButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.replyForm {
+  margin-top: 12px;
+  padding: 16px;
+  background: #18191A;
+  border-radius: 8px;
+}
+
+.replyTextarea {
+  width: 100%;
+  min-height: 80px;
+  border-radius: 6px;
+  border: none;
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 20pt;
+  padding: 12px;
+  margin-bottom: 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.replyTextarea::placeholder {
+  color: #666;
+}
+
+.replyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelButton {
+  background: none;
+  border: 1px solid #666;
+  color: #666;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  border-color: #aaa;
+  color: #aaa;
+}
+
+.submitButton {
+  background: #2196f3;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.repliesList {
+  margin-top: 12px;
+}
+
+.noReplies {
+  color: #aaa;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+  background: #18191A;
+  border-radius: 8px;
+}
+
+.replyItem {
+  background: #18191A;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.replyHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.replyInfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.replyDate {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.replyContent {
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.5;
+  font-size: 20pt;
+}
+
+.replyActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.replyActionsInline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.editButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.editButton:hover {
+  color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.editForm {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.repliesContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.replyFormContainerCompact {
+  margin-top: 0.375rem;
+  margin-left: 0;
+  padding-left: 40px;
+  border-left: 2px solid #333;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}

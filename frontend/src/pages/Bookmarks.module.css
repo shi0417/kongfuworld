@@ -1,0 +1,876 @@
+/* Bookmarks页面样式 - 仿Wuxiaworld深色主题 */
+
+.container {
+  min-height: calc(100vh - 200px); /* 减去导航栏和页脚的高度 */
+  background-color: #1a1a1a;
+  color: #ffffff;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 页面包装器 - 确保整个页面都是深色背景 */
+.pageWrapper {
+  background-color: #1a1a1a;
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 确保Bookmarks页面是深色背景 */
+.pageWrapper {
+  background-color: #1a1a1a;
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.header {
+  margin-bottom: 30px;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 20px;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #333;
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: #ffffff;
+  padding: 12px 24px;
+  font-size: 1rem;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.tab:hover {
+  background-color: #333;
+}
+
+.tab.active {
+  color: #4a9eff;
+  border-bottom-color: #4a9eff;
+}
+
+/* 控制栏样式 */
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 20px;
+}
+
+/* Favorite Chapters专用控件样式 - 右对齐 */
+.favoriteControls {
+  justify-content: flex-end;
+}
+
+.viewControls {
+  display: flex;
+  gap: 5px;
+}
+
+.viewBtn {
+  background: #333;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.viewBtn:hover {
+  background: #444;
+  border-color: #666;
+}
+
+.viewBtn.active {
+  background: #4a9eff;
+  border-color: #4a9eff;
+  color: white;
+}
+
+.listIcon, .gridIcon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.sortControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sortDropdown {
+  position: relative;
+}
+
+.sortButton {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.sortButton:hover {
+  background: #444;
+  border-color: #666;
+}
+
+.dropdownArrow {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.sortOptions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.sortOption {
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #333;
+}
+
+.sortOption:last-child {
+  border-bottom: none;
+}
+
+.sortOption:hover {
+  background: #444;
+}
+
+.sortOption.selected {
+  background: #4a9eff;
+  color: white;
+}
+
+.sortOrderBtn {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.sortOrderBtn:hover {
+  background: #444;
+  border-color: #666;
+}
+
+.sortOrderIcon {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #888;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #4a9eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  background-color: #ff4444;
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.error button {
+  background-color: #ffffff;
+  color: #ff4444;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.loginPrompt {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+}
+
+.content {
+  margin-top: 20px;
+}
+
+/* 小说容器 */
+.novelContainer {
+  margin-top: 20px;
+}
+
+/* 小说网格布局 - 每行2个小说书签 */
+.novelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 100%;
+}
+
+/* 小说列表布局 */
+.novelList {
+  display: flex;
+  flex-direction: column;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+/* 表格头部样式 */
+.tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 2fr 2fr 120px;
+  background-color: #2a2a2a;
+  border-bottom: 2px solid #333;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.titleHeader, .lastReadHeader, .latestReleaseHeader, .actionsHeader {
+  padding: 15px 20px;
+  border-right: 1px solid #333;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.actionsHeader {
+  border-right: none;
+  text-align: center;
+}
+
+/* 小说列表项样式 */
+.novelListItem {
+  display: grid;
+  grid-template-columns: 2fr 2fr 2fr 120px;
+  align-items: center;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s ease;
+}
+
+.novelListItem:hover {
+  background-color: #333;
+}
+
+.novelListItem:last-child {
+  border-bottom: none;
+}
+
+.novelListItem .novelTitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #ffffff;
+  padding: 15px 20px;
+  border-right: 1px solid #333;
+  line-height: 1.4;
+}
+
+.lastReadColumn {
+  font-size: 0.9rem;
+  color: #ccc;
+  padding: 15px 20px;
+  border-right: 1px solid #333;
+  line-height: 1.4;
+}
+
+.latestReleaseColumn {
+  font-size: 0.9rem;
+  color: #ccc;
+  padding: 15px 20px;
+  border-right: 1px solid #333;
+  line-height: 1.4;
+}
+
+.novelActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 15px 20px;
+}
+
+.actionIcon {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.actionIcon:hover {
+  background-color: #444;
+  color: #fff;
+}
+
+.actionIcon.active {
+  color: #4a9eff;
+}
+
+.removeIcon {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.removeIcon:hover {
+  background-color: #ff4444;
+  color: white;
+}
+
+.favoriteGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* 小说卡片样式 */
+.novelCard {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #333;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.novelCard:hover {
+  border-color: #4a9eff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.statusTag {
+  background-color: #4a9eff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.statusTag:contains("Completed") {
+  background-color: #28a745;
+}
+
+.statusTag:contains("Ongoing") {
+  background-color: #ff9500;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.removeBtn:hover {
+  background-color: #ff4444;
+  color: white;
+}
+
+.cardContent {
+  display: flex;
+  gap: 15px;
+  flex: 1;
+}
+
+.novelCover {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.coverImage {
+  width: 60px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.coverPlaceholder {
+  width: 60px;
+  height: 80px;
+  background: linear-gradient(135deg, #4a9eff, #6bb6ff);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+.novelInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0; /* 防止内容溢出 */
+}
+
+.novelTitle {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.progressSection {
+  margin: 10px 0;
+}
+
+.progressText {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin: 0 0 8px 0;
+}
+
+.progressBar {
+  width: 100%;
+  height: 6px;
+  background-color: #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff, #6bb6ff);
+  transition: width 0.3s ease;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  background-color: #333;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.actionBtn:hover {
+  background-color: #444;
+  border-color: #666;
+}
+
+.actionBtn.active {
+  background-color: #4a9eff;
+  border-color: #4a9eff;
+  color: white;
+}
+
+/* 收藏小说卡片样式 */
+.favoriteCard {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #333;
+  transition: all 0.3s ease;
+}
+
+.favoriteCard:hover {
+  border-color: #4a9eff;
+  transform: translateY(-1px);
+}
+
+.favoriteHeader {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.favoriteInfo {
+  flex: 1;
+}
+
+.chapterCount {
+  font-size: 0.9rem;
+  color: #888;
+  margin: 5px 0 0 0;
+}
+
+.favoriteActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.expandBtn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.expandBtn:hover {
+  background-color: #444;
+  color: white;
+}
+
+.chapterList {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.chapterItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+
+.chapterItem:last-child {
+  border-bottom: none;
+}
+
+.chapterName {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.removeChapterBtn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.removeChapterBtn:hover {
+  background-color: #ff4444;
+  color: white;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+  font-size: 1.1rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .novelGrid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .novelGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .cardContent {
+    flex-direction: column;
+  }
+  
+  .novelCover {
+    align-self: center;
+  }
+  
+  .actionButtons {
+    flex-direction: column;
+  }
+  
+  .actionBtn {
+    flex: none;
+  }
+  
+  .favoriteActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* 模态框样式 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 30px;
+  max-width: 400px;
+  width: 90%;
+  border: 1px solid #333;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modalTitle {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0 0 15px 0;
+  text-align: center;
+}
+
+.modalMessage {
+  color: #ccc;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0 0 25px 0;
+  text-align: center;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+}
+
+.modalBtnCancel {
+  background-color: transparent;
+  color: white;
+  border: 1px solid #4a9eff;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.modalBtnCancel:hover {
+  background-color: #4a9eff;
+  color: white;
+}
+
+.modalBtnConfirm {
+  background: linear-gradient(135deg, #4a9eff, #357abd);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.modalBtnConfirm:hover {
+  background: linear-gradient(135deg, #357abd, #2c5aa0);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .tabs {
+    flex-direction: column;
+  }
+  
+  .tab {
+    text-align: center;
+  }
+}
+
+/* 分页组件样式 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 30px;
+  padding: 20px 0;
+}
+
+.pageBtn {
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.pageBtn:hover:not(.disabled) {
+  background-color: #3a3a3a;
+  border-color: #666;
+}
+
+.pageBtn.active {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: #ffffff;
+}
+
+.pageBtn.disabled {
+  background-color: #1a1a1a;
+  border-color: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.pageNumbers {
+  display: flex;
+  gap: 4px;
+}
+
+/* 响应式分页 */
+@media (max-width: 768px) {
+  .pagination {
+    gap: 4px;
+    margin-top: 20px;
+    padding: 15px 0;
+  }
+  
+  .pageBtn {
+    padding: 6px 10px;
+    min-width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+}

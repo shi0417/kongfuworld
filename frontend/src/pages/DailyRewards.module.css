@@ -1,0 +1,489 @@
+/* Daily Rewards Page Styles - Matching WuxiaWorld Design */
+.dailyRewardsPage {
+  min-height: 100vh;
+  background: #1a1a1a;
+  color: #ffffff;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Top Navigation */
+.topNav {
+  display: flex;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.navItem {
+  padding: 0.75rem 1.5rem;
+  margin: 0 0.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: #cccccc;
+  font-weight: 500;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.navItem.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* Main Content */
+.mainContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Keys Section - Matching WuxiaWorld */
+.keysSection {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #404040;
+}
+
+.keysHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.keysIcon {
+  font-size: 3rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.keysInfo h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.keysCount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Title Section */
+.titleSection {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.pageTitle {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #cccccc;
+  margin: 0;
+}
+
+/* Rewards Container */
+.rewardsContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+/* Login Rewards - Matching WuxiaWorld */
+.loginRewards {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #404040;
+}
+
+.sectionHeader h3 {
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
+  color: #ffffff;
+}
+
+.sectionHeader p {
+  color: #cccccc;
+  margin: 0 0 1.5rem 0;
+}
+
+/* Progress Card - Matching WuxiaWorld */
+.progressCard {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #404040;
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.progressIcon {
+  font-size: 2rem;
+}
+
+.progressTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Progress Bar */
+.progressBar {
+  margin-bottom: 1.5rem;
+}
+
+.progressLabel {
+  font-size: 0.9rem;
+  color: #cccccc;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.progressContainer {
+  background: #404040;
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progressFill {
+  height: 100%;
+  background: #007bff;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Upcoming Rewards */
+.upcomingRewards h4 {
+  font-size: 1rem;
+  color: #cccccc;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.rewardsList {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.rewardItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #404040;
+  transition: all 0.3s ease;
+  min-width: 80px;
+  position: relative;
+}
+
+.rewardItem.currentDay {
+  border-color: #007bff;
+  background: #1a1a1a;
+  box-shadow: 0 0 0 2px #007bff;
+}
+
+.dayLabel {
+  font-size: 0.8rem;
+  color: #cccccc;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.rewardIcon {
+  font-size: 1.2rem;
+  margin-bottom: 0.25rem;
+}
+
+.rewardText {
+  font-size: 0.8rem;
+  color: #ffffff;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Check-in Section */
+.checkinSection {
+  margin-bottom: 1.5rem;
+}
+
+.checkinButton {
+  background: #007bff;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.checkinButton:hover {
+  background: #0056b3;
+}
+
+.checkedIn {
+  color: #4ade80;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Notification Toggle */
+.notificationToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #cccccc;
+  font-size: 0.9rem;
+}
+
+.toggleLabel input[type="checkbox"] {
+  display: none;
+}
+
+.toggleSlider {
+  width: 40px;
+  height: 20px;
+  background: #404040;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s ease;
+}
+
+.toggleLabel input[type="checkbox"]:checked + .toggleSlider {
+  background: #007bff;
+}
+
+.toggleLabel input[type="checkbox"]:checked + .toggleSlider::before {
+  transform: translateX(20px);
+}
+
+/* Mission Rewards - Matching WuxiaWorld */
+.missionRewards {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #404040;
+}
+
+.resetTimer {
+  color: #007bff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Missions List */
+.missionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.missionCard {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #404040;
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+}
+
+.missionCard:hover {
+  border-color: #404040;
+  background: #1a1a1a;
+}
+
+.missionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.missionIcon {
+  font-size: 1.5rem;
+}
+
+.missionInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.missionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+}
+
+.missionReward {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Mission Progress */
+.missionProgress {
+  margin-bottom: 1rem;
+}
+
+.missionProgress .progressText {
+  font-size: 0.9rem;
+  color: #cccccc;
+  margin-bottom: 0.5rem;
+}
+
+.missionProgress .progressBar {
+  background: #404040;
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.missionProgress .progressFill {
+  height: 100%;
+  background: #007bff;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Mission Actions */
+.missionActions {
+  display: flex;
+  align-items: center;
+}
+
+.claimButton {
+  background: #404040;
+  color: #ffffff;
+  border: 1px solid #666666;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.claimButton:hover {
+  background: #555555;
+  border-color: #777777;
+}
+
+.claimedStatus {
+  color: #cccccc;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.inProgressStatus {
+  color: #cccccc;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Loading */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .rewardsContainer {
+    grid-template-columns: 1fr;
+  }
+  
+  .pageTitle {
+    font-size: 2rem;
+  }
+  
+  .mainContent {
+    padding: 1rem;
+  }
+  
+  .rewardsList {
+    flex-wrap: wrap;
+  }
+  
+  .rewardItem {
+    min-width: 50px;
+  }
+}

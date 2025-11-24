@@ -1,0 +1,414 @@
+import React, { useState, useEffect } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements
+} from '@stripe/react-stripe-js';
+import ApiService from '../../services/ApiService';
+import styles from './SmartPaymentModal.module.css';
+
+// 加载Stripe
+const stripePromise = loadStripe('pk_test_51SDjOuDYBCezccmeveA9cNQZ4xW1VCJfbGBzFU6xsid1eiuMzK8fQDufYr6FzIURXV4U7eHYoGFrUKGyc209tfVk00yzBXGlC0');
+
+interface PaymentMethod {
+  id: string;
+  payment_method_id: string;
+  card_brand: string;
+  card_last4: string;
+  card_exp_month: number;
+  card_exp_year: number;
+  is_default: boolean;
+}
+
+interface SmartPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  tier: {
+    name: string;
+    price: number;
+    description: string;
+  };
+  novelId: number;
+  onPaymentSuccess: (orderId: string) => void;
+  onPaymentError: (error: string) => void;
+}
+
+// 支付表单组件
+const PaymentForm: React.FC<{
+  tier: SmartPaymentModalProps['tier'];
+  novelId: number;
+  onPaymentSuccess: (orderId: string) => void;
+  onPaymentError: (error: string) => void;
+  onClose: () => void;
+  existingPaymentMethods: PaymentMethod[];
+  onPaymentMethodSaved: () => void;
+}> = ({ tier, novelId, onPaymentSuccess, onPaymentError, onClose, existingPaymentMethods, onPaymentMethodSaved }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [savePaymentMethod, setSavePaymentMethod] = useState(false);
+
+  // 确认支付的辅助函数（带重试机制）
+  const confirmPayment = async (paymentIntentId: string, retryCount = 0): Promise<void> => {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1秒
+
+    try {
+      console.log(`[支付确认] PaymentIntent ID: ${paymentIntentId}, 重试次数: ${retryCount}`);
+      
+      const confirmResponse = await ApiService.request('/payment/stripe/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentIntentId: paymentIntentId
+        })
+      });
+
+      if (!confirmResponse.success) {
+        throw new Error(`API error: ${confirmResponse.message}`);
+      }
+
+      console.log('[支付确认] 结果:', confirmResponse.data);
+
+      if (confirmResponse.success) {
+        console.log('[支付确认] 成功');
+        onPaymentSuccess(paymentIntentId);
+      } else {
+        throw new Error(confirmResponse.message || 'Payment confirmation failed');
+      }
+    } catch (error) {
+      console.error(`[支付确认] 失败 (重试 ${retryCount}/${maxRetries}):`, error);
+      
+      if (retryCount < maxRetries) {
+        console.log(`[支付确认] 等待 ${retryDelay}ms 后重试...`);
+        setTimeout(() => {
+          confirmPayment(paymentIntentId, retryCount + 1);
+        }, retryDelay);
+      } else {
+        throw new Error(`Payment confirmation failed after ${maxRetries} retries: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+  };
+
+  // 保存支付方式的辅助函数
+  const savePaymentMethodToServer = async (paymentMethod: any): Promise<void> => {
+    try {
+      const cardInfo = {
+        brand: paymentMethod.card?.brand,
+        last4: paymentMethod.card?.last4,
+        exp_month: paymentMethod.card?.exp_month,
+        exp_year: paymentMethod.card?.exp_year
+      };
+
+      console.log('[保存支付方式] 卡片信息:', cardInfo);
+      console.log('[保存支付方式] PaymentMethod ID:', paymentMethod.id);
+
+      const saveResponse = await ApiService.request('/payment/stripe/save-payment-method', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 1,
+          paymentMethodId: paymentMethod.id,
+          cardInfo: cardInfo
+        })
+      });
+
+      if (!saveResponse.success) {
+        throw new Error(`API error: ${saveResponse.message}`);
+      }
+
+      console.log('[保存支付方式] 结果:', saveResponse.data);
+
+      if (saveResponse.success) {
+        console.log('[保存支付方式] 成功');
+        onPaymentMethodSaved();
+      } else {
+        console.error('[保存支付方式] 失败:', saveResponse.message);
+      }
+    } catch (saveError) {
+      console.error('[保存支付方式] 请求失败:', saveError);
+      // 不抛出错误，避免影响主流程
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!stripe || !elements) {
+      console.error('[支付流程] Stripe未初始化');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    console.log(`[支付流程] 开始 - 小说ID: ${novelId}, 金额: $${tier.price}`);
+
+    try {
+      if (selectedPaymentMethod) {
+        // 使用已保存的支付方式
+        console.log(`[支付流程] 使用已保存的支付方式: ${selectedPaymentMethod}`);
+        
+        const response = await ApiService.request('/payment/stripe/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: 1, // 临时使用用户ID 1，实际应该从认证中获取
+            amount: tier.price,
+            currency: 'usd',
+            novelId: novelId,
+            paymentMethodId: selectedPaymentMethod
+          })
+        });
+
+        if (!response.success) {
+          throw new Error(`API error: ${response.message}`);
+        }
+
+        const { status, paymentIntentId } = response.data;
+
+        console.log(`[支付流程] 支付意图创建成功: ${paymentIntentId}, 状态: ${status}`);
+
+        if (status === 'succeeded') {
+          // 支付成功，开始确认流程
+          console.log('[支付流程] 支付成功，开始确认流程...');
+          await confirmPayment(paymentIntentId);
+        } else {
+          throw new Error('Payment not completed');
+        }
+      } else {
+        // 使用新输入的卡片信息
+        console.log('[支付流程] 使用新输入的卡片信息');
+        
+        const response = await ApiService.request('/payment/stripe/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: 1, // 临时使用用户ID 1，实际应该从认证中获取
+            amount: tier.price,
+            currency: 'usd',
+            novelId: novelId
+          })
+        });
+
+        if (!response.success) {
+          throw new Error(`API error: ${response.message}`);
+        }
+
+        const { clientSecret, paymentIntentId } = response as any;
+
+        console.log(`[支付流程] 支付意图创建成功: ${paymentIntentId}`);
+
+        // 确认支付
+        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: elements.getElement(CardElement)!,
+          }
+        });
+
+        if (stripeError) {
+          console.error('[支付流程] Stripe支付错误:', stripeError);
+          throw new Error(stripeError.message);
+        }
+
+        console.log(`[支付流程] Stripe支付结果: ${paymentIntent.status}`);
+
+        if (paymentIntent.status === 'succeeded') {
+          // 如果用户选择保存支付方式
+          if (savePaymentMethod && paymentIntent.payment_method && typeof paymentIntent.payment_method === 'object') {
+            console.log('[支付流程] 保存支付方式:', savePaymentMethod);
+            await savePaymentMethodToServer(paymentIntent.payment_method);
+          } else {
+            console.log('[支付流程] 未保存支付方式 - savePaymentMethod:', savePaymentMethod, 'payment_method:', paymentIntent.payment_method);
+          }
+
+          // 支付成功，开始确认流程
+          console.log('[支付流程] 支付成功，开始确认流程...');
+          await confirmPayment(paymentIntent.id);
+        } else {
+          throw new Error('Payment not completed');
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Payment failed';
+      console.error('[支付流程] 错误:', errorMessage);
+      setError(errorMessage);
+      onPaymentError(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const cardElementOptions = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: '#424770',
+        '::placeholder': {
+          color: '#aab7c4',
+        },
+      },
+      invalid: {
+        color: '#9e2146',
+      },
+    },
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={styles.paymentForm}>
+      <h3>选择支付方式</h3>
+      
+      {/* 已保存的支付方式 */}
+      {existingPaymentMethods.length > 0 && (
+        <div className={styles.savedPaymentMethods}>
+          <h4>已保存的支付方式</h4>
+          {existingPaymentMethods.map((method) => (
+            <label key={method.id} className={styles.paymentMethodOption}>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value={method.payment_method_id}
+                checked={selectedPaymentMethod === method.payment_method_id}
+                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+              />
+              <div className={styles.paymentMethodInfo}>
+                <span className={styles.cardBrand}>{method.card_brand.toUpperCase()}</span>
+                <span className={styles.cardNumber}>**** **** **** {method.card_last4}</span>
+                <span className={styles.cardExpiry}>
+                  {method.card_exp_month.toString().padStart(2, '0')}/{method.card_exp_year}
+                </span>
+                {method.is_default && <span className={styles.defaultBadge}>默认</span>}
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* 新卡片输入 */}
+      {(!selectedPaymentMethod || selectedPaymentMethod === "") && (
+        <div className={styles.newCardSection}>
+          <div className={styles.cardElement}>
+            <CardElement options={cardElementOptions} />
+          </div>
+          
+          <label className={styles.saveCardOption}>
+            <input
+              type="checkbox"
+              checked={savePaymentMethod}
+              onChange={(e) => setSavePaymentMethod(e.target.checked)}
+            />
+            <span>保存此卡片信息以便下次使用</span>
+          </label>
+        </div>
+      )}
+      
+      {error && <div className={styles.errorMessage}>{error}</div>}
+      
+      <div className={styles.buttonGroup}>
+        <button
+          type="button"
+          onClick={onClose}
+          className={styles.cancelButton}
+          disabled={isProcessing}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className={styles.payButton}
+          disabled={!stripe || isProcessing}
+        >
+          {isProcessing ? 'Processing...' : `Pay $${(Number(tier.price) || 0).toFixed(2)}`}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
+  isOpen,
+  onClose,
+  tier,
+  novelId,
+  onPaymentSuccess,
+  onPaymentError
+}) => {
+  const [existingPaymentMethods, setExistingPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      fetchPaymentMethods();
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  const fetchPaymentMethods = async () => {
+    setLoading(true);
+    try {
+      console.log(`[获取支付方式] 用户ID: 1`);
+      const response = await ApiService.request('/payment/stripe/payment-methods/1');
+      
+      if (response.success) {
+        console.log(`[获取支付方式] 成功，找到 ${response.data.paymentMethods.length} 个支付方式`);
+        setExistingPaymentMethods(response.data.paymentMethods);
+      } else {
+        console.error('[获取支付方式] 失败:', response.message);
+      }
+    } catch (error) {
+      console.error('[获取支付方式] 请求失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentMethodSaved = () => {
+    console.log('[支付方式保存] 刷新支付方式列表');
+    fetchPaymentMethods();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={styles.modalOverlay}>
+      <div className={styles.modal}>
+        <div className={styles.modalHeader}>
+          <h2>支付 - {tier.name}</h2>
+          <button className={styles.closeButton} onClick={onClose}>×</button>
+        </div>
+        
+        <div className={styles.modalBody}>
+          <div className={styles.tierInfo}>
+            <h3>{tier.name}</h3>
+            <p className={styles.price}>${tier.price}</p>
+            <p className={styles.description}>{tier.description}</p>
+          </div>
+          
+          {loading ? (
+            <div className={styles.loading}>加载支付方式...</div>
+          ) : (
+            <Elements stripe={stripePromise}>
+              <PaymentForm
+                tier={tier}
+                novelId={novelId}
+                onPaymentSuccess={onPaymentSuccess}
+                onPaymentError={onPaymentError}
+                onClose={onClose}
+                existingPaymentMethods={existingPaymentMethods}
+                onPaymentMethodSaved={handlePaymentMethodSaved}
+              />
+            </Elements>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SmartPaymentModal;

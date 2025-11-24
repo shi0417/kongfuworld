@@ -1,0 +1,733 @@
+/* CSS Variables for Theme - 继承全局变量 */
+.container {
+  padding: 24px;
+  background: var(--bg-secondary, #fff);
+  border-radius: 8px;
+  max-width: 1000px;
+  margin: 0 auto;
+  color: var(--text-primary, #333);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary, #666);
+}
+
+/* 头部 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.avatarSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-tertiary, #f0f0f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  font-size: 40px;
+}
+
+.nameSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nameSection h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.modifyBtn {
+  padding: 6px 16px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modifyBtn:hover {
+  background: #357abd;
+}
+
+.penNameInput {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: 600;
+  min-width: 200px;
+  margin-right: 8px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  padding: 4px 12px;
+  background: var(--bg-tertiary, #f0f0f0);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.viewAllBadges {
+  color: #4a90e2;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+/* 区块 */
+.section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--text-primary, #333);
+}
+
+/* 信息列表 */
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.infoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.infoLabel {
+  font-weight: 500;
+  min-width: 120px;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkIcon {
+  color: #52c41a;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.infoValue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.verified {
+  color: #52c41a;
+}
+
+.unverified,
+.unset {
+  color: #ff4d4f;
+}
+
+/* 按钮 */
+.manageBtn,
+.viewBtn,
+.submitBtn,
+.setBtn,
+.replaceBtn,
+.addBankCardBtn {
+  padding: 6px 16px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.manageBtn:hover,
+.viewBtn:hover,
+.submitBtn:hover,
+.setBtn:hover,
+.replaceBtn:hover,
+.addBankCardBtn:hover {
+  background: #357abd;
+}
+
+.editInput {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.saveBtn {
+  padding: 6px 16px;
+  background: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.saveBtn:hover {
+  background: #73d13d;
+}
+
+.cancelBtn {
+  padding: 6px 16px;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary, #333);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancelBtn:hover {
+  background: var(--hover-bg, #d9d9d9);
+}
+
+/* 地址列表 */
+.addressList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.addressItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-tertiary, #f9f9f9);
+  border-radius: 4px;
+  color: var(--text-primary, #333);
+}
+
+.defaultTag {
+  padding: 2px 8px;
+  background: #52c41a;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.editBtn {
+  padding: 4px 12px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editBtn:hover {
+  background: #357abd;
+}
+
+.setDefaultBtn {
+  padding: 4px 12px;
+  background: var(--bg-tertiary, #f0f0f0);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary, #333);
+}
+
+.setDefaultBtn:hover {
+  background: var(--hover-bg, #d9d9d9);
+}
+
+.deleteBtn {
+  padding: 4px 12px;
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.deleteBtn:hover {
+  background: #ff7875;
+}
+
+/* 银行卡 */
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: var(--bg-tertiary, #f0f0f0);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.tab.active {
+  background: #4a90e2;
+  color: white;
+}
+
+.bankCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bankCardItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-tertiary, #f9f9f9);
+  border-radius: 4px;
+  color: var(--text-primary, #333);
+}
+
+.bankCardInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platformName {
+  font-weight: 500;
+}
+
+.cardNumber {
+  color: var(--text-secondary, #666);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-tertiary, #999);
+}
+
+
+/* 切换开关 */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.toggleSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+.toggle input:checked + .toggleSlider {
+  background-color: #4a90e2;
+}
+
+.toggle input:checked + .toggleSlider:before {
+  transform: translateX(20px);
+}
+
+/* 模态框 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: var(--bg-secondary, white);
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  color: var(--text-primary, #333);
+  box-shadow: 0 4px 12px var(--shadow, rgba(0, 0, 0, 0.15));
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modalContent h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: var(--text-tertiary, #999);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.closeBtn:hover {
+  background: var(--hover-bg, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary, #333);
+}
+
+.checkboxLabel {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: auto !important;
+  min-width: auto !important;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+.formGroup input,
+.formGroup textarea,
+.formGroup select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+}
+
+.formGroup textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.readonlyInput {
+  background-color: var(--bg-tertiary, #f5f5f5) !important;
+  cursor: not-allowed !important;
+  color: var(--text-secondary, #666) !important;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.identityInfo {
+  padding: 16px;
+  background: var(--bg-tertiary, #f9f9f9);
+  border-radius: 4px;
+  color: var(--text-primary, #333);
+}
+
+.identityInfo p {
+  margin: 8px 0;
+  color: var(--text-primary, #333);
+}
+
+/* 紧急联系方式编辑 */
+.emergencyContactEdit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.relationshipSelect {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--bg-secondary, white);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  min-width: 120px;
+}
+
+.phoneEditContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.countryCodeSelect {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 150px;
+  background: var(--bg-secondary, white);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+}
+
+.countryCodeSelect:hover {
+  border-color: #4a90e2;
+}
+
+.phoneInput {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 150px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.confirmBtn {
+  padding: 6px 16px;
+  background: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.confirmBtn:hover {
+  background: #73d13d;
+}
+
+.contactValue {
+  color: var(--text-primary, #333);
+}
+
+/* 银行卡变更记录 */
+.changeLogs {
+  padding: 20px 0;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-tertiary, #999);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-tertiary, #999);
+}
+
+.logsTable {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.logsTableContent {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-secondary, white);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.1));
+}
+
+.logsTableContent thead {
+  background: var(--bg-tertiary, #f5f5f5);
+}
+
+.logsTableContent th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  border-bottom: 2px solid var(--border-color, #e8e8e8);
+}
+
+.logsTableContent td {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  vertical-align: top;
+  text-align: left;
+  color: var(--text-primary, #333);
+}
+
+.logsTableContent tbody tr:hover {
+  background: var(--hover-bg, #fafafa);
+}
+
+.logsTableContent tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.bankCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cardDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  text-align: left;
+  align-items: flex-start;
+}
+
+.cardDetails div {
+  line-height: 1.6;
+}
+
+.cardDetails strong {
+  color: var(--text-primary, #333);
+  margin-right: 8px;
+}
+
+.setCurrentBtn {
+  padding: 6px 16px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  align-self: flex-start;
+  transition: background 0.2s;
+}
+
+.setCurrentBtn:hover {
+  background: #357abd;
+}
+
