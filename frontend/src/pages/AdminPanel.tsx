@@ -1498,14 +1498,14 @@ const AdminPanel: React.FC = () => {
                                 </span>
                               </td>
                               <td 
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                   // 只有PayPal支付方式才能点击同步状态
                                   if (item.payout_method === 'paypal' && item.income_monthly_id) {
-                                    syncPayPalStatusByIncomeMonthlyId(item.income_monthly_id);
-                                  }
-                                }}
-                                style={{
+                                          syncPayPalStatusByIncomeMonthlyId(item.income_monthly_id);
+                                        }
+                                      }}
+                                      style={{
                                   cursor: item.payout_method === 'paypal' && item.income_monthly_id ? 'pointer' : 'default',
                                   textDecoration: item.payout_method === 'paypal' && item.income_monthly_id ? 'underline' : 'none',
                                   color: item.payout_method === 'paypal' && item.income_monthly_id ? '#007bff' : 'inherit',
@@ -1627,9 +1627,9 @@ const AdminPanel: React.FC = () => {
                                   >
                                     {item.month_status === 'processing' ? '处理中' : '发起支付'}
                                   </button>
-                                        </div>
-                                </td>
-                              </tr>
+                                </div>
+                              </td>
+                            </tr>
                             </React.Fragment>
                             );
                           }).filter(Boolean)

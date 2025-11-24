@@ -3388,6 +3388,250 @@ router.post('/novel-royalty-contracts', authenticateAdmin, async (req, res) => {
   }
 });
 
+// 获取所有小说分成合同列表（分页）
+router.get('/novel-royalty-contracts', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { page = 1, page_size = 20, novel_id, author_id, plan_id } = req.query;
+    db = await mysql.createConnection(dbConfig);
+    
+    const pageInt = parseInt(page);
+    const pageSizeInt = parseInt(page_size);
+    const offset = (pageInt - 1) * pageSizeInt;
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+    
+    if (novel_id) {
+      whereClause += ' AND nrc.novel_id = ?';
+      params.push(novel_id);
+    }
+    
+    if (author_id) {
+      whereClause += ' AND nrc.author_id = ?';
+      params.push(author_id);
+    }
+    
+    if (plan_id) {
+      whereClause += ' AND nrc.plan_id = ?';
+      params.push(plan_id);
+    }
+    
+    // 获取总数
+    const [countResult] = await db.execute(
+      `SELECT COUNT(*) as total FROM novel_royalty_contract nrc ${whereClause}`,
+      params
+    );
+    const total = countResult[0].total;
+    
+    // 获取列表数据
+    // 注意：LIMIT 和 OFFSET 不能使用参数占位符，需要直接插入数值
+    const [contracts] = await db.execute(
+      `SELECT 
+        nrc.*,
+        n.title as novel_title,
+        u.username as author_username,
+        u.pen_name as author_pen_name,
+        arp.name as plan_name,
+        arp.royalty_percent
+      FROM novel_royalty_contract nrc
+      LEFT JOIN novel n ON nrc.novel_id = n.id
+      LEFT JOIN user u ON nrc.author_id = u.id
+      LEFT JOIN author_royalty_plan arp ON nrc.plan_id = arp.id
+      ${whereClause}
+      ORDER BY nrc.effective_from DESC, nrc.id DESC
+      LIMIT ${pageSizeInt} OFFSET ${offset}`,
+      params
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        list: contracts.map(contract => ({
+          ...contract,
+          royalty_percent: parseFloat(contract.royalty_percent || 0)
+        })),
+        total: total,
+        page: pageInt,
+        page_size: pageSizeInt,
+        total_pages: Math.ceil(total / pageSizeInt)
+      }
+    });
+  } catch (error) {
+    console.error('获取小说分成合同列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 更新小说分成合同（只能更新plan_id）
+router.put('/novel-royalty-contracts/:id', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    const { plan_id } = req.body;
+    
+    if (!plan_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'plan_id不能为空'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查合同是否存在
+    const [contracts] = await db.execute(
+      'SELECT * FROM novel_royalty_contract WHERE id = ?',
+      [id]
+    );
+    
+    if (contracts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '合同不存在'
+      });
+    }
+    
+    // 检查方案是否存在
+    const [plans] = await db.execute(
+      'SELECT id FROM author_royalty_plan WHERE id = ?',
+      [plan_id]
+    );
+    
+    if (plans.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '分成方案不存在'
+      });
+    }
+    
+    // 更新plan_id
+    await db.execute(
+      'UPDATE novel_royalty_contract SET plan_id = ? WHERE id = ?',
+      [plan_id, id]
+    );
+    
+    res.json({
+      success: true,
+      message: '更新成功'
+    });
+  } catch (error) {
+    console.error('更新小说分成合同错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 更新作者分成方案
+router.put('/author-royalty-plans/:id', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    const { name, royalty_percent, is_default, owner_user_id, start_date, end_date, remark } = req.body;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查方案是否存在
+    const [plans] = await db.execute(
+      'SELECT * FROM author_royalty_plan WHERE id = ?',
+      [id]
+    );
+    
+    if (plans.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '方案不存在'
+      });
+    }
+    
+    // 构建更新字段
+    const updateFields = [];
+    const updateParams = [];
+    
+    if (name !== undefined) {
+      updateFields.push('name = ?');
+      updateParams.push(name);
+    }
+    
+    if (royalty_percent !== undefined) {
+      updateFields.push('royalty_percent = ?');
+      updateParams.push(royalty_percent);
+    }
+    
+    if (is_default !== undefined) {
+      updateFields.push('is_default = ?');
+      updateParams.push(is_default ? 1 : 0);
+      
+      // 如果设置为默认，需要将其他方案取消默认
+      if (is_default) {
+        await db.execute(
+          'UPDATE author_royalty_plan SET is_default = 0 WHERE id != ?',
+          [id]
+        );
+      }
+    }
+    
+    if (owner_user_id !== undefined) {
+      updateFields.push('owner_user_id = ?');
+      updateParams.push(owner_user_id || null);
+    }
+    
+    if (start_date !== undefined) {
+      updateFields.push('start_date = ?');
+      updateParams.push(start_date);
+    }
+    
+    if (end_date !== undefined) {
+      updateFields.push('end_date = ?');
+      updateParams.push(end_date || null);
+    }
+    
+    if (remark !== undefined) {
+      updateFields.push('remark = ?');
+      updateParams.push(remark || null);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '没有要更新的字段'
+      });
+    }
+    
+    updateParams.push(id);
+    
+    await db.execute(
+      `UPDATE author_royalty_plan SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateParams
+    );
+    
+    res.json({
+      success: true,
+      message: '更新成功'
+    });
+  } catch (error) {
+    console.error('更新作者分成方案错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
 // ==================== 用户结算总览相关接口（支持作者+推广者） ====================
 
 // 工具函数：解析月份格式
