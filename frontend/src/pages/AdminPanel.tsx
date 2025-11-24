@@ -1415,20 +1415,21 @@ const AdminPanel: React.FC = () => {
                       <thead>
                         <tr>
                           <th>用户</th>
-                          <th>是否作者</th>
-                          <th>是否推广者</th>
                           <th>作者作品收入(USD)</th>
                           <th>读者推广收入(USD)</th>
                           <th>作者推广收入(USD)</th>
                           <th>当月总收入(USD)</th>
                           <th>支付状态</th>
+                          <th>支付方式</th>
+                          <th>支付币种</th>
+                          <th>支付金额</th>
                           <th>操作</th>
                         </tr>
                       </thead>
                       <tbody>
                         {settlementData.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className={styles.emptyCell}>暂无数据</td>
+                            <td colSpan={10} className={styles.emptyCell}>暂无数据</td>
                           </tr>
                         ) : (
                           settlementData.map((item: any) => {
@@ -1462,8 +1463,6 @@ const AdminPanel: React.FC = () => {
                               title={item.income_monthly_id ? '点击展开/折叠查看支付详情' : ''}
                             >
                               <td>{item.pen_name || item.username || `用户${item.user_id}`}</td>
-                              <td>{item.is_author ? '是' : '否'}</td>
-                              <td>{item.is_promoter ? '是' : '否'}</td>
                               <td>${(item.month_author_base_income || 0).toFixed(2)}</td>
                               <td>${(item.month_reader_referral_income || 0).toFixed(2)}</td>
                               <td>${(item.month_author_referral_income || 0).toFixed(2)}</td>
@@ -1498,6 +1497,26 @@ const AdminPanel: React.FC = () => {
                                    '未支付'}
                                 </span>
                               </td>
+                              <td 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // 只有PayPal支付方式才能点击同步状态
+                                  if (item.payout_method === 'paypal' && item.income_monthly_id) {
+                                    syncPayPalStatusByIncomeMonthlyId(item.income_monthly_id);
+                                  }
+                                }}
+                                style={{
+                                  cursor: item.payout_method === 'paypal' && item.income_monthly_id ? 'pointer' : 'default',
+                                  textDecoration: item.payout_method === 'paypal' && item.income_monthly_id ? 'underline' : 'none',
+                                  color: item.payout_method === 'paypal' && item.income_monthly_id ? '#007bff' : 'inherit',
+                                  userSelect: 'none'
+                                }}
+                                title={item.payout_method === 'paypal' && item.income_monthly_id ? '点击同步PayPal状态（只查询状态，不会重复扣款）' : ''}
+                              >
+                                {item.payout_method ? (item.payout_method === 'paypal' ? 'PayPal' : item.payout_method === 'alipay' ? '支付宝' : item.payout_method === 'wechat' ? '微信' : item.payout_method) : '-'}
+                              </td>
+                              <td>{item.payout_currency || '-'}</td>
+                              <td>{item.payout_amount ? (item.payout_currency ? `${item.payout_currency} ${parseFloat(item.payout_amount).toFixed(2)}` : parseFloat(item.payout_amount).toFixed(2)) : '-'}</td>
                               <td onClick={(e) => e.stopPropagation()}>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                   {/* 发起支付按钮 */}
@@ -1600,7 +1619,7 @@ const AdminPanel: React.FC = () => {
                                     }}
                                     className={styles.searchButton}
                                     disabled={userDetailLoading || item.month_status === 'paid' || item.month_status === 'processing'}
-                                    title={item.month_status === 'paid' ? '已支付' : item.month_status === 'processing' ? '处理中，请使用同步按钮刷新状态' : '发起新的打款请求'}
+                                    title={item.month_status === 'paid' ? '已支付' : item.month_status === 'processing' ? '处理中，请点击支付方式列同步PayPal状态' : '发起新的打款请求'}
                                     style={{ 
                                       opacity: (item.month_status === 'paid' || item.month_status === 'processing') ? 0.5 : 1,
                                       cursor: (item.month_status === 'paid' || item.month_status === 'processing') ? 'not-allowed' : 'pointer'
@@ -1608,19 +1627,6 @@ const AdminPanel: React.FC = () => {
                                   >
                                     {item.month_status === 'processing' ? '处理中' : '发起支付'}
                                   </button>
-                                  
-                                  {/* 同步PayPal状态按钮 */}
-                                  {item.income_monthly_id && (
-                                    <button
-                                      onClick={() => syncPayPalStatusByIncomeMonthlyId(item.income_monthly_id)}
-                                      className={styles.generateButton}
-                                      disabled={userDetailLoading}
-                                      title="只查询状态，不会重复扣款。如果你怀疑状态没更新，请点击这里同步PayPal的实际支付结果。"
-                                      style={{ padding: '6px 12px', fontSize: '14px' }}
-                                    >
-                                      {userDetailLoading ? '同步中...' : '同步PayPal状态'}
-                                    </button>
-                                  )}
                                         </div>
                                 </td>
                               </tr>

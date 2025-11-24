@@ -3444,6 +3444,8 @@ router.get('/user-settlement/overview', authenticateAdmin, async (req, res) => {
         uim_month.payout_id,
         -- 支付方式（从user_payout表获取）
         up.method as payout_method,
+        up.payout_currency,
+        up.payout_amount,
         -- 累计未支付（使用子查询）
         COALESCE((
           SELECT SUM(total_income_usd)
@@ -3523,7 +3525,9 @@ router.get('/user-settlement/overview', authenticateAdmin, async (req, res) => {
         total_unpaid_amount: parseFloat(row.total_unpaid_amount || 0),
         income_monthly_id: row.income_monthly_id || null,
         payout_id: row.payout_id || null,
-        payout_method: row.payout_method || null // 支付方式
+        payout_method: row.payout_method || null, // 支付方式
+        payout_currency: row.payout_currency || null, // 支付币种
+        payout_amount: row.payout_amount ? parseFloat(row.payout_amount) : null // 支付金额
       }))
     });
   } catch (error) {
