@@ -6856,15 +6856,11 @@ router.post('/novels/:novelId/recalc-chapter-prices', authenticateAdmin, async (
     }
     
     const config = configs[0];
-    const startChapter = apply_from_chapter_number || (config.default_free_chapters + 1);
+    const startChapter = apply_from_chapter_number || 1; // 从第1章开始更新
     
-    // 获取需要更新的章节
+    // 获取所有需要更新的章节（包括前N章）
     const [chapters] = await db.execute(
-      `SELECT id, chapter_number, 
-              CASE 
-                WHEN word_count IS NULL OR word_count = 0 THEN LENGTH(REPLACE(COALESCE(content, ''), ' ', ''))
-                ELSE word_count
-              END as word_count
+      `SELECT id, chapter_number, word_count, content
        FROM chapter 
        WHERE novel_id = ? AND chapter_number >= ?
        ORDER BY chapter_number ASC`,
@@ -6873,16 +6869,26 @@ router.post('/novels/:novelId/recalc-chapter-prices', authenticateAdmin, async (
     
     let updatedCount = 0;
     let errorCount = 0;
+    let freeChaptersCount = 0;
     
     for (const chapter of chapters) {
       try {
         let basePrice = 0;
+        let calculatedWordCount = parseInt(chapter.word_count) || 0;
         
-        // 前N章免费
+        // 如果word_count为0或NULL，从content计算字数
+        if (calculatedWordCount === 0 && chapter.content) {
+          // 计算字数（去除空格和换行）
+          calculatedWordCount = chapter.content.replace(/\s/g, '').length;
+        }
+        
+        // 前N章免费（根据default_free_chapters设置）
         if (chapter.chapter_number <= config.default_free_chapters) {
           basePrice = 0;
+          freeChaptersCount++;
         } else {
-          const words = chapter.word_count || 0;
+          // 收费章节按字数计算价格
+          const words = calculatedWordCount || 0;
           if (words <= 0) {
             basePrice = config.min_karma;
           } else {
@@ -6892,10 +6898,10 @@ router.post('/novels/:novelId/recalc-chapter-prices', authenticateAdmin, async (
           }
         }
         
-        // 更新章节价格（只更新基础价格，不叠加促销）
+        // 更新章节价格和字数
         await db.execute(
           'UPDATE chapter SET unlock_price = ?, word_count = ? WHERE id = ?',
-          [basePrice, chapter.word_count || 0, chapter.id]
+          [basePrice, calculatedWordCount, chapter.id]
         );
         
         updatedCount++;
@@ -6907,12 +6913,74 @@ router.post('/novels/:novelId/recalc-chapter-prices', authenticateAdmin, async (
     
     res.json({
       success: true,
-      message: `成功更新 ${updatedCount} 个章节，失败 ${errorCount} 个`,
-      data: { updated: updatedCount, failed: errorCount }
+      message: `成功更新 ${updatedCount} 个章节（其中 ${freeChaptersCount} 个免费章节），失败 ${errorCount} 个`,
+      data: { updated: updatedCount, failed: errorCount, freeChapters: freeChaptersCount }
     });
   } catch (error) {
     console.error('批量重新计算价格失败:', error);
     res.status(500).json({ success: false, message: '计算失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取小说的章节列表（用于查看章节价格）
+router.get('/novels/:novelId/chapters', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { novelId } = req.params;
+    db = await mysql.createConnection(dbConfig);
+    
+    // 先检查updated_at字段是否存在
+    const [columns] = await db.execute(
+      `SELECT COLUMN_NAME 
+       FROM INFORMATION_SCHEMA.COLUMNS 
+       WHERE TABLE_SCHEMA = DATABASE() 
+       AND TABLE_NAME = 'chapter' 
+       AND COLUMN_NAME = 'updated_at'`
+    );
+    
+    const hasUpdatedAt = columns.length > 0;
+    
+    const [chapters] = await db.execute(
+      `SELECT 
+        id,
+        volume_id,
+        chapter_number,
+        title,
+        unlock_price,
+        is_advance,
+        word_count,
+        review_status,
+        is_released,
+        release_date,
+        created_at${hasUpdatedAt ? ', updated_at' : ', created_at as updated_at'}
+      FROM chapter 
+      WHERE novel_id = ?
+      ORDER BY chapter_number ASC`,
+      [novelId]
+    );
+    
+    res.json({
+      success: true,
+      data: chapters.map(ch => ({
+        id: ch.id,
+        volume_id: ch.volume_id,
+        chapter_number: ch.chapter_number,
+        title: ch.title || `第${ch.chapter_number}章`,
+        unlock_price: parseFloat(ch.unlock_price || 0),
+        is_advance: ch.is_advance === 1,
+        word_count: parseInt(ch.word_count || 0),
+        review_status: ch.review_status,
+        is_released: ch.is_released === 1,
+        release_date: ch.release_date,
+        created_at: ch.created_at,
+        updated_at: ch.updated_at || ch.created_at
+      }))
+    });
+  } catch (error) {
+    console.error('获取章节列表失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
   } finally {
     if (db) await db.end();
   }

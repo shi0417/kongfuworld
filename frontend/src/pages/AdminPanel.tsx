@@ -1310,19 +1310,19 @@ const AdminPanel: React.FC = () => {
             <div className={`${styles.navIcon} ${activeTab === 'base-income' ? styles.active : ''}`}>
               📊
             </div>
-            <span className={activeTab === 'base-income' ? styles.active : ''}>基础收入统计</span>
+            <span className={activeTab === 'base-income' ? styles.active : ''}>基础收入统计-1</span>
           </div>
           <div className={styles.navItem} onClick={() => setActiveTab('author-royalty')}>
             <div className={`${styles.navIcon} ${activeTab === 'author-royalty' ? styles.active : ''}`}>
               💵
             </div>
-            <span className={activeTab === 'author-royalty' ? styles.active : ''}>作者基础收入表</span>
+            <span className={activeTab === 'author-royalty' ? styles.active : ''}>作者基础收入表-2</span>
           </div>
           <div className={styles.navItem} onClick={() => setActiveTab('commission-transaction')}>
             <div className={`${styles.navIcon} ${activeTab === 'commission-transaction' ? styles.active : ''}`}>
               💰
             </div>
-            <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细</span>
+            <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细-3</span>
           </div>
           <div className={styles.navItem} onClick={() => setActiveTab('commission-settings')}>
             <div className={`${styles.navIcon} ${activeTab === 'commission-settings' ? styles.active : ''}`}>
