@@ -1333,7 +1333,7 @@ const AdminPanel: React.FC = () => {
         </div>
 
         {/* 右侧内容区域 */}
-        <div className={styles.contentArea}>
+          <div className={styles.contentArea}>
           {error && <div className={styles.errorMessage}>{error}</div>}
           
           {/* 小说审批选项卡 */}
@@ -1442,8 +1442,8 @@ const AdminPanel: React.FC = () => {
                             const rowDetail = expandedRows[item.income_monthly_id];
                             
                             return (
-                              <React.Fragment key={item.user_id}>
-                                <tr 
+                            <React.Fragment key={item.user_id}>
+                            <tr 
                               onClick={(e) => {
                                 // 如果点击的是按钮或链接，不触发行的展开
                                 const target = e.target as HTMLElement;
@@ -1621,10 +1621,10 @@ const AdminPanel: React.FC = () => {
                                       {userDetailLoading ? '同步中...' : '同步PayPal状态'}
                                     </button>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                              </React.Fragment>
+                                        </div>
+                                </td>
+                              </tr>
+                            </React.Fragment>
                             );
                           }).filter(Boolean)
                         )}
@@ -2539,9 +2539,9 @@ const AdminPanel: React.FC = () => {
           {/* 提成设置选项卡 */}
           {activeTab === 'commission-settings' && (
             <CommissionSettings onError={setError} />
-          )}
-        </div>
-      </div>
+                  )}
+                </div>
+              </div>
 
       {/* 小说详情模态框 */}
       {selectedNovel && (
@@ -2550,7 +2550,7 @@ const AdminPanel: React.FC = () => {
             <div className={styles.modalHeader}>
               <h2>{selectedNovel.title}</h2>
               <button onClick={() => setSelectedNovel(null)} className={styles.closeButton}>×</button>
-            </div>
+                              </div>
             <div className={styles.modalBody}>
               {selectedNovel.cover && (
                 <img 
@@ -2568,20 +2568,20 @@ const AdminPanel: React.FC = () => {
                      selectedNovel.review_status === 'reviewing' ? '审核中' :
                      selectedNovel.review_status === 'approved' ? '已批准' :
                      selectedNovel.review_status === 'rejected' ? '已拒绝' : selectedNovel.review_status}
-                  </span>
+                                </span>
                 </p>
                 <p><strong>创建时间:</strong> {new Date(selectedNovel.created_at).toLocaleString('zh-CN')}</p>
                 {selectedNovel.description && (
                   <div>
                     <strong>描述:</strong>
                     <p className={styles.modalDescription}>{selectedNovel.description}</p>
-                  </div>
-                )}
-              </div>
+                                  </div>
+                                )}
+                              </div>
               {(selectedNovel.review_status === 'submitted' || selectedNovel.review_status === 'reviewing') && (
                 <div className={styles.modalActions}>
-                  <button
-                    onClick={() => {
+                            <button
+                              onClick={() => {
                       handleReview(selectedNovel.id, 'approve');
                       setSelectedNovel(null);
                     }}
@@ -2589,9 +2589,9 @@ const AdminPanel: React.FC = () => {
                     disabled={loading}
                   >
                     批准
-                  </button>
-                  <button
-                    onClick={() => {
+                            </button>
+                            <button
+                              onClick={() => {
                       handleReview(selectedNovel.id, 'reject');
                       setSelectedNovel(null);
                     }}
@@ -2599,18 +2599,18 @@ const AdminPanel: React.FC = () => {
                     disabled={loading}
                   >
                     拒绝
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                            </button>
+                              </div>
+                            )}
+                          </div>
+                          </div>
+                      </div>
       )}
 
       
       {/* Toast提示 */}
       {toast && (
-        <div style={{
+                    <div style={{
           position: 'fixed',
           top: '20px',
           right: '20px',
@@ -2618,7 +2618,7 @@ const AdminPanel: React.FC = () => {
           backgroundColor: toast.type === 'success' ? '#28a745' : 
                           toast.type === 'error' ? '#dc3545' : '#17a2b8',
           color: 'white',
-          borderRadius: '8px',
+                      borderRadius: '8px',
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
           zIndex: 10000,
           minWidth: '300px',
@@ -2627,27 +2627,27 @@ const AdminPanel: React.FC = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>{toast.message}</span>
-            <button
+                      <button
               onClick={() => setToast(null)}
-              style={{
+                        style={{
                 background: 'none',
-                border: 'none',
-                color: 'white',
+                          border: 'none',
+                          color: 'white',
                 fontSize: '20px',
-                cursor: 'pointer',
+                          cursor: 'pointer',
                 marginLeft: '15px',
                 padding: '0',
                 width: '24px',
                 height: '24px',
-                display: 'flex',
-                alignItems: 'center',
+                                                display: 'flex',
+                                                alignItems: 'center',
                 justifyContent: 'center'
               }}
             >
               ×
-            </button>
-          </div>
-        </div>
+                                          </button>
+                                        </div>
+                                    </div>
       )}
       
       <style>{`
