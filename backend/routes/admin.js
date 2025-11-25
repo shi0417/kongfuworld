@@ -2021,14 +2021,41 @@ router.post('/commission-transaction/generate', authenticateAdmin, async (req, r
         if (referrals.length === 0) break;
         
         const upline = referrals[0].referrer_id;
-        const planId = referrals[0].promoter_plan_id;
+        let planId = referrals[0].promoter_plan_id;
         
         if (planId) {
-          // 获取方案信息
-          const [plans] = await db.execute(
-            'SELECT max_level FROM commission_plan WHERE id = ?',
-            [planId]
+          // 获取方案信息，并检查生效时间（使用消费时间判断方案是否生效）
+          let [plans] = await db.execute(
+            `SELECT max_level FROM commission_plan 
+             WHERE id = ? 
+               AND start_date <= ? 
+               AND (end_date IS NULL OR end_date > ?)`,
+            [planId, spending.spend_time, spending.spend_time]
           );
+          
+          // 如果方案过期，回退到默认方案
+          if (plans.length === 0) {
+            console.warn(`方案ID ${planId} 在消费时间 ${spending.spend_time} 时已过期或未生效，尝试使用默认读者推广方案`);
+            const [defaultPlans] = await db.execute(
+              `SELECT id, max_level FROM commission_plan 
+               WHERE plan_type = 'reader_promoter'
+                 AND is_custom = 0 
+                 AND owner_user_id IS NULL
+                 AND start_date <= ? 
+                 AND (end_date IS NULL OR end_date > ?)
+               ORDER BY start_date DESC 
+               LIMIT 1`,
+              [spending.spend_time, spending.spend_time]
+            );
+            
+            if (defaultPlans.length > 0) {
+              planId = defaultPlans[0].id;
+              plans = [{ max_level: defaultPlans[0].max_level }];
+              console.log(`使用默认读者推广方案 ID ${planId}`);
+            } else {
+              console.warn(`未找到有效的默认读者推广方案，跳过该层级佣金计算`);
+            }
+          }
           
           if (plans.length > 0 && level <= plans[0].max_level) {
             // 获取该层级的比例
@@ -2080,7 +2107,8 @@ router.post('/commission-transaction/generate', authenticateAdmin, async (req, r
         ar.id,
         ar.author_id,
         ar.novel_id,
-        ar.author_amount_usd
+        ar.author_amount_usd,
+        ar.source_spend_id
       FROM author_royalty ar
       WHERE ar.settlement_month = ?
       ORDER BY ar.created_at`,
@@ -2091,6 +2119,20 @@ router.post('/commission-transaction/generate', authenticateAdmin, async (req, r
       const author = ar.author_id;
       // 使用高精度，不四舍五入
       const baseAmountUsd = new Decimal(ar.author_amount_usd);
+      
+      // 获取对应的reader_spending的消费时间，用于判断方案是否生效
+      const [spendings] = await db.execute(
+        'SELECT spend_time FROM reader_spending WHERE id = ?',
+        [ar.source_spend_id]
+      );
+      
+      if (spendings.length === 0) {
+        console.warn(`找不到对应的reader_spending记录，source_spend_id=${ar.source_spend_id}，跳过`);
+        continue;
+      }
+      
+      const spendTime = spendings[0].spend_time;
+      
       let current = author;
       let level = 1;
       const maxLevelLimit = 10; // 防止死循环
@@ -2104,14 +2146,41 @@ router.post('/commission-transaction/generate', authenticateAdmin, async (req, r
         if (referrals.length === 0) break;
         
         const upline = referrals[0].referrer_id;
-        const planId = referrals[0].author_plan_id;
+        let planId = referrals[0].author_plan_id;
         
         if (planId) {
-          // 获取方案信息
-          const [plans] = await db.execute(
-            'SELECT max_level FROM commission_plan WHERE id = ?',
-            [planId]
+          // 获取方案信息，并检查生效时间（使用消费时间判断方案是否生效）
+          let [plans] = await db.execute(
+            `SELECT max_level FROM commission_plan 
+             WHERE id = ? 
+               AND start_date <= ? 
+               AND (end_date IS NULL OR end_date > ?)`,
+            [planId, spendTime, spendTime]
           );
+          
+          // 如果方案过期，回退到默认方案
+          if (plans.length === 0) {
+            console.warn(`方案ID ${planId} 在消费时间 ${spendTime} 时已过期或未生效，尝试使用默认作者推广方案`);
+            const [defaultPlans] = await db.execute(
+              `SELECT id, max_level FROM commission_plan 
+               WHERE plan_type = 'author_promoter'
+                 AND is_custom = 0 
+                 AND owner_user_id IS NULL
+                 AND start_date <= ? 
+                 AND (end_date IS NULL OR end_date > ?)
+               ORDER BY start_date DESC 
+               LIMIT 1`,
+              [spendTime, spendTime]
+            );
+            
+            if (defaultPlans.length > 0) {
+              planId = defaultPlans[0].id;
+              plans = [{ max_level: defaultPlans[0].max_level }];
+              console.log(`使用默认作者推广方案 ID ${planId}`);
+            } else {
+              console.warn(`未找到有效的默认作者推广方案，跳过该层级佣金计算`);
+            }
+          }
           
           if (plans.length > 0 && level <= plans[0].max_level) {
             // 获取该层级的比例
@@ -3121,6 +3190,78 @@ router.post('/karma-rates', authenticateAdmin, async (req, res) => {
   }
 });
 
+// 更新Karma汇率
+router.put('/karma-rates/:id', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    const { usd_per_karma, effective_from, effective_to } = req.body;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查汇率是否存在
+    const [rates] = await db.execute(
+      'SELECT * FROM karma_dollars WHERE id = ?',
+      [id]
+    );
+    
+    if (rates.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '汇率不存在'
+      });
+    }
+    
+    // 构建更新字段
+    const updateFields = [];
+    const updateValues = [];
+    
+    if (usd_per_karma !== undefined) {
+      updateFields.push('usd_per_karma = ?');
+      updateValues.push(usd_per_karma);
+    }
+    
+    if (effective_from !== undefined) {
+      updateFields.push('effective_from = ?');
+      updateValues.push(formatDateForMySQL(effective_from));
+    }
+    
+    if (effective_to !== undefined) {
+      updateFields.push('effective_to = ?');
+      updateValues.push(effective_to ? formatDateForMySQL(effective_to) : null);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '没有要更新的字段'
+      });
+    }
+    
+    updateValues.push(id);
+    
+    // 更新汇率
+    await db.execute(
+      `UPDATE karma_dollars SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
+    );
+    
+    res.json({
+      success: true,
+      message: '更新成功'
+    });
+  } catch (error) {
+    console.error('更新Karma汇率错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
 // 获取作者分成方案列表
 router.get('/author-royalty-plans', authenticateAdmin, async (req, res) => {
   let db;
@@ -3469,19 +3610,12 @@ router.get('/novel-royalty-contracts', authenticateAdmin, async (req, res) => {
   }
 });
 
-// 更新小说分成合同（只能更新plan_id）
+// 更新小说分成合同（可更新plan_id、effective_from、effective_to）
 router.put('/novel-royalty-contracts/:id', authenticateAdmin, async (req, res) => {
   let db;
   try {
     const { id } = req.params;
-    const { plan_id } = req.body;
-    
-    if (!plan_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'plan_id不能为空'
-      });
-    }
+    const { plan_id, effective_from, effective_to } = req.body;
     
     db = await mysql.createConnection(dbConfig);
     
@@ -3498,23 +3632,53 @@ router.put('/novel-royalty-contracts/:id', authenticateAdmin, async (req, res) =
       });
     }
     
-    // 检查方案是否存在
-    const [plans] = await db.execute(
-      'SELECT id FROM author_royalty_plan WHERE id = ?',
-      [plan_id]
-    );
+    // 检查方案是否存在（如果提供了plan_id）
+    if (plan_id !== undefined && plan_id !== null) {
+      const [plans] = await db.execute(
+        'SELECT id FROM author_royalty_plan WHERE id = ?',
+        [plan_id]
+      );
+      
+      if (plans.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '分成方案不存在'
+        });
+      }
+    }
     
-    if (plans.length === 0) {
-      return res.status(404).json({
+    // 构建更新字段
+    const updateFields = [];
+    const updateValues = [];
+    
+    if (plan_id !== undefined) {
+      updateFields.push('plan_id = ?');
+      updateValues.push(plan_id);
+    }
+    
+    if (effective_from !== undefined) {
+      updateFields.push('effective_from = ?');
+      updateValues.push(effective_from);
+    }
+    
+    if (effective_to !== undefined) {
+      updateFields.push('effective_to = ?');
+      updateValues.push(effective_to || null);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: '分成方案不存在'
+        message: '没有要更新的字段'
       });
     }
     
-    // 更新plan_id
+    updateValues.push(id);
+    
+    // 更新合同
     await db.execute(
-      'UPDATE novel_royalty_contract SET plan_id = ? WHERE id = ?',
-      [plan_id, id]
+      `UPDATE novel_royalty_contract SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
     );
     
     res.json({
@@ -7390,12 +7554,12 @@ router.put('/pricing-promotions/:id', authenticateAdmin, async (req, res) => {
     
     if (start_at !== undefined) {
       updateFields.push('start_at = ?');
-      updateValues.push(start_at);
+      updateValues.push(formatDateForMySQL(start_at));
     }
     
     if (end_at !== undefined) {
       updateFields.push('end_at = ?');
-      updateValues.push(end_at);
+      updateValues.push(formatDateForMySQL(end_at));
     }
     
     if (status !== undefined) {
@@ -7492,7 +7656,7 @@ router.post('/pricing-promotions', authenticateAdmin, async (req, res) => {
       `INSERT INTO pricing_promotion 
        (novel_id, promotion_type, discount_value, start_at, end_at, status, created_by, created_role, approved_by, approved_at, remark)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', ?, NOW(), ?)`,
-      [novel_id, promotion_type, discount_value, start_at, end_at, status, adminId, adminId, remark || null]
+      [novel_id, promotion_type, discount_value, formatDateForMySQL(start_at), formatDateForMySQL(end_at), status, adminId, adminId, remark || null]
     );
     
     res.json({

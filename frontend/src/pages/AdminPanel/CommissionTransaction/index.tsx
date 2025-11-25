@@ -295,8 +295,8 @@ const CommissionTransaction: React.FC<CommissionTransactionProps> = ({ onError }
                       <td>{item.sourceUserName || item.sourceAuthorName || '-'}</td>
                       <td>{item.novelId || '-'}</td>
                       <td>{item.novelTitle || '-'}</td>
-                      <td>${item.baseAmountUsd.toFixed(2)}</td>
-                      <td>${item.commissionAmountUsd.toFixed(2)}</td>
+                      <td>${item.baseAmountUsd.toFixed(6)}</td>
+                      <td>${item.commissionAmountUsd.toFixed(6)}</td>
                       <td>{item.settlementMonth ? (() => {
                         const dateStr = typeof item.settlementMonth === 'string' 
                           ? item.settlementMonth 

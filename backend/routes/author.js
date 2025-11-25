@@ -563,8 +563,8 @@ router.post('/novels/:novelId/pricing-promotion-requests', authenticateAuthor, a
         novelId,
         promotion_type,
         promotion_type === 'free' ? 0 : discount_value,
-        start_at,
-        end_at,
+        formatDateForMySQL(start_at),
+        formatDateForMySQL(end_at),
         authorId,
         note || null
       ]
@@ -736,8 +736,8 @@ router.put('/novels/:novelId/pricing-promotion-requests/:promotionId', authentic
       [
         promotion_type,
         promotion_type === 'free' ? 0 : discount_value,
-        start_at,
-        end_at,
+        formatDateForMySQL(start_at),
+        formatDateForMySQL(end_at),
         note || null,
         promotionId
       ]
