@@ -7,12 +7,16 @@ interface Novel {
   author: string;
   translator: string | null;
   description: string | null;
+  recommendation: string | null;
+  languages: string | null;
   cover: string | null;
   review_status: string;
   status: string;
   created_at: string;
   author_name?: string;
   pen_name?: string;
+  genres?: string[] | { id: number; name: string; chinese_name: string }[];
+  protagonists?: string[];
 }
 
 interface NovelReviewProps {
@@ -236,27 +240,83 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
             {novels.map((novel) => (
               <div key={novel.id} className={styles.novelCard}>
                 <div className={styles.novelInfo}>
-                  {novel.cover && (
+                  {novel.cover ? (
                     <img 
-                      src={novel.cover.startsWith('http') ? novel.cover : `http://localhost:5000/covers/${novel.cover}`}
+                      src={
+                        novel.cover.startsWith('http') 
+                          ? novel.cover 
+                          : novel.cover.startsWith('/')
+                          ? `http://localhost:5000${novel.cover}`
+                          : `http://localhost:5000/covers/${novel.cover}`
+                      }
                       alt={novel.title}
                       className={styles.novelCover}
+                      onError={(e) => {
+                        // 如果图片加载失败，隐藏图片或显示占位符
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
+                  ) : (
+                    <div className={styles.novelCoverPlaceholder}>
+                      <span>{novel.title}</span>
+                    </div>
                   )}
                   <div className={styles.novelDetails}>
-                    <h3>{novel.title}</h3>
-                    <p><strong>作者:</strong> {novel.author_name || novel.pen_name || novel.author}</p>
-                    <p><strong>翻译:</strong> {novel.translator || '无'}</p>
-                    <p><strong>状态:</strong> 
-                      <span className={`${styles.status} ${styles[novel.review_status]}`}>
-                        {novel.review_status === 'submitted' ? '已提交' :
-                         novel.review_status === 'reviewing' ? '审核中' :
-                         novel.review_status === 'approved' ? '已批准' :
-                         novel.review_status === 'rejected' ? '已拒绝' : novel.review_status}
-                      </span>
-                    </p>
+                    <div className={styles.novelHeader}>
+                      <h3>{novel.title}</h3>
+                      <span className={styles.bookNumber}>书号: {novel.id}</span>
+                    </div>
+                    <div className={styles.novelInfoGrid}>
+                      <div><strong>作者:</strong> {novel.author_name || novel.pen_name || novel.author || '—'}</div>
+                      <div><strong>翻译:</strong> {novel.translator || '无'}</div>
+                      <div><strong>状态:</strong> 
+                        <span className={`${styles.status} ${styles[novel.review_status]}`}>
+                          {novel.review_status === 'submitted' ? '已提交' :
+                           novel.review_status === 'reviewing' ? '审核中' :
+                           novel.review_status === 'approved' ? '已批准' :
+                           novel.review_status === 'rejected' ? '已拒绝' : novel.review_status}
+                        </span>
+                      </div>
+                      <div><strong>作品状态:</strong> {novel.status === 'ongoing' ? '连载中' : novel.status === 'completed' ? '已完结' : novel.status || '—'}</div>
+                      {novel.languages && (
+                        <div><strong>语言:</strong> {novel.languages}</div>
+                      )}
+                    </div>
+                    {novel.genres && novel.genres.length > 0 && (
+                      <div className={styles.tagsSection}>
+                        <strong>作品标签:</strong>
+                        <div className={styles.tags}>
+                          {novel.genres.map((genre, idx) => (
+                            <span key={idx} className={styles.tag}>
+                              {typeof genre === 'string' ? genre : genre.chinese_name || genre.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {novel.protagonists && novel.protagonists.length > 0 && (
+                      <div className={styles.protagonistsSection}>
+                        <strong>主角名:</strong>
+                        <div className={styles.protagonists}>
+                          {novel.protagonists.map((protagonist, idx) => (
+                            <span key={idx} className={styles.protagonist}>
+                              {protagonist}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {novel.recommendation && (
+                      <div className={styles.recommendationSection}>
+                        <strong>推荐语:</strong>
+                        <p className={styles.recommendation}>{novel.recommendation}</p>
+                      </div>
+                    )}
                     {novel.description && (
-                      <p className={styles.description}>{novel.description.substring(0, 100)}...</p>
+                      <div className={styles.descriptionSection}>
+                        <strong>作品简介:</strong>
+                        <p className={styles.description}>{novel.description}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -301,31 +361,88 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
               <button onClick={() => setSelectedNovel(null)} className={styles.closeButton}>×</button>
             </div>
             <div className={styles.modalBody}>
-              {selectedNovel.cover && (
-                <img 
-                  src={selectedNovel.cover.startsWith('http') ? selectedNovel.cover : `http://localhost:5000/covers/${selectedNovel.cover}`}
-                  alt={selectedNovel.title}
-                  className={styles.modalCover}
-                />
-              )}
-              <div className={styles.modalDetails}>
-                <p><strong>作者:</strong> {selectedNovel.author_name || selectedNovel.pen_name || selectedNovel.author}</p>
-                <p><strong>翻译:</strong> {selectedNovel.translator || '无'}</p>
-                <p><strong>状态:</strong> 
-                  <span className={`${styles.status} ${styles[selectedNovel.review_status]}`}>
-                    {selectedNovel.review_status === 'submitted' ? '已提交' :
-                     selectedNovel.review_status === 'reviewing' ? '审核中' :
-                     selectedNovel.review_status === 'approved' ? '已批准' :
-                     selectedNovel.review_status === 'rejected' ? '已拒绝' : selectedNovel.review_status}
-                  </span>
-                </p>
-                <p><strong>创建时间:</strong> {new Date(selectedNovel.created_at).toLocaleString('zh-CN')}</p>
-                {selectedNovel.description && (
-                  <div>
-                    <strong>描述:</strong>
-                    <p className={styles.modalDescription}>{selectedNovel.description}</p>
+              <div className={styles.modalContentWrapper}>
+                {selectedNovel.cover ? (
+                  <img 
+                    src={
+                      selectedNovel.cover.startsWith('http') 
+                        ? selectedNovel.cover 
+                        : selectedNovel.cover.startsWith('/')
+                        ? `http://localhost:5000${selectedNovel.cover}`
+                        : `http://localhost:5000/covers/${selectedNovel.cover}`
+                    }
+                    alt={selectedNovel.title}
+                    className={styles.modalCover}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className={styles.modalCoverPlaceholder}>
+                    <span>{selectedNovel.title}</span>
                   </div>
                 )}
+                <div className={styles.modalDetails}>
+                  <div className={styles.modalInfoGrid}>
+                    <div><strong>书号:</strong> {selectedNovel.id}</div>
+                    <div><strong>作品名称:</strong> {selectedNovel.title}</div>
+                    <div><strong>作者:</strong> {selectedNovel.author_name || selectedNovel.pen_name || selectedNovel.author || '—'}</div>
+                    <div><strong>翻译:</strong> {selectedNovel.translator || '无'}</div>
+                    <div><strong>审核状态:</strong> 
+                      <span className={`${styles.status} ${styles[selectedNovel.review_status]}`}>
+                        {selectedNovel.review_status === 'submitted' ? '已提交' :
+                         selectedNovel.review_status === 'reviewing' ? '审核中' :
+                         selectedNovel.review_status === 'approved' ? '已批准' :
+                         selectedNovel.review_status === 'rejected' ? '已拒绝' : selectedNovel.review_status}
+                      </span>
+                    </div>
+                    <div><strong>作品状态:</strong> {selectedNovel.status === 'ongoing' ? '连载中' : selectedNovel.status === 'completed' ? '已完结' : selectedNovel.status || '—'}</div>
+                    {selectedNovel.languages && (
+                      <div><strong>语言:</strong> {selectedNovel.languages}</div>
+                    )}
+                    <div><strong>创建时间:</strong> {new Date(selectedNovel.created_at).toLocaleString('zh-CN')}</div>
+                  </div>
+                  
+                  {selectedNovel.genres && selectedNovel.genres.length > 0 && (
+                    <div className={styles.modalSection}>
+                      <strong>作品标签:</strong>
+                      <div className={styles.tags}>
+                        {selectedNovel.genres.map((genre, idx) => (
+                          <span key={idx} className={styles.tag}>
+                            {typeof genre === 'string' ? genre : genre.chinese_name || genre.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedNovel.protagonists && selectedNovel.protagonists.length > 0 && (
+                    <div className={styles.modalSection}>
+                      <strong>主角名:</strong>
+                      <div className={styles.protagonists}>
+                        {selectedNovel.protagonists.map((protagonist, idx) => (
+                          <span key={idx} className={styles.protagonist}>
+                            {protagonist}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedNovel.recommendation && (
+                    <div className={styles.modalSection}>
+                      <strong>推荐语:</strong>
+                      <p className={styles.recommendation}>{selectedNovel.recommendation}</p>
+                    </div>
+                  )}
+                  
+                  {selectedNovel.description && (
+                    <div className={styles.modalSection}>
+                      <strong>作品简介:</strong>
+                      <p className={styles.modalDescription}>{selectedNovel.description}</p>
+                    </div>
+                  )}
+                </div>
               </div>
               {(selectedNovel.review_status === 'submitted' || selectedNovel.review_status === 'reviewing') && (
                 <div className={styles.modalActions}>

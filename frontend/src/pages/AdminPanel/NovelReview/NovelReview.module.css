@@ -74,25 +74,125 @@
   height: 160px;
   object-fit: cover;
   border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.novelCoverPlaceholder {
+  width: 120px;
+  height: 160px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: #666;
+  flex-shrink: 0;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 .novelDetails {
   flex: 1;
 }
 
-.novelDetails h3 {
-  margin: 0 0 10px 0;
-  font-size: 18px;
+.novelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.novelDetails p {
-  margin: 8px 0;
+.novelHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  flex: 1;
+}
+
+.bookNumber {
+  font-size: 12px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.novelInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 15px;
+  margin-bottom: 12px;
   font-size: 14px;
+}
+
+.novelInfoGrid > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tagsSection,
+.protagonistsSection,
+.recommendationSection,
+.descriptionSection {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.tagsSection strong,
+.protagonistsSection strong,
+.recommendationSection strong,
+.descriptionSection strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.tags,
+.protagonists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tag,
+.protagonist {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #ff9800;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.protagonist {
+  background: #2196f3;
+}
+
+.recommendation {
+  margin: 6px 0 0 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .description {
   color: #666;
   font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 0 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  max-height: 100px;
+  overflow-y: auto;
 }
 
 .novelActions {
@@ -217,28 +317,134 @@
   padding: 20px;
 }
 
+.modalContentWrapper {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
 .modalCover {
-  width: 100%;
-  max-width: 200px;
+  width: 200px;
   height: auto;
+  max-height: 280px;
+  object-fit: cover;
   border-radius: 4px;
-  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.modalCoverPlaceholder {
+  width: 200px;
+  height: 280px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #666;
+  word-break: break-word;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .modalDetails {
-  margin-bottom: 20px;
+  flex: 1;
+  min-width: 0;
 }
 
-.modalDetails p {
-  margin: 10px 0;
+.modalInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 20px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.modalInfoGrid > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.modalSection {
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.modalSection strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: bold;
+}
+
+.modalSection .tags,
+.modalSection .protagonists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.modalSection .tag,
+.modalSection .protagonist {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #ff9800;
+  color: white;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.modalSection .protagonist {
+  background: #2196f3;
+}
+
+.modalSection .recommendation {
+  margin: 8px 0 0 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
 }
 
 .modalDescription {
-  margin-top: 10px;
-  padding: 10px;
-  background: #f5f5f5;
-  border-radius: 4px;
-  line-height: 1.6;
+  margin-top: 8px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  line-height: 1.8;
+  color: #666;
+  font-size: 14px;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .modalContentWrapper {
+    flex-direction: column;
+  }
+  
+  .modalCover,
+  .modalCoverPlaceholder {
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto 20px;
+  }
+  
+  .modalInfoGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .novelInfoGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modalActions {

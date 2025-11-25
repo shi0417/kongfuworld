@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const Decimal = require('decimal.js');
 const PayPalService = require('../services/paypalService');
 const AlipayService = require('../services/alipayService');
@@ -22,7 +23,7 @@ const dbConfig = {
 };
 
 // JWT验证中间件（管理员）
-const authenticateAdmin = (req, res, next) => {
+const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -30,13 +31,61 @@ const authenticateAdmin = (req, res, next) => {
     return res.status(401).json({ success: false, message: '请先登录' });
   }
 
-  jwt.verify(token, 'admin-secret-key', (err, admin) => {
-    if (err) {
-      return res.status(403).json({ success: false, message: 'Token无效或已过期' });
+  try {
+    const decoded = jwt.verify(token, 'admin-secret-key');
+    
+    // 从数据库获取最新的admin信息（包括role和status）
+    const db = await mysql.createConnection(dbConfig);
+    const [admins] = await db.execute(
+      'SELECT id, name, level, role, status FROM admin WHERE id = ?',
+      [decoded.adminId]
+    );
+    await db.end();
+    
+    if (admins.length === 0) {
+      return res.status(403).json({ success: false, message: '管理员不存在' });
     }
-    req.admin = admin;
+    
+    const admin = admins[0];
+    
+    // 检查账号状态
+    if (admin.status === 0) {
+      return res.status(403).json({ success: false, message: '账号已被禁用' });
+    }
+    
+    req.admin = {
+      ...decoded,
+      role: admin.role || 'editor',
+      status: admin.status
+    };
     next();
-  });
+  } catch (err) {
+    return res.status(403).json({ success: false, message: 'Token无效或已过期' });
+  }
+};
+
+// 基于角色的权限控制中间件
+const requireRole = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.admin) {
+      return res.status(401).json({ success: false, message: '请先登录' });
+    }
+    
+    // super_admin拥有所有权限
+    if (req.admin.role === 'super_admin') {
+      return next();
+    }
+    
+    // 检查是否有权限
+    if (!allowedRoles.includes(req.admin.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: '权限不足，无法访问此功能' 
+      });
+    }
+    
+    next();
+  };
 };
 
 // 管理员登录
@@ -69,17 +118,50 @@ router.post('/login', async (req, res) => {
 
     const admin = admins[0];
     
-    // 验证密码（这里使用明文比较，实际应该使用哈希）
-    if (admin.password !== password) {
+    // 检查账号状态
+    if (admin.status === 0) {
+      return res.status(403).json({
+        success: false,
+        message: '账号已被禁用'
+      });
+    }
+    
+    // 验证密码（支持bcrypt哈希和明文兼容）
+    let passwordMatch = false;
+    
+    // 检查密码是否是bcrypt哈希格式（长度60，以$2开头）
+    const isHashed = admin.password && admin.password.length === 60 && admin.password.startsWith('$2');
+    
+    if (isHashed) {
+      // 使用bcrypt比较
+      passwordMatch = await bcrypt.compare(password, admin.password);
+    } else {
+      // 兼容旧明文密码（迁移期间）
+      passwordMatch = admin.password === password;
+      
+      // 如果是明文且匹配，自动升级为哈希
+      if (passwordMatch) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await db.execute('UPDATE admin SET password = ? WHERE id = ?', [hashedPassword, admin.id]);
+        console.log(`管理员 ${admin.name} 密码已自动升级为哈希`);
+      }
+    }
+    
+    if (!passwordMatch) {
       return res.status(401).json({
         success: false,
         message: '用户名或密码错误'
       });
     }
 
-    // 生成JWT token
+    // 生成JWT token（包含role信息）
     const token = jwt.sign(
-      { adminId: admin.id, name: admin.name, level: admin.level },
+      { 
+        adminId: admin.id, 
+        name: admin.name, 
+        level: admin.level,
+        role: admin.role || 'editor'
+      },
       'admin-secret-key',
       { expiresIn: '24h' }
     );
@@ -90,7 +172,9 @@ router.post('/login', async (req, res) => {
       data: {
         id: admin.id,
         name: admin.name,
+        display_name: admin.display_name || admin.name,
         level: admin.level,
+        role: admin.role || 'editor',
         token: token
       }
     });
@@ -113,18 +197,39 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
   try {
     db = await mysql.createConnection(dbConfig);
     
-    // 查询待审批的小说（created, submitted, reviewing状态）
+    // 查询待审批的小说（created, submitted, reviewing状态），包含标签和主角信息
     const [novels] = await db.execute(
-      `SELECT n.*, u.username as author_name, u.pen_name
+      `SELECT 
+        n.*, 
+        u.username as author_name, 
+        u.pen_name,
+        GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_names,
+        GROUP_CONCAT(DISTINCT p.name ORDER BY p.created_at SEPARATOR ',') as protagonist_names
        FROM novel n
        LEFT JOIN user u ON (n.author = u.pen_name OR n.author = u.username)
+       LEFT JOIN novel_genre_relation ngr ON n.id = ngr.novel_id
+       LEFT JOIN genre g ON (ngr.genre_id_1 = g.id OR ngr.genre_id_2 = g.id)
+       LEFT JOIN protagonist p ON n.id = p.novel_id
        WHERE n.review_status IN ('created', 'submitted', 'reviewing')
+       GROUP BY n.id
        ORDER BY n.id DESC`
     );
 
+    // 处理标签和主角数据
+    const processedNovels = novels.map(novel => {
+      const genres = novel.genre_names ? novel.genre_names.split(',').filter(g => g && g !== 'null') : [];
+      const protagonists = novel.protagonist_names ? novel.protagonist_names.split(',').filter(p => p) : [];
+      
+      return {
+        ...novel,
+        genres: genres,
+        protagonists: protagonists
+      };
+    });
+
     res.json({
       success: true,
-      data: novels
+      data: processedNovels
     });
 
   } catch (error) {
@@ -199,9 +304,22 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
     
     db = await mysql.createConnection(dbConfig);
     
-    let query = `SELECT n.*, u.username as author_name, u.pen_name
+    // 确保参数类型正确
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+    
+    let query = `SELECT 
+                   n.*, 
+                   u.username as author_name, 
+                   u.pen_name,
+                   GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_names,
+                   GROUP_CONCAT(DISTINCT p.name ORDER BY p.created_at SEPARATOR ',') as protagonist_names
                  FROM novel n
-                 LEFT JOIN user u ON (n.author = u.pen_name OR n.author = u.username)`;
+                 LEFT JOIN user u ON (n.author = u.pen_name OR n.author = u.username)
+                 LEFT JOIN novel_genre_relation ngr ON n.id = ngr.novel_id
+                 LEFT JOIN genre g ON (ngr.genre_id_1 = g.id OR ngr.genre_id_2 = g.id)
+                 LEFT JOIN protagonist p ON n.id = p.novel_id`;
     const params = [];
     
     if (status) {
@@ -209,10 +327,22 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
       params.push(status);
     }
     
-    query += ' ORDER BY n.id DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+    query += ' GROUP BY n.id ORDER BY n.id DESC LIMIT ? OFFSET ?';
+    params.push(limitNum, offsetNum);
     
     const [novels] = await db.execute(query, params);
+    
+    // 处理标签和主角数据
+    const processedNovels = novels.map(novel => {
+      const genres = novel.genre_names ? novel.genre_names.split(',').filter(g => g && g !== 'null') : [];
+      const protagonists = novel.protagonist_names ? novel.protagonist_names.split(',').filter(p => p) : [];
+      
+      return {
+        ...novel,
+        genres: genres,
+        protagonists: protagonists
+      };
+    });
     
     // 获取总数
     let countQuery = 'SELECT COUNT(*) as total FROM novel';
@@ -226,12 +356,12 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      data: novels,
+      data: processedNovels,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total: total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        totalPages: Math.ceil(total / limitNum)
       }
     });
 
@@ -255,11 +385,24 @@ router.get('/novel/:id', authenticateAdmin, async (req, res) => {
     
     db = await mysql.createConnection(dbConfig);
     
+    // 获取小说基本信息，包含标签和主角
     const [novels] = await db.execute(
-      `SELECT n.*, u.username as author_name, u.pen_name, u.email as author_email
+      `SELECT 
+        n.*, 
+        u.username as author_name, 
+        u.pen_name, 
+        u.email as author_email,
+        GROUP_CONCAT(DISTINCT g.id ORDER BY g.id) as genre_ids,
+        GROUP_CONCAT(DISTINCT g.name ORDER BY g.id SEPARATOR ',') as genre_names,
+        GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_chinese_names,
+        GROUP_CONCAT(DISTINCT p.name ORDER BY p.created_at SEPARATOR ',') as protagonist_names
        FROM novel n
        LEFT JOIN user u ON (n.author = u.pen_name OR n.author = u.username)
-       WHERE n.id = ?`,
+       LEFT JOIN novel_genre_relation ngr ON n.id = ngr.novel_id
+       LEFT JOIN genre g ON (ngr.genre_id_1 = g.id OR ngr.genre_id_2 = g.id)
+       LEFT JOIN protagonist p ON n.id = p.novel_id
+       WHERE n.id = ?
+       GROUP BY n.id`,
       [id]
     );
 
@@ -270,9 +413,36 @@ router.get('/novel/:id', authenticateAdmin, async (req, res) => {
       });
     }
 
+    const novel = novels[0];
+    
+    // 处理标签数据
+    const genres = [];
+    if (novel.genre_ids && novel.genre_chinese_names) {
+      const genreIds = novel.genre_ids.split(',').filter(id => id && id !== 'null');
+      const genreNames = novel.genre_names ? novel.genre_names.split(',').filter(name => name) : [];
+      const genreChineseNames = novel.genre_chinese_names.split(',').filter(name => name);
+      
+      genreIds.forEach((genreId, index) => {
+        if (genreId && genreChineseNames[index]) {
+          genres.push({
+            id: parseInt(genreId),
+            name: genreNames[index] || '',
+            chinese_name: genreChineseNames[index]
+          });
+        }
+      });
+    }
+    
+    // 处理主角数据
+    const protagonists = novel.protagonist_names ? novel.protagonist_names.split(',').filter(p => p) : [];
+
     res.json({
       success: true,
-      data: novels[0]
+      data: {
+        ...novel,
+        genres: genres,
+        protagonists: protagonists
+      }
     });
 
   } catch (error) {
@@ -7667,6 +7837,452 @@ router.post('/pricing-promotions', authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('创建促销活动失败:', error);
     res.status(500).json({ success: false, message: '创建失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 章节审核系统 ====================
+
+// 获取待审核章节列表
+router.get('/pending-chapters', authenticateAdmin, requireRole('super_admin', 'editor'), async (req, res) => {
+  let db;
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    db = await mysql.createConnection(dbConfig);
+    
+    let query = `
+      SELECT 
+        c.id,
+        c.novel_id,
+        c.chapter_number,
+        c.title,
+        c.content,
+        c.translator_note,
+        c.word_count,
+        c.review_status,
+        c.is_released,
+        c.release_date,
+        c.created_at,
+        n.title as novel_title,
+        n.author,
+        u.username as author_name,
+        u.pen_name as author_pen_name
+      FROM chapter c
+      LEFT JOIN novel n ON c.novel_id = n.id
+      LEFT JOIN user u ON n.user_id = u.id
+      WHERE c.review_status IN ('submitted', 'reviewing')
+    `;
+    const params = [];
+    
+    if (status && status !== 'all') {
+      query += ' AND c.review_status = ?';
+      params.push(status);
+    }
+    
+    query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+    
+    const [chapters] = await db.execute(query, params);
+    
+    // 获取总数
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM chapter c
+      WHERE c.review_status IN ('submitted', 'reviewing')
+    `;
+    const countParams = [];
+    if (status && status !== 'all') {
+      countQuery += ' AND c.review_status = ?';
+      countParams.push(status);
+    }
+    const [countResult] = await db.execute(countQuery, countParams);
+    const total = countResult[0].total;
+    
+    res.json({
+      success: true,
+      data: chapters.map(ch => ({
+        id: ch.id,
+        novel_id: ch.novel_id,
+        novel_title: ch.novel_title,
+        author: ch.author_name || ch.author_pen_name || ch.author,
+        chapter_number: ch.chapter_number,
+        title: ch.title || `第${ch.chapter_number}章`,
+        content_preview: ch.content ? ch.content.substring(0, 200) : '',
+        translator_note: ch.translator_note,
+        word_count: parseInt(ch.word_count || 0),
+        review_status: ch.review_status,
+        is_released: ch.is_released === 1,
+        release_date: ch.release_date,
+        created_at: ch.created_at
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('获取待审核章节列表失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取章节详情（全文）
+router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'editor'), async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    db = await mysql.createConnection(dbConfig);
+    
+    const [chapters] = await db.execute(
+      `SELECT 
+        c.*,
+        n.title as novel_title,
+        n.author,
+        u.username as author_name,
+        u.pen_name as author_pen_name
+      FROM chapter c
+      LEFT JOIN novel n ON c.novel_id = n.id
+      LEFT JOIN user u ON n.user_id = u.id
+      WHERE c.id = ?`,
+      [id]
+    );
+    
+    if (chapters.length === 0) {
+      return res.status(404).json({ success: false, message: '章节不存在' });
+    }
+    
+    const chapter = chapters[0];
+    
+    // 如果状态是submitted，自动更新为reviewing
+    if (chapter.review_status === 'submitted') {
+      await db.execute(
+        'UPDATE chapter SET review_status = ? WHERE id = ?',
+        ['reviewing', id]
+      );
+      chapter.review_status = 'reviewing';
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        id: chapter.id,
+        novel_id: chapter.novel_id,
+        novel_title: chapter.novel_title,
+        author: chapter.author_name || chapter.author_pen_name || chapter.author,
+        chapter_number: chapter.chapter_number,
+        title: chapter.title || `第${chapter.chapter_number}章`,
+        content: chapter.content,
+        translator_note: chapter.translator_note,
+        word_count: parseInt(chapter.word_count || 0),
+        review_status: chapter.review_status,
+        is_released: chapter.is_released === 1,
+        release_date: chapter.release_date,
+        created_at: chapter.created_at
+      }
+    });
+  } catch (error) {
+    console.error('获取章节详情失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 审核章节
+router.post('/review-chapter', authenticateAdmin, requireRole('super_admin', 'editor'), async (req, res) => {
+  let db;
+  try {
+    const { chapterId, action, reason } = req.body;
+    const adminId = req.admin.adminId;
+    
+    if (!chapterId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: '参数不完整'
+      });
+    }
+    
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: '操作类型无效'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查章节是否存在
+    const [chapters] = await db.execute('SELECT * FROM chapter WHERE id = ?', [chapterId]);
+    if (chapters.length === 0) {
+      return res.status(404).json({ success: false, message: '章节不存在' });
+    }
+    
+    const chapter = chapters[0];
+    
+    // 检查章节状态
+    if (!['submitted', 'reviewing'].includes(chapter.review_status)) {
+      return res.status(400).json({
+        success: false,
+        message: '只能审核已提交或审核中的章节'
+      });
+    }
+    
+    // 更新状态
+    if (action === 'approve') {
+      await db.execute(
+        'UPDATE chapter SET review_status = ?, is_released = 1, release_date = NOW() WHERE id = ?',
+        ['approved', chapterId]
+      );
+    } else {
+      // reject → locked
+      // 检查是否有review_note字段，如果没有则添加
+      const [columns] = await db.execute(
+        `SELECT COLUMN_NAME 
+         FROM INFORMATION_SCHEMA.COLUMNS 
+         WHERE TABLE_SCHEMA = DATABASE() 
+         AND TABLE_NAME = 'chapter' 
+         AND COLUMN_NAME = 'review_note'`
+      );
+      
+      if (columns.length > 0) {
+        await db.execute(
+          'UPDATE chapter SET review_status = ?, review_note = ? WHERE id = ?',
+          ['locked', reason || '审核未通过', chapterId]
+        );
+      } else {
+        await db.execute(
+          'UPDATE chapter SET review_status = ? WHERE id = ?',
+          ['locked', chapterId]
+        );
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: action === 'approve' ? '章节已批准' : '章节已拒绝',
+      data: {
+        chapterId,
+        status: action === 'approve' ? 'approved' : 'locked'
+      }
+    });
+  } catch (error) {
+    console.error('审核章节失败:', error);
+    res.status(500).json({ success: false, message: '操作失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 编辑合同管理 ====================
+
+// 获取小说的编辑合同列表
+router.get('/novels/:novelId/editor-contracts', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { novelId } = req.params;
+    db = await mysql.createConnection(dbConfig);
+    
+    const [contracts] = await db.execute(
+      `SELECT 
+        nec.*,
+        a.name as editor_name,
+        a.display_name as editor_display_name,
+        a.role as editor_role
+      FROM novel_editor_contract nec
+      LEFT JOIN admin a ON nec.editor_admin_id = a.id
+      WHERE nec.novel_id = ?
+      ORDER BY nec.created_at DESC`,
+      [novelId]
+    );
+    
+    res.json({
+      success: true,
+      data: contracts
+    });
+  } catch (error) {
+    console.error('获取编辑合同列表失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 指定编辑（创建编辑合同）
+router.post('/novels/:novelId/assign-editor', authenticateAdmin, requireRole('super_admin', 'editor'), async (req, res) => {
+  let db;
+  try {
+    const { novelId } = req.params;
+    const { editor_admin_id, role, share_type, share_percent, start_date, end_date, start_chapter_id, end_chapter_id } = req.body;
+    
+    if (!editor_admin_id || !start_date) {
+      return res.status(400).json({
+        success: false,
+        message: '编辑ID和开始日期必填'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查小说是否存在
+    const [novels] = await db.execute('SELECT id, current_editor_admin_id FROM novel WHERE id = ?', [novelId]);
+    if (novels.length === 0) {
+      return res.status(404).json({ success: false, message: '小说不存在' });
+    }
+    
+    // 检查编辑是否存在且role为editor
+    const [admins] = await db.execute(
+      'SELECT id, name, role FROM admin WHERE id = ? AND role IN ("editor", "super_admin")',
+      [editor_admin_id]
+    );
+    if (admins.length === 0) {
+      return res.status(404).json({ success: false, message: '编辑不存在或不是编辑角色' });
+    }
+    
+    await db.beginTransaction();
+    
+    try {
+      // 结束当前活跃的合同
+      await db.execute(
+        `UPDATE novel_editor_contract 
+         SET end_date = NOW(), status = 'ended' 
+         WHERE novel_id = ? AND status = 'active'`,
+        [novelId]
+      );
+      
+      // 创建新合同
+      const [result] = await db.execute(
+        `INSERT INTO novel_editor_contract 
+         (novel_id, editor_admin_id, role, share_type, share_percent, start_date, end_date, start_chapter_id, end_chapter_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        [
+          novelId,
+          editor_admin_id,
+          role || 'editor',
+          share_type || 'percent_of_book',
+          share_percent || null,
+          start_date,
+          end_date || null,
+          start_chapter_id || null,
+          end_chapter_id || null
+        ]
+      );
+      
+      // 更新小说的当前编辑
+      await db.execute(
+        'UPDATE novel SET current_editor_admin_id = ? WHERE id = ?',
+        [editor_admin_id, novelId]
+      );
+      
+      await db.commit();
+      
+      res.json({
+        success: true,
+        message: '编辑指定成功',
+        data: { contractId: result.insertId }
+      });
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('指定编辑失败:', error);
+    res.status(500).json({ success: false, message: '操作失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 结束编辑合同
+router.post('/editor-contracts/:contractId/end', authenticateAdmin, requireRole('super_admin', 'editor'), async (req, res) => {
+  let db;
+  try {
+    const { contractId } = req.params;
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查合同是否存在
+    const [contracts] = await db.execute(
+      'SELECT novel_id, status FROM novel_editor_contract WHERE id = ?',
+      [contractId]
+    );
+    if (contracts.length === 0) {
+      return res.status(404).json({ success: false, message: '合同不存在' });
+    }
+    
+    const contract = contracts[0];
+    if (contract.status !== 'active') {
+      return res.status(400).json({ success: false, message: '合同不是活跃状态' });
+    }
+    
+    await db.beginTransaction();
+    
+    try {
+      // 结束合同
+      await db.execute(
+        'UPDATE novel_editor_contract SET end_date = NOW(), status = ? WHERE id = ?',
+        ['ended', contractId]
+      );
+      
+      // 检查是否还有其他活跃合同，如果没有则清空current_editor_admin_id
+      const [activeContracts] = await db.execute(
+        'SELECT id FROM novel_editor_contract WHERE novel_id = ? AND status = "active"',
+        [contract.novel_id]
+      );
+      
+      if (activeContracts.length === 0) {
+        await db.execute(
+          'UPDATE novel SET current_editor_admin_id = NULL WHERE id = ?',
+          [contract.novel_id]
+        );
+      }
+      
+      await db.commit();
+      
+      res.json({
+        success: true,
+        message: '合同已结束'
+      });
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('结束合同失败:', error);
+    res.status(500).json({ success: false, message: '操作失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取所有编辑列表（用于下拉选择）
+router.get('/editors', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    db = await mysql.createConnection(dbConfig);
+    
+    const [editors] = await db.execute(
+      `SELECT id, name, display_name, role, status 
+       FROM admin 
+       WHERE role IN ('editor', 'super_admin') AND status = 1
+       ORDER BY name ASC`
+    );
+    
+    res.json({
+      success: true,
+      data: editors.map(e => ({
+        id: e.id,
+        name: e.name,
+        display_name: e.display_name || e.name,
+        role: e.role
+      }))
+    });
+  } catch (error) {
+    console.error('获取编辑列表失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
   } finally {
     if (db) await db.end();
   }

@@ -1,0 +1,1 @@
+select * from editor_income_monthly ;

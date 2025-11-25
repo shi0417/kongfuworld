@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ApiService from '../services/ApiService';
 import styles from './AdminPanel.module.css';
 import NovelReview from './AdminPanel/NovelReview';
+import ChapterReview from './AdminPanel/ChapterReview';
 import PaymentStats from './AdminPanel/PaymentStats';
 import AuthorIncome from './AdminPanel/AuthorIncome';
 import ReaderIncome from './AdminPanel/ReaderIncome';
@@ -48,7 +49,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview';
+type TabType = 'novel-review' | 'chapter-review' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -1281,6 +1282,12 @@ const AdminPanel: React.FC = () => {
               📚
             </div>
             <span className={activeTab === 'novel-review' ? styles.active : ''}>小说审批</span>
+          </div>
+          <div className={styles.navItem} onClick={() => setActiveTab('chapter-review')}>
+            <div className={`${styles.navIcon} ${activeTab === 'chapter-review' ? styles.active : ''}`}>
+              📝
+            </div>
+            <span className={activeTab === 'chapter-review' ? styles.active : ''}>章节审核</span>
           </div>
           <div className={styles.navItem} onClick={() => setActiveTab('payment-stats')}>
             <div className={`${styles.navIcon} ${activeTab === 'payment-stats' ? styles.active : ''}`}>
