@@ -1,0 +1,622 @@
+/* ChapterApproval 主容器 */
+.container {
+  display: flex;
+  height: calc(100vh - 100px);
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.leftPanel {
+  flex: 0 0 60%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+}
+
+.rightPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+}
+
+.emptyDetail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  font-size: 16px;
+}
+
+/* 列表容器 */
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.listHeader {
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.listHeader h2 {
+  margin: 0 0 15px 0;
+  font-size: 20px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filterSelect,
+.searchInput {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 200px;
+}
+
+.batchActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.batchActions span {
+  color: #666;
+  font-size: 14px;
+}
+
+.batchApproveBtn,
+.batchRejectBtn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.batchApproveBtn {
+  background: #28a745;
+  color: white;
+}
+
+.batchRejectBtn {
+  background: #dc3545;
+  color: white;
+}
+
+.batchApproveBtn:hover {
+  background: #218838;
+}
+
+.batchRejectBtn:hover {
+  background: #c82333;
+}
+
+/* 表格 */
+.tableContainer {
+  flex: 1;
+  overflow: auto;
+  padding: 0 20px;
+}
+
+.chapterTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.chapterTable thead {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 10;
+}
+
+.chapterTable th {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chapterTable td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.chapterTable tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chapterTable tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.selectedRow {
+  background-color: #e7f3ff !important;
+}
+
+/* 状态标签 */
+.statusBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status_submitted {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status_reviewing {
+  background: #cfe2ff;
+  color: #084298;
+}
+
+.status_approved {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.status_rejected {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.status_draft {
+  background: #e2e3e5;
+  color: #41464b;
+}
+
+.status_pending_chief {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+/* 分页 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 20px;
+  border-top: 1px solid #ddd;
+}
+
+.pagination button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+/* 详情容器 */
+.detailContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  min-height: 0; /* 确保 flex 容器可以正确缩小 */
+}
+
+.detailHeader {
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.detailHeaderTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.detailHeader h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeBtn:hover {
+  color: #333;
+}
+
+.chapterInfo {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.novelCover {
+  width: 80px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.chapterInfoText {
+  flex: 1;
+}
+
+.chapterInfoText h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.chapterMeta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 13px;
+}
+
+.chapterMeta span {
+  color: #666;
+}
+
+.navigation {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.navBtn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.navBtn:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.navBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 内容区域 */
+.contentSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  min-height: 0; /* 确保 flex 子元素可以正确缩小 */
+}
+
+.contentToolbar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fontSizeSlider {
+  width: 100px;
+}
+
+.compareBtn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.compareBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contentArea {
+  flex: 1;
+  overflow: auto;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  line-height: 1.8;
+  min-height: 0; /* 确保可以正确滚动 */
+  position: relative; /* 确保 z-index 生效 */
+  z-index: 1; /* 确保内容在顶层 */
+}
+
+.contentText {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.emptyContent {
+  text-align: center;
+  color: #999;
+  padding: 40px;
+}
+
+.translatorNote {
+  margin-top: 15px;
+  padding: 10px;
+  background: #fff3cd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.translatorNote strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* 审核操作区 */
+.reviewSection {
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.reviewSection h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+}
+
+.reviewForm {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formGroup label {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.statusSelect,
+.commentTextarea {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.commentTextarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.saveBtn,
+.approveBtn,
+.rejectBtn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.saveBtn {
+  background: #6c757d;
+  color: white;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.approveBtn {
+  background: #28a745;
+  color: white;
+}
+
+.approveBtn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.rejectBtn {
+  background: #dc3545;
+  color: white;
+}
+
+.rejectBtn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.saveBtn:disabled,
+.approveBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 日志区域 */
+.logSection {
+  padding: 20px;
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.logSection h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+}
+
+.logPlaceholder {
+  color: #999;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}
+
+/* 模态框 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background: #f8f9fa;
+}
+
+.textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.viewBtn {
+  padding: 4px 8px;
+  border: 1px solid #007bff;
+  background: white;
+  color: #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.viewBtn:hover {
+  background: #007bff;
+  color: white;
+}
+
+.loading,
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+

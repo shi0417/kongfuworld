@@ -17,6 +17,15 @@ interface Novel {
   pen_name?: string;
   genres?: string[] | { id: number; name: string; chinese_name: string }[];
   protagonists?: string[];
+  current_editor_admin_id?: number;
+  editor_name?: string;
+  editor_display_name?: string;
+}
+
+interface Editor {
+  id: number;
+  name: string;
+  display_name: string;
 }
 
 interface NovelReviewProps {
@@ -28,6 +37,12 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
   const [selectedNovel, setSelectedNovel] = useState<Novel | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [editingNovel, setEditingNovel] = useState<Novel | null>(null);
+  const [newStatus, setNewStatus] = useState<string>('');
+  const [editors, setEditors] = useState<Editor[]>([]);
+  const [assigningEditor, setAssigningEditor] = useState<Novel | null>(null);
+  const [selectedEditorId, setSelectedEditorId] = useState<number | null>(null);
+  const [assigningLoading, setAssigningLoading] = useState(false);
 
   // 通用的管理员 API 请求函数
   const adminApiRequest = async (endpoint: string, options: RequestInit = {}) => {
@@ -123,7 +138,59 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
   // 当筛选状态改变时重新加载
   useEffect(() => {
     loadNovels();
+    loadEditors();
   }, [filterStatus]);
+
+  // 加载编辑列表
+  const loadEditors = async () => {
+    try {
+      const { data } = await adminApiRequest('/admin/list-editors');
+      if (data.success) {
+        setEditors(data.data || []);
+      }
+    } catch (err: any) {
+      // 静默失败，不影响主流程
+      console.error('加载编辑列表失败:', err);
+    }
+  };
+
+  // 分配编辑
+  const handleAssignEditor = async () => {
+    if (!assigningEditor || !selectedEditorId) return;
+
+    try {
+      setAssigningLoading(true);
+      const { data } = await adminApiRequest('/admin/novel/assign-editor', {
+        method: 'POST',
+        body: JSON.stringify({
+          novel_id: assigningEditor.id,
+          editor_admin_id: selectedEditorId
+        })
+      });
+
+      if (data.success) {
+        if (onError) {
+          onError('');
+        }
+        setAssigningEditor(null);
+        setSelectedEditorId(null);
+        await loadNovels();
+        if (selectedNovel?.id === assigningEditor.id) {
+          await viewNovelDetail(assigningEditor.id);
+        }
+      } else {
+        if (onError) {
+          onError(data.message || '分配失败');
+        }
+      }
+    } catch (err: any) {
+      if (onError) {
+        onError(err.message || '分配失败');
+      }
+    } finally {
+      setAssigningLoading(false);
+    }
+  };
 
   // 查看小说详情
   const viewNovelDetail = async (novelId: number) => {
@@ -190,6 +257,65 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 打开修改状态模态框
+  const openEditStatusModal = (novel: Novel) => {
+    setEditingNovel(novel);
+    setNewStatus(novel.review_status);
+  };
+
+  // 保存状态修改
+  const saveStatusChange = async () => {
+    if (!editingNovel || !newStatus) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data } = await adminApiRequest(`/admin/novel/${editingNovel.id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ review_status: newStatus })
+      });
+
+      if (data.success) {
+        if (onError) {
+          onError('');
+        }
+        setEditingNovel(null);
+        setNewStatus('');
+        loadNovels();
+        // 如果正在查看详情，也更新详情
+        if (selectedNovel?.id === editingNovel.id) {
+          viewNovelDetail(editingNovel.id);
+        }
+      } else {
+        if (onError) {
+          onError(data.message || '更新失败');
+        }
+      }
+    } catch (err: any) {
+      if (onError) {
+        onError(err.message || '更新失败');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 获取状态的中文显示名称
+  const getStatusLabel = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'created': '草稿',
+      'submitted': '已提交',
+      'reviewing': '审核中',
+      'approved': '已批准',
+      'published': '已上架',
+      'unlisted': '已下架',
+      'archived': '已归档',
+      'locked': '已锁定'
+    };
+    return statusMap[status] || status;
   };
 
   return (
@@ -327,6 +453,13 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                   >
                     查看详情
                   </button>
+                  <button
+                    onClick={() => openEditStatusModal(novel)}
+                    className={styles.editButton}
+                    disabled={loading}
+                  >
+                    修改
+                  </button>
                   {novel.review_status === 'submitted' || novel.review_status === 'reviewing' ? (
                     <>
                       <button
@@ -401,6 +534,20 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                       <div><strong>语言:</strong> {selectedNovel.languages}</div>
                     )}
                     <div><strong>创建时间:</strong> {new Date(selectedNovel.created_at).toLocaleString('zh-CN')}</div>
+                    <div><strong>负责编辑:</strong> 
+                      {selectedNovel.editor_display_name || selectedNovel.editor_name || '未分配'}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssigningEditor(selectedNovel);
+                          setSelectedEditorId(selectedNovel.current_editor_admin_id || null);
+                        }}
+                        className={styles.assignEditorBtn}
+                        style={{ marginLeft: '10px', padding: '4px 8px', fontSize: '12px' }}
+                      >
+                        分配编辑
+                      </button>
+                    </div>
                   </div>
                   
                   {selectedNovel.genres && selectedNovel.genres.length > 0 && (
@@ -468,6 +615,124 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 分配编辑模态框 */}
+      {assigningEditor && (
+        <div className={styles.modal} onClick={() => setAssigningEditor(null)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>分配编辑 - {assigningEditor.title}</h2>
+              <button onClick={() => setAssigningEditor(null)} className={styles.closeButton}>×</button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.statusEditForm}>
+                <div className={styles.formGroup}>
+                  <label>当前编辑：</label>
+                  <span>
+                    {assigningEditor.editor_display_name || assigningEditor.editor_name || '未分配'}
+                  </span>
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="editorSelect">选择编辑：</label>
+                  <select
+                    id="editorSelect"
+                    value={selectedEditorId || ''}
+                    onChange={(e) => setSelectedEditorId(e.target.value ? parseInt(e.target.value) : null)}
+                    className={styles.statusSelect}
+                  >
+                    <option value="">-- 未分配 --</option>
+                    {editors.map((editor) => (
+                      <option key={editor.id} value={editor.id}>
+                        {editor.display_name} ({editor.name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className={styles.modalActions}>
+                <button
+                  onClick={() => setAssigningEditor(null)}
+                  className={styles.cancelButton}
+                  disabled={assigningLoading}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleAssignEditor}
+                  className={styles.saveButton}
+                  disabled={assigningLoading || selectedEditorId === assigningEditor.current_editor_admin_id}
+                >
+                  {assigningLoading ? '保存中...' : '保存'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改状态模态框 */}
+      {editingNovel && (
+        <div className={styles.modal} onClick={() => setEditingNovel(null)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>修改小说状态 - {editingNovel.title}</h2>
+              <button onClick={() => setEditingNovel(null)} className={styles.closeButton}>×</button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.statusEditForm}>
+                <div className={styles.formGroup}>
+                  <label>当前状态：</label>
+                  <span className={`${styles.status} ${styles[editingNovel.review_status]}`}>
+                    {getStatusLabel(editingNovel.review_status)}
+                  </span>
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="newStatus">新状态：</label>
+                  <select
+                    id="newStatus"
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className={styles.statusSelect}
+                  >
+                    <option value="created">草稿</option>
+                    <option value="submitted">已提交</option>
+                    <option value="reviewing">审核中</option>
+                    <option value="approved">已批准</option>
+                    <option value="published">已上架</option>
+                    <option value="unlisted">已下架</option>
+                    <option value="archived">已归档</option>
+                    <option value="locked">已锁定</option>
+                  </select>
+                </div>
+                <div className={styles.statusHint}>
+                  <strong>状态说明：</strong>
+                  <ul>
+                    <li><strong>已下架</strong>：将小说从公开列表中移除，但保留数据</li>
+                    <li><strong>已归档</strong>：归档处理，不再显示</li>
+                    <li><strong>已锁定</strong>：临时封闭，通常用于违规处理</li>
+                  </ul>
+                </div>
+              </div>
+              <div className={styles.modalActions}>
+                <button
+                  onClick={() => setEditingNovel(null)}
+                  className={styles.cancelButton}
+                  disabled={loading}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={saveStatusChange}
+                  className={styles.saveButton}
+                  disabled={loading || newStatus === editingNovel.review_status}
+                >
+                  {loading ? '保存中...' : '保存'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

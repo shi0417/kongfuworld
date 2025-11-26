@@ -4,6 +4,7 @@ import ApiService from '../services/ApiService';
 import styles from './AdminPanel.module.css';
 import NovelReview from './AdminPanel/NovelReview';
 import ChapterReview from './AdminPanel/ChapterReview';
+import ChapterApproval from './AdminPanel/ChapterApproval';
 import PaymentStats from './AdminPanel/PaymentStats';
 import AuthorIncome from './AdminPanel/AuthorIncome';
 import ReaderIncome from './AdminPanel/ReaderIncome';
@@ -11,6 +12,7 @@ import BaseIncome from './AdminPanel/BaseIncome';
 import AuthorRoyalty from './AdminPanel/AuthorRoyalty';
 import CommissionTransaction from './AdminPanel/CommissionTransaction';
 import CommissionSettings from './AdminPanel/CommissionSettings';
+import EditorManagement from './AdminPanel/EditorManagement';
 
 interface Novel {
   id: number;
@@ -49,7 +51,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'chapter-review' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview';
+type TabType = 'novel-review' | 'chapter-review' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -1289,6 +1291,12 @@ const AdminPanel: React.FC = () => {
             </div>
             <span className={activeTab === 'chapter-review' ? styles.active : ''}>章节审核</span>
           </div>
+          <div className={styles.navItem} onClick={() => setActiveTab('chapter-approval')}>
+            <div className={`${styles.navIcon} ${activeTab === 'chapter-approval' ? styles.active : ''}`}>
+              ✅
+            </div>
+            <span className={activeTab === 'chapter-approval' ? styles.active : ''}>章节审批</span>
+          </div>
           <div className={styles.navItem} onClick={() => setActiveTab('payment-stats')}>
             <div className={`${styles.navIcon} ${activeTab === 'payment-stats' ? styles.active : ''}`}>
               💰
@@ -1337,6 +1345,12 @@ const AdminPanel: React.FC = () => {
             </div>
             <span className={activeTab === 'commission-settings' ? styles.active : ''}>提成设置</span>
           </div>
+          <div className={styles.navItem} onClick={() => setActiveTab('editor-management')}>
+            <div className={`${styles.navIcon} ${activeTab === 'editor-management' ? styles.active : ''}`}>
+              👥
+            </div>
+            <span className={activeTab === 'editor-management' ? styles.active : ''}>编辑管理</span>
+          </div>
         </div>
 
         {/* 右侧内容区域 */}
@@ -1346,6 +1360,16 @@ const AdminPanel: React.FC = () => {
           {/* 小说审批选项卡 */}
           {activeTab === 'novel-review' && (
             <NovelReview onError={setError} />
+          )}
+
+          {/* 章节审核选项卡 */}
+          {activeTab === 'chapter-review' && (
+            <ChapterReview onError={setError} />
+          )}
+
+          {/* 章节审批选项卡 */}
+          {activeTab === 'chapter-approval' && (
+            <ChapterApproval onError={setError} />
           )}
 
           {/* 费用统计选项卡 */}

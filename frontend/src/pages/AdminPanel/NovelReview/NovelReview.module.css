@@ -203,7 +203,8 @@
 
 .viewButton,
 .approveButton,
-.rejectButton {
+.rejectButton,
+.editButton {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -213,6 +214,11 @@
 
 .viewButton {
   background: #6c757d;
+  color: white;
+}
+
+.editButton {
+  background: #007bff;
   color: white;
 }
 
@@ -228,13 +234,15 @@
 
 .viewButton:hover,
 .approveButton:hover,
-.rejectButton:hover {
+.rejectButton:hover,
+.editButton:hover {
   opacity: 0.9;
 }
 
 .viewButton:disabled,
 .approveButton:disabled,
-.rejectButton:disabled {
+.rejectButton:disabled,
+.editButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -454,5 +462,119 @@
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid #ddd;
+}
+
+/* 修改状态表单样式 */
+.statusEditForm {
+  padding: 20px 0;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #333;
+}
+
+.statusSelect {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.statusSelect:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.statusHint {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.statusHint strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.statusHint ul {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+.statusHint li {
+  margin-bottom: 6px;
+  line-height: 1.6;
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancelButton:hover {
+  background: #f8f9fa;
+}
+
+.saveButton {
+  padding: 10px 20px;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.saveButton:hover {
+  background: #0056b3;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status.published {
+  background: #17a2b8;
+  color: white;
+}
+
+.status.unlisted {
+  background: #6c757d;
+  color: white;
+}
+
+.status.archived {
+  background: #6c757d;
+  color: white;
+}
+
+.status.locked {
+  background: #dc3545;
+  color: white;
+}
+
+.status.created {
+  background: #e0e0e0;
+  color: #333;
 }
 

@@ -1,0 +1,1 @@
+select * from chapter_review_log ;

@@ -1,0 +1,269 @@
+.tabContent {
+  padding: 20px;
+}
+
+.tabHeader {
+  margin-bottom: 20px;
+}
+
+.tabHeader h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.editorList {
+  margin-bottom: 40px;
+}
+
+.editorTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.editorTable thead {
+  background: #f8f9fa;
+}
+
+.editorTable th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.editorTable td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.editorTable tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.roleBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #007bff;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.supervisorName {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.noSupervisor {
+  color: #999;
+  font-style: italic;
+}
+
+.assignButton {
+  padding: 6px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.assignButton:hover {
+  background: #0056b3;
+}
+
+/* 模态框样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  color: #000;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.currentSupervisor {
+  display: block;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  color: #666;
+}
+
+.select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancelButton:hover {
+  background: #f8f9fa;
+}
+
+.saveButton {
+  padding: 10px 20px;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.saveButton:hover {
+  background: #0056b3;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 主编列表样式 */
+.chiefEditorSection {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 2px solid #dee2e6;
+}
+
+.chiefEditorSection h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.chiefEditorList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.chiefEditorCard {
+  padding: 16px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.chiefEditorInfo {
+  margin-bottom: 12px;
+}
+
+.chiefEditorName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.chiefEditorUsername {
+  font-size: 14px;
+  color: #666;
+}
+
+.chiefEditorStats {
+  font-size: 14px;
+  color: #666;
+}
+
