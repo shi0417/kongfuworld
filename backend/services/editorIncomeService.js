@@ -110,17 +110,17 @@ class EditorIncomeService {
       const chiefPoolAmount = championIncome * (chiefPoolPercent / 100.0);
       const editorPoolAmount = championIncome * (editorPoolPercent / 100.0);
 
-      // Step 3: 统计每个责任编辑负责的总字数（通过 snapshot + chapter）
+      // Step 3: 统计每个责任编辑负责的总字数（通过 chapter.editor_admin_id + chapter.word_count）
       const [wordRows] = await db.execute(
         `SELECT 
-          s.editor_admin_id AS editor_admin_id,
+          c.editor_admin_id AS editor_admin_id,
           COALESCE(SUM(c.word_count), 0) AS total_words
-         FROM editor_chapter_share_snapshot s
-         JOIN chapter c ON c.id = s.chapter_id
+         FROM chapter c
          WHERE 
-           s.novel_id = ?
+           c.novel_id = ?
            AND c.is_released = 1
-         GROUP BY s.editor_admin_id`,
+           AND c.editor_admin_id IS NOT NULL
+         GROUP BY c.editor_admin_id`,
         [novelId]
       );
 

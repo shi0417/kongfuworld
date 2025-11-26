@@ -108,45 +108,6 @@ class ChapterReviewService {
     }
   }
 
-  /**
-   * 创建章节归属快照（如果不存在）
-   * @param {Object} db - 数据库连接
-   * @param {number} novelId - 小说ID
-   * @param {number} chapterId - 章节ID
-   * @param {number} editorAdminId - 编辑ID
-   * @returns {Promise<boolean>} 是否创建了快照
-   */
-  async createChapterSnapshot(db, novelId, chapterId, editorAdminId) {
-    if (!editorAdminId) {
-      return false; // 如果没有编辑ID，不创建快照
-    }
-
-    try {
-      // 检查是否已存在快照
-      const [existing] = await db.execute(
-        'SELECT id FROM editor_chapter_share_snapshot WHERE chapter_id = ?',
-        [chapterId]
-      );
-
-      if (existing.length > 0) {
-        return false; // 已存在，不重复创建
-      }
-
-      // 创建快照
-      await db.execute(
-        'INSERT INTO editor_chapter_share_snapshot (novel_id, chapter_id, editor_admin_id) VALUES (?, ?, ?)',
-        [novelId, chapterId, editorAdminId]
-      );
-
-      return true; // 创建成功
-    } catch (error) {
-      // 如果是唯一键冲突（理论上不应该发生，因为已经检查过），忽略
-      if (error.code === 'ER_DUP_ENTRY') {
-        return false;
-      }
-      throw error;
-    }
-  }
 
   /**
    * 写入审核日志
@@ -205,9 +166,8 @@ class ChapterReviewService {
       const requiresChief = novel.requires_chief_edit === 1;
       const previousStatus = chapter.review_status;
       let finalStatus = result;
-      let snapshotCreated = false;
 
-      // 获取小说的当前编辑ID（用于快照）
+      // 获取小说的当前编辑ID
       const editorAdminId = novel.current_editor_admin_id || chapter.editor_admin_id;
 
       // 处理审核逻辑
@@ -231,11 +191,6 @@ class ChapterReviewService {
              WHERE id = ?`,
             [finalStatus, adminId, finalEditorId, chapter_id]
           );
-
-          // 章节首次从非 approved 进入 approved 时，创建快照
-          if (previousStatus !== 'approved' && finalEditorId) {
-            snapshotCreated = await this.createChapterSnapshot(db, chapter.novel_id, chapter_id, finalEditorId);
-          }
 
         } else {
           // ✅ 需要主编终审
@@ -276,11 +231,6 @@ class ChapterReviewService {
               [finalStatus, adminId, finalEditorId, chapter_id]
             );
 
-            // 章节首次从非 approved 进入 approved 时，创建快照
-            if (previousStatus !== 'approved' && finalEditorId) {
-              snapshotCreated = await this.createChapterSnapshot(db, chapter.novel_id, chapter_id, finalEditorId);
-            }
-
           } else {
             throw new Error('无权限执行最终审核');
           }
@@ -318,8 +268,7 @@ class ChapterReviewService {
         success: true,
         chapterId: parseInt(chapter_id),
         reviewStatus: finalStatus,
-        reviewAdminId: adminId,
-        snapshotCreated: snapshotCreated
+        reviewAdminId: adminId
       };
     } catch (error) {
       await db.rollback();
@@ -381,10 +330,8 @@ class ChapterReviewService {
 
       // 为每个章节执行更新（因为editor_admin_id可能不同）
       let successCount = 0;
-      let snapshotCount = 0;
       for (const chapterId of chapterIds) {
         const editorId = chapterEditorMap[chapterId] || null;
-        const previousStatus = chapterStatusMap[chapterId];
         const chapter = chapters.find(c => c.id === chapterId);
         
         // updateValues = [result, reviewAdminId, ...(comment if exists)]
@@ -396,14 +343,6 @@ class ChapterReviewService {
           values
         );
         
-        // 如果审核通过且是首次变为 approved，创建快照
-        if (result === 'approved' && previousStatus !== 'approved' && editorId && chapter) {
-          const created = await this.createChapterSnapshot(db, chapter.novel_id, chapterId, editorId);
-          if (created) {
-            snapshotCount++;
-          }
-        }
-        
         successCount++;
       }
 
@@ -412,7 +351,6 @@ class ChapterReviewService {
       return {
         success: true,
         count: successCount,
-        snapshotCount: snapshotCount,
         reviewStatus: result
       };
     } catch (error) {

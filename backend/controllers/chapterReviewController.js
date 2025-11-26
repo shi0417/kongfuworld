@@ -20,7 +20,6 @@ class ChapterReviewController {
       const { chapter_id, result, comment } = req.body;
       const adminId = req.admin.adminId;
       const role = req.admin.role;
-      const supervisorAdminId = req.admin.supervisor_admin_id;
 
       // 参数验证
       if (!chapter_id || !result) {

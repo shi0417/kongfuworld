@@ -7,6 +7,10 @@ const PayPalService = require('../services/paypalService');
 const AlipayService = require('../services/alipayService');
 const ChapterReviewController = require('../controllers/chapterReviewController');
 const EditorIncomeService = require('../services/editorIncomeService');
+const AdminUserController = require('../controllers/adminUserController');
+const EditorContractService = require('../services/editorContractService');
+const EditorApplicationService = require('../services/editorApplicationService');
+const NovelContractApprovalService = require('../services/novelContractApprovalService');
 const router = express.Router();
 
 // 初始化PayPal服务
@@ -30,6 +34,14 @@ const chapterReviewController = new ChapterReviewController(dbConfig);
 // 初始化编辑收入服务
 const editorIncomeService = new EditorIncomeService(dbConfig);
 
+// 初始化管理员用户控制器
+const adminUserController = new AdminUserController(dbConfig);
+
+// 初始化编辑合同服务
+const editorContractService = new EditorContractService(dbConfig);
+const editorApplicationService = new EditorApplicationService(dbConfig);
+const novelContractApprovalService = new NovelContractApprovalService(dbConfig);
+
 // JWT验证中间件（管理员）
 const authenticateAdmin = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -42,10 +54,10 @@ const authenticateAdmin = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, 'admin-secret-key');
     
-    // 从数据库获取最新的admin信息（包括role、status和supervisor_admin_id）
+    // 从数据库获取最新的admin信息（包括role、status）
     const db = await mysql.createConnection(dbConfig);
     const [admins] = await db.execute(
-      'SELECT id, name, level, role, status, supervisor_admin_id FROM admin WHERE id = ?',
+      'SELECT id, name, level, role, status FROM admin WHERE id = ?',
       [decoded.adminId]
     );
     await db.end();
@@ -64,8 +76,7 @@ const authenticateAdmin = async (req, res, next) => {
     req.admin = {
       ...decoded,
       role: admin.role || 'editor',
-      status: admin.status,
-      supervisor_admin_id: admin.supervisor_admin_id || null
+      status: admin.status
     };
     next();
   } catch (err) {
@@ -98,34 +109,17 @@ const requireRole = (...allowedRoles) => {
 };
 
 // 权限过滤辅助函数：根据角色生成小说查询的 WHERE 条件
-const getNovelPermissionFilter = async (db, adminId, role, supervisorAdminId) => {
+const getNovelPermissionFilter = async (db, adminId, role) => {
   // super_admin：可看所有
   if (role === 'super_admin') {
     return { where: '', params: [] };
   }
   
-  // chief_editor：可看自己 & 自己手下 editor 的小说
+  // chief_editor：只能看自己负责的小说
   if (role === 'chief_editor') {
-    // 获取自己管理的所有 editor 的 ID
-    const [editors] = await db.execute(
-      'SELECT id FROM admin WHERE supervisor_admin_id = ? AND role = ? AND status = 1',
-      [adminId, 'editor']
-    );
-    const editorIds = editors.map(e => e.id);
-    editorIds.push(adminId); // 包含自己
-    
-    // 构建 IN 子句，使用占位符数组
-    if (editorIds.length === 0) {
-      return {
-        where: 'AND n.current_editor_admin_id = ?',
-        params: [adminId]
-      };
-    }
-    
-    const placeholders = editorIds.map(() => '?').join(',');
     return {
-      where: `AND n.current_editor_admin_id IN (${placeholders})`,
-      params: editorIds
+      where: 'AND n.current_editor_admin_id = ?',
+      params: [adminId]
     };
   }
   
@@ -145,7 +139,7 @@ const getNovelPermissionFilter = async (db, adminId, role, supervisorAdminId) =>
 };
 
 // 检查管理员是否有权限访问指定的小说
-const checkNovelPermission = async (db, adminId, role, supervisorAdminId, novelId) => {
+const checkNovelPermission = async (db, adminId, role, novelId) => {
   // super_admin：有所有权限
   if (role === 'super_admin') {
     return true;
@@ -169,19 +163,9 @@ const checkNovelPermission = async (db, adminId, role, supervisorAdminId, novelI
     return false;
   }
   
-  // chief_editor：可看自己 & 自己手下 editor 的小说
+  // chief_editor：只能看自己负责的小说
   if (role === 'chief_editor') {
-    if (novelEditorId === adminId) {
-      return true; // 自己负责的小说
-    }
-    
-    // 检查是否是手下编辑负责的小说
-    const [editors] = await db.execute(
-      'SELECT id FROM admin WHERE id = ? AND supervisor_admin_id = ? AND role = ? AND status = 1',
-      [novelEditorId, adminId, 'editor']
-    );
-    
-    return editors.length > 0;
+    return novelEditorId === adminId;
   }
   
   // editor：只能看自己负责的小说
@@ -208,15 +192,9 @@ router.post('/login', async (req, res) => {
 
     db = await mysql.createConnection(dbConfig);
     
-    // 查询管理员（包含上级主管信息）
+    // 查询管理员
     const [admins] = await db.execute(
-      `SELECT a.*, 
-              s.id as supervisor_id, 
-              s.name as supervisor_name, 
-              s.display_name as supervisor_display_name
-       FROM admin a
-       LEFT JOIN admin s ON a.supervisor_admin_id = s.id
-       WHERE a.name = ?`,
+      `SELECT * FROM admin WHERE name = ?`,
       [name]
     );
 
@@ -271,8 +249,7 @@ router.post('/login', async (req, res) => {
         adminId: admin.id, 
         name: admin.name, 
         level: admin.level,
-        role: admin.role || 'editor',
-        supervisor_admin_id: admin.supervisor_admin_id || null
+        role: admin.role || 'editor'
       },
       'admin-secret-key',
       { expiresIn: '24h' }
@@ -284,12 +261,8 @@ router.post('/login', async (req, res) => {
       data: {
         id: admin.id,
         name: admin.name,
-        display_name: admin.display_name || admin.name,
         level: admin.level,
         role: admin.role || 'editor',
-        supervisor_admin_id: admin.supervisor_admin_id || null,
-        supervisor_name: admin.supervisor_name || null,
-        supervisor_display_name: admin.supervisor_display_name || null,
         token: token
       }
     });
@@ -316,8 +289,7 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
-      req.admin.role, 
-      req.admin.supervisor_admin_id
+      req.admin.role
     );
     
     // 查询待审批的小说（created, submitted, reviewing状态），包含标签和主角信息
@@ -493,8 +465,7 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
-      req.admin.role, 
-      req.admin.supervisor_admin_id
+      req.admin.role
     );
     
     // 确保参数类型正确
@@ -592,8 +563,7 @@ router.get('/novel/:id', authenticateAdmin, async (req, res) => {
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
-      req.admin.role, 
-      req.admin.supervisor_admin_id
+      req.admin.role
     );
     
     // 获取小说基本信息，包含标签、主角和编辑信息
@@ -606,7 +576,6 @@ router.get('/novel/:id', authenticateAdmin, async (req, res) => {
         MAX(u.email) as author_email,
         MAX(a.id) as editor_admin_id,
         MAX(a.name) as editor_name,
-        MAX(a.display_name) as editor_display_name,
         GROUP_CONCAT(DISTINCT g.id ORDER BY g.id) as genre_ids,
         GROUP_CONCAT(DISTINCT g.name ORDER BY g.id SEPARATOR ',') as genre_names,
         GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_chinese_names,
@@ -659,8 +628,7 @@ router.get('/novel/:id', authenticateAdmin, async (req, res) => {
         genres: genres,
         protagonists: protagonists,
         current_editor_admin_id: novel.current_editor_admin_id || null,
-        editor_name: novel.editor_name || null,
-        editor_display_name: novel.editor_display_name || null
+        editor_name: novel.editor_name || null
       }
     });
 
@@ -8074,8 +8042,7 @@ router.get('/pending-chapters', authenticateAdmin, requireRole('super_admin', 'c
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
-      req.admin.role, 
-      req.admin.supervisor_admin_id
+      req.admin.role
     );
     
     let query = `
@@ -8196,7 +8163,6 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
       db,
       req.admin.adminId,
       req.admin.role,
-      req.admin.supervisor_admin_id,
       chapter.novel_id
     );
     
@@ -8259,8 +8225,7 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
-      req.admin.role, 
-      req.admin.supervisor_admin_id
+      req.admin.role
     );
     
     let query = `
@@ -8288,7 +8253,6 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         v.title as volume_name,
         u.username as author_name,
         u.pen_name as author_pen_name,
-        a.display_name as editor_display_name,
         a.name as editor_name
       FROM chapter c
       LEFT JOIN novel n ON c.novel_id = n.id
@@ -8347,7 +8311,7 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         word_count: parseInt(ch.word_count || 0),
         author: ch.author_name || ch.author_pen_name || ch.author,
         editor_admin_id: ch.current_editor_admin_id,
-        editor_name: ch.editor_display_name || ch.editor_name || null,
+        editor_name: ch.editor_name || null,
         review_status: ch.review_status,
         is_released: ch.is_released === 1,
         is_advance: ch.is_advance === 1,
@@ -8392,7 +8356,6 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
         v.volume_id as volume_number,
         u.username as author_name,
         u.pen_name as author_pen_name,
-        a.display_name as editor_display_name,
         a.name as editor_name
       FROM chapter c
       LEFT JOIN novel n ON c.novel_id = n.id
@@ -8414,7 +8377,6 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
       db,
       req.admin.adminId,
       req.admin.role,
-      req.admin.supervisor_admin_id,
       chapter.novel_id
     );
     
@@ -8440,7 +8402,7 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
         word_count: parseInt(chapter.word_count || 0),
         author: chapter.author_name || chapter.author_pen_name || chapter.author,
         editor_admin_id: chapter.current_editor_admin_id,
-        editor_name: chapter.editor_display_name || chapter.editor_name || null,
+        editor_name: chapter.editor_name || null,
         review_status: chapter.review_status,
         is_released: chapter.is_released === 1,
         is_advance: chapter.is_advance === 1,
@@ -8506,7 +8468,6 @@ router.post('/review-chapter', authenticateAdmin, requireRole('super_admin', 'ch
       db,
       adminId,
       req.admin.role,
-      req.admin.supervisor_admin_id,
       chapter.novel_id
     );
     
@@ -8582,7 +8543,6 @@ router.get('/novels/:novelId/editor-contracts', authenticateAdmin, async (req, r
       db,
       req.admin.adminId,
       req.admin.role,
-      req.admin.supervisor_admin_id,
       novelId
     );
     
@@ -8594,7 +8554,6 @@ router.get('/novels/:novelId/editor-contracts', authenticateAdmin, async (req, r
       `SELECT 
         nec.*,
         a.name as editor_name,
-        a.display_name as editor_display_name,
         a.role as editor_role
       FROM novel_editor_contract nec
       LEFT JOIN admin a ON nec.editor_admin_id = a.id
@@ -8879,19 +8838,13 @@ router.get('/list-editors', authenticateAdmin, async (req, res) => {
     
     const [editors] = await db.execute(
       `SELECT 
-         a.id, 
-         a.name, 
-         a.display_name, 
-         a.role, 
-         a.status,
-         a.supervisor_admin_id,
-         s.id as supervisor_id,
-         s.name as supervisor_name,
-         s.display_name as supervisor_display_name
-       FROM admin a
-       LEFT JOIN admin s ON a.supervisor_admin_id = s.id
-       WHERE a.role = 'editor' AND a.status = 1
-       ORDER BY a.name ASC`
+         id, 
+         name, 
+         role, 
+         status
+       FROM admin
+       WHERE role = 'editor' AND status = 1
+       ORDER BY name ASC`
     );
     
     res.json({
@@ -8899,15 +8852,8 @@ router.get('/list-editors', authenticateAdmin, async (req, res) => {
       data: editors.map(e => ({
         id: e.id,
         name: e.name,
-        display_name: e.display_name || e.name,
         role: e.role,
-        status: e.status,
-        supervisor_admin_id: e.supervisor_admin_id,
-        supervisor: e.supervisor_id ? {
-          id: e.supervisor_id,
-          name: e.supervisor_name,
-          display_name: e.supervisor_display_name || e.supervisor_name
-        } : null
+        status: e.status
       }))
     });
   } catch (error) {
@@ -8928,7 +8874,6 @@ router.get('/list-chief-editors', authenticateAdmin, async (req, res) => {
       `SELECT 
          id, 
          name, 
-         display_name, 
          role, 
          status
        FROM admin
@@ -8941,7 +8886,6 @@ router.get('/list-chief-editors', authenticateAdmin, async (req, res) => {
       data: chiefEditors.map(e => ({
         id: e.id,
         name: e.name,
-        display_name: e.display_name || e.name,
         role: e.role,
         status: e.status
       }))
@@ -8955,145 +8899,6 @@ router.get('/list-chief-editors', authenticateAdmin, async (req, res) => {
 });
 
 // 更新编辑的上级主管（新接口路径，符合用户要求）
-router.post('/editor/update-supervisor', authenticateAdmin, requireRole('super_admin', 'chief_editor'), async (req, res) => {
-  let db;
-  try {
-    const { editor_id, supervisor_admin_id } = req.body;
-    const currentAdminId = req.admin.adminId;
-    
-    if (!editor_id) {
-      return res.status(400).json({ success: false, message: '编辑ID必填' });
-    }
-    
-    db = await mysql.createConnection(dbConfig);
-    
-    // 检查编辑是否存在
-    const [editors] = await db.execute(
-      'SELECT id, role, supervisor_admin_id FROM admin WHERE id = ?',
-      [editor_id]
-    );
-    
-    if (editors.length === 0) {
-      return res.status(404).json({ success: false, message: '编辑不存在' });
-    }
-    
-    const editor = editors[0];
-    
-    // 只有 super_admin 可以修改任何编辑，chief_editor 只能修改自己手下的编辑
-    if (req.admin.role === 'chief_editor') {
-      if (editor.supervisor_admin_id !== currentAdminId) {
-        return res.status(403).json({ 
-          success: false, 
-          message: '只能修改自己管理的编辑' 
-        });
-      }
-    }
-    
-    // 如果设置了 supervisor_admin_id，验证其是否存在且是 chief_editor
-    if (supervisor_admin_id !== null && supervisor_admin_id !== undefined) {
-      const [supervisors] = await db.execute(
-        'SELECT id, role FROM admin WHERE id = ?',
-        [supervisor_admin_id]
-      );
-      
-      if (supervisors.length === 0) {
-        return res.status(404).json({ success: false, message: '上级主管不存在' });
-      }
-      
-      if (supervisors[0].role !== 'chief_editor') {
-        return res.status(400).json({ 
-          success: false, 
-          message: '上级主管必须是主编' 
-        });
-      }
-    }
-    
-    // 更新 supervisor_admin_id
-    await db.execute(
-      'UPDATE admin SET supervisor_admin_id = ? WHERE id = ?',
-      [supervisor_admin_id || null, editor_id]
-    );
-    
-    res.json({
-      success: true,
-      message: '更新成功'
-    });
-  } catch (error) {
-    console.error('更新编辑上级主管失败:', error);
-    res.status(500).json({ success: false, message: '更新失败', error: error.message });
-  } finally {
-    if (db) await db.end();
-  }
-});
-
-// 更新编辑的上级主管（保留旧接口路径以兼容）
-router.put('/editors/:id/supervisor', authenticateAdmin, requireRole('super_admin', 'chief_editor'), async (req, res) => {
-  let db;
-  try {
-    const { id } = req.params;
-    const { supervisor_admin_id } = req.body;
-    const currentAdminId = req.admin.adminId;
-    
-    db = await mysql.createConnection(dbConfig);
-    
-    // 检查编辑是否存在
-    const [editors] = await db.execute(
-      'SELECT id, role, supervisor_admin_id FROM admin WHERE id = ?',
-      [id]
-    );
-    
-    if (editors.length === 0) {
-      return res.status(404).json({ success: false, message: '编辑不存在' });
-    }
-    
-    const editor = editors[0];
-    
-    // 只有 super_admin 可以修改任何编辑，chief_editor 只能修改自己手下的编辑
-    if (req.admin.role === 'chief_editor') {
-      if (editor.supervisor_admin_id !== currentAdminId) {
-        return res.status(403).json({ 
-          success: false, 
-          message: '只能修改自己管理的编辑' 
-        });
-      }
-    }
-    
-    // 如果设置了 supervisor_admin_id，验证其是否存在且是 chief_editor
-    if (supervisor_admin_id !== null && supervisor_admin_id !== undefined) {
-      const [supervisors] = await db.execute(
-        'SELECT id, role FROM admin WHERE id = ?',
-        [supervisor_admin_id]
-      );
-      
-      if (supervisors.length === 0) {
-        return res.status(404).json({ success: false, message: '上级主管不存在' });
-      }
-      
-      if (supervisors[0].role !== 'chief_editor') {
-        return res.status(400).json({ 
-          success: false, 
-          message: '上级主管必须是主编' 
-        });
-      }
-    }
-    
-    // 更新 supervisor_admin_id
-    await db.execute(
-      'UPDATE admin SET supervisor_admin_id = ? WHERE id = ?',
-      [supervisor_admin_id || null, id]
-    );
-    
-    res.json({
-      success: true,
-      message: '更新成功'
-    });
-  } catch (error) {
-    console.error('更新编辑上级主管失败:', error);
-    res.status(500).json({ success: false, message: '更新失败', error: error.message });
-  } finally {
-    if (db) await db.end();
-  }
-});
 
 router.get('/editors', authenticateAdmin, async (req, res) => {
   let db;
@@ -9101,7 +8906,7 @@ router.get('/editors', authenticateAdmin, async (req, res) => {
     db = await mysql.createConnection(dbConfig);
     
     const [editors] = await db.execute(
-      `SELECT id, name, display_name, role, status 
+      `SELECT id, name, role, status 
        FROM admin 
        WHERE role IN ('editor', 'chief_editor', 'super_admin') AND status = 1
        ORDER BY name ASC`
@@ -9112,7 +8917,6 @@ router.get('/editors', authenticateAdmin, async (req, res) => {
       data: editors.map(e => ({
         id: e.id,
         name: e.name,
-        display_name: e.display_name || e.name,
         role: e.role
       }))
     });
@@ -9192,6 +8996,278 @@ router.post('/editor-income/batch-calculate-champion', authenticateAdmin, requir
     res.status(500).json({
       success: false,
       message: '批量计算失败',
+      error: error.message
+    });
+  }
+});
+
+// ============================================
+// 管理员账号管理接口（仅 super_admin 可访问）
+// ============================================
+
+// 获取管理员列表（分页 + 筛选）
+router.get('/admin-users', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  await adminUserController.getAdminList(req, res);
+});
+
+// 获取单个管理员详情
+router.get('/admin-users/:id', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  await adminUserController.getAdminById(req, res);
+});
+
+// 创建新管理员
+router.post('/admin-users', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  await adminUserController.createAdmin(req, res);
+});
+
+// 更新管理员
+router.put('/admin-users/:id', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  await adminUserController.updateAdmin(req, res);
+});
+
+// 更新管理员状态（启用/禁用）
+router.patch('/admin-users/:id/status', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  await adminUserController.updateAdminStatus(req, res);
+});
+
+// ============================================
+// 编辑合同管理接口（仅 super_admin 可访问）
+// ============================================
+
+// 获取合同列表（分页 + 筛选 + 排序）
+router.get('/editor-contracts', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const result = await editorContractService.getContractList(req.query);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('获取合同列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取合同列表失败',
+      error: error.message
+    });
+  }
+});
+
+// 获取单个合同详情
+router.get('/editor-contracts/:id', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const contract = await editorContractService.getContractById(parseInt(req.params.id));
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: '合同不存在'
+      });
+    }
+    res.json({
+      success: true,
+      data: contract
+    });
+  } catch (error) {
+    console.error('获取合同详情失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取合同详情失败',
+      error: error.message
+    });
+  }
+});
+
+// 创建新合同
+router.post('/editor-contracts', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const contract = await editorContractService.createContract(req.body);
+    res.json({
+      success: true,
+      message: '创建成功',
+      data: contract
+    });
+  } catch (error) {
+    console.error('创建合同失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '创建合同失败',
+      error: error.message
+    });
+  }
+});
+
+// 更新合同
+router.put('/editor-contracts/:id', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const contract = await editorContractService.updateContract(parseInt(req.params.id), req.body);
+    res.json({
+      success: true,
+      message: '更新成功',
+      data: contract
+    });
+  } catch (error) {
+    console.error('更新合同失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新合同失败',
+      error: error.message
+    });
+  }
+});
+
+// 终止合同
+router.patch('/editor-contracts/:id/terminate', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const contract = await editorContractService.terminateContract(parseInt(req.params.id));
+    res.json({
+      success: true,
+      message: '合同已终止',
+      data: contract
+    });
+  } catch (error) {
+    console.error('终止合同失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '终止合同失败',
+      error: error.message
+    });
+  }
+});
+
+// ============================================
+// 小说合同审批接口（仅 super_admin 可访问）
+// ============================================
+
+// 获取小说列表（用于合同审批）
+router.get('/novels-for-contract-approval', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const result = await novelContractApprovalService.getNovelListForApproval(req.query);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('获取小说列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取小说列表失败',
+      error: error.message
+    });
+  }
+});
+
+// 获取某本小说的编辑分配信息（用于弹窗）
+router.get('/novels/:id/editor-assignment', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const result = await novelContractApprovalService.getEditorAssignment(parseInt(req.params.id));
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('获取编辑分配信息失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取编辑分配信息失败',
+      error: error.message
+    });
+  }
+});
+
+// 保存编辑分配（完善版，包含合同维护）
+router.post('/novels/:id/editor-assignment', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { chief_editor_admin_id, current_editor_admin_id } = req.body;
+    await novelContractApprovalService.saveEditorAssignment(
+      parseInt(req.params.id),
+      {
+        chief_editor_admin_id: chief_editor_admin_id || null,
+        current_editor_admin_id: current_editor_admin_id || null
+      }
+    );
+    res.json({
+      success: true,
+      message: '编辑分配已更新'
+    });
+  } catch (error) {
+    console.error('保存编辑分配失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '保存编辑分配失败',
+      error: error.message
+    });
+  }
+});
+
+// 分配编辑给小说（保留旧接口以兼容）
+router.post('/novels/:id/assign-editor', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { current_editor_admin_id, chief_editor_admin_id } = req.body;
+    await novelContractApprovalService.saveEditorAssignment(
+      parseInt(req.params.id),
+      {
+        chief_editor_admin_id: chief_editor_admin_id || null,
+        current_editor_admin_id: current_editor_admin_id || null
+      }
+    );
+    res.json({
+      success: true,
+      message: '分配成功'
+    });
+  } catch (error) {
+    console.error('分配编辑失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '分配编辑失败',
+      error: error.message
+    });
+  }
+});
+
+// 获取某小说的所有编辑申请
+router.get('/novels/:id/applications', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const applications = await editorApplicationService.getApplicationsByNovelId(parseInt(req.params.id));
+    res.json({
+      success: true,
+      data: applications
+    });
+  } catch (error) {
+    console.error('获取申请列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取申请列表失败',
+      error: error.message
+    });
+  }
+});
+
+// 审批编辑申请
+router.post('/editor-applications/:id/handle', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { action, role } = req.body; // action: 'approve' | 'reject', role: 'editor' | 'chief_editor'
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'action 参数无效'
+      });
+    }
+    
+    await editorApplicationService.handleApplication(
+      parseInt(req.params.id),
+      req.admin.adminId,
+      action,
+      role || 'editor'
+    );
+    
+    res.json({
+      success: true,
+      message: action === 'approve' ? '申请已通过' : '申请已拒绝'
+    });
+  } catch (error) {
+    console.error('审批申请失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '审批申请失败',
       error: error.message
     });
   }

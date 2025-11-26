@@ -13,6 +13,7 @@ import AuthorRoyalty from './AdminPanel/AuthorRoyalty';
 import CommissionTransaction from './AdminPanel/CommissionTransaction';
 import CommissionSettings from './AdminPanel/CommissionSettings';
 import EditorManagement from './AdminPanel/EditorManagement';
+import AdminUserPage from './AdminPanel/AdminUserPage';
 
 interface Novel {
   id: number;
@@ -2576,7 +2577,10 @@ const AdminPanel: React.FC = () => {
           {/* 提成设置选项卡 */}
           {activeTab === 'commission-settings' && (
             <CommissionSettings onError={setError} />
-                  )}
+          )}
+          {activeTab === 'editor-management' && (
+            <AdminUserPage onError={setError} />
+          )}
                 </div>
               </div>
 

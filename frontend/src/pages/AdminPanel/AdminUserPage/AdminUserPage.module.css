@@ -1,0 +1,407 @@
+.tabContent {
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.addButton {
+  padding: 8px 16px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.addButton:hover {
+  background: #40a9ff;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filterSelect,
+.searchInput {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.searchButton,
+.resetButton {
+  padding: 6px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.searchButton:hover,
+.resetButton:hover {
+  background: #f5f5f5;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.adminTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adminTable th,
+.adminTable td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.adminTable th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.roleTag,
+.statusTag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.roleSuperAdmin {
+  background: #ff4d4f;
+  color: white;
+}
+
+.roleChiefEditor {
+  background: #fa8c16;
+  color: white;
+}
+
+.roleEditor {
+  background: #1890ff;
+  color: white;
+}
+
+.roleFinance {
+  background: #52c41a;
+  color: white;
+}
+
+.roleOperator {
+  background: #d9d9d9;
+  color: #333;
+}
+
+.statusEnabled {
+  background: #52c41a;
+  color: white;
+}
+
+.statusDisabled {
+  background: #d9d9d9;
+  color: #666;
+}
+
+/* 合同管理 Tab - 角色样式 */
+.roleChiefEditor {
+  background: #fa8c16; /* 橙色 */
+  color: white;
+}
+
+.roleEditor {
+  background: #1890ff; /* 蓝色 */
+  color: white;
+}
+
+.roleProofreader {
+  background: #722ed1; /* 紫色 */
+  color: white;
+}
+
+/* 合同管理 Tab - 合同状态样式 */
+.contractStatusActive {
+  background: #52c41a; /* 绿色 - 活跃 */
+  color: white;
+}
+
+.contractStatusEnded {
+  background: #d9d9d9; /* 灰色 - 已结束 */
+  color: #666;
+}
+
+.contractStatusCancelled {
+  background: #ff4d4f; /* 红色 - 已取消 */
+  color: white;
+}
+
+/* 合同审批 Tab - 审核状态样式 */
+.reviewStatusCreated {
+  background: #d9d9d9; /* 灰色 - 草稿 */
+  color: #666;
+}
+
+.reviewStatusSubmitted {
+  background: #1890ff; /* 蓝色 - 已提交 */
+  color: white;
+}
+
+.reviewStatusReviewing {
+  background: #fa8c16; /* 橙色 - 审核中 */
+  color: white;
+}
+
+.reviewStatusApproved {
+  background: #52c41a; /* 绿色 - 审核通过 */
+  color: white;
+}
+
+.reviewStatusPublished {
+  background: #13c2c2; /* 青色 - 已上架 */
+  color: white;
+}
+
+.reviewStatusUnlisted {
+  background: #ff9800; /* 深橙色 - 已下架 */
+  color: white;
+}
+
+.reviewStatusArchived {
+  background: #9e9e9e; /* 深灰色 - 已归档 */
+  color: white;
+}
+
+.reviewStatusLocked {
+  background: #ff4d4f; /* 红色 - 已锁定 */
+  color: white;
+}
+
+/* 合同审批 Tab - 申请状态样式 */
+.applicationStatusPending {
+  background: #fa8c16; /* 橙色 - 待审批 */
+  color: white;
+}
+
+.applicationStatusApproved {
+  background: #52c41a; /* 绿色 - 已通过 */
+  color: white;
+}
+
+.applicationStatusRejected {
+  background: #ff4d4f; /* 红色 - 已拒绝 */
+  color: white;
+}
+
+.applicationStatusCancelled {
+  background: #d9d9d9; /* 灰色 - 已取消 */
+  color: #666;
+}
+
+.editButton,
+.toggleButton,
+.assignButton {
+  padding: 4px 12px;
+  margin-right: 4px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editButton:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+}
+
+.toggleButton:hover {
+  background: #fff7e6;
+}
+
+.assignButton:hover {
+  background: #f6ffed;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.pagination button {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  background: white;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90%;
+}
+
+.modalContent h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-weight: 500;
+}
+
+.formGroup input,
+.formGroup select {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.disabledInput {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 12px;
+  color: #999;
+}
+
+.formActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.saveButton {
+  padding: 8px 16px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.saveButton:hover {
+  background: #40a9ff;
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  background: white;
+  color: #333;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  background: #f5f5f5;
+}
+
+.errorMessage {
+  padding: 40px;
+  text-align: center;
+  color: #ff4d4f;
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
+}
+
+/* Tab 样式 */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e8e8e8;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  transition: all 0.3s;
+}
+
+.tab:hover {
+  color: #1890ff;
+}
+
+.activeTab {
+  color: #1890ff;
+  border-bottom-color: #1890ff;
+  font-weight: 600;
+}
+
+.tabPanel {
+  min-height: 400px;
+}
+

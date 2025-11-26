@@ -17,9 +17,12 @@ interface Novel {
   pen_name?: string;
   genres?: string[] | { id: number; name: string; chinese_name: string }[];
   protagonists?: string[];
-  current_editor_admin_id?: number;
+  current_editor_admin_id?: number | null;
+  chief_editor_admin_id?: number | null;
   editor_name?: string;
   editor_display_name?: string;
+  chief_editor_name?: string;
+  chief_editor_display_name?: string;
 }
 
 interface Editor {

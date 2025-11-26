@@ -1,1 +1,0 @@
-select * from editor_chapter_share_snapshot ;
