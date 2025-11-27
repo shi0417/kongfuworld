@@ -14,6 +14,8 @@ interface Chapter {
   author: string;
   editor_admin_id?: number;
   editor_name?: string;
+  chief_editor_admin_id?: number;
+  chief_editor_name?: string;
   review_status: string;
   is_released: boolean;
   is_advance: boolean;
@@ -186,7 +188,7 @@ const ChapterList: React.FC<ChapterListProps> = ({
                   <th>标题</th>
                   <th>字数</th>
                   <th>作者</th>
-                  <th>主编</th>
+                  <th>编辑配置</th>
                   <th>状态</th>
                   <th>发布</th>
                   <th>解锁方式</th>
@@ -207,13 +209,34 @@ const ChapterList: React.FC<ChapterListProps> = ({
                         onChange={(e) => handleSelectChapter(chapter.id, e.target.checked)}
                       />
                     </td>
-                    <td>{chapter.novel_title}</td>
+                    <td>
+                      <span 
+                        style={{ cursor: 'pointer', color: '#1976d2', textDecoration: 'underline' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`/book/${chapter.novel_id}`, '_blank');
+                        }}
+                      >
+                        {chapter.novel_title}
+                      </span>
+                    </td>
                     <td>{chapter.volume_name}</td>
                     <td>{chapter.chapter_number}</td>
                     <td>{chapter.title}</td>
                     <td>{chapter.word_count}</td>
                     <td>{chapter.author}</td>
-                    <td>{chapter.editor_name || '—'}</td>
+                    <td>
+                      {/* 根据 novel 当前配置显示主编/责任编辑，章节级别的最终归属由 chapter.editor_admin_id / chapter.chief_editor_admin_id 决定，用于结算 */}
+                      {chapter.chief_editor_name && chapter.editor_name ? (
+                        `主编：${chapter.chief_editor_name} / 责任编辑：${chapter.editor_name}`
+                      ) : chapter.chief_editor_name ? (
+                        `主编：${chapter.chief_editor_name}`
+                      ) : chapter.editor_name ? (
+                        `责任编辑：${chapter.editor_name}`
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td>
                       <span className={`${styles.statusBadge} ${getStatusClass(chapter.review_status)}`}>
                         {getStatusText(chapter.review_status)}
@@ -227,7 +250,10 @@ const ChapterList: React.FC<ChapterListProps> = ({
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => onChapterSelect(chapter)}
+                        onClick={() => {
+                          onChapterSelect(chapter);
+                          window.open(`/novel/${chapter.novel_id}/chapter/${chapter.id}`, '_blank');
+                        }}
                         className={styles.viewBtn}
                       >
                         详情

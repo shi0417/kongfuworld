@@ -14,6 +14,8 @@ import CommissionTransaction from './AdminPanel/CommissionTransaction';
 import CommissionSettings from './AdminPanel/CommissionSettings';
 import EditorManagement from './AdminPanel/EditorManagement';
 import AdminUserPage from './AdminPanel/AdminUserPage';
+import NewNovelPool from './AdminPanel/NewNovelPool';
+import AdminPayoutAccounts from './AdminPanel/AdminPayoutAccounts';
 
 interface Novel {
   id: number;
@@ -52,7 +54,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'chapter-review' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management';
+type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-review' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'admin-payout-account';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -93,6 +95,8 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState('');
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('novel-review');
+  // 收益与编辑管理分组菜单的展开/折叠状态
+  const [incomeAndEditorMenuExpanded, setIncomeAndEditorMenuExpanded] = useState(false);
   
   // 小说审批相关状态
   const [novels, setNovels] = useState<Novel[]>([]);
@@ -1262,6 +1266,12 @@ const AdminPanel: React.FC = () => {
               {loading ? '登录中...' : '登录'}
             </button>
           </form>
+          <div style={{ marginTop: 20, textAlign: 'center', color: '#666', fontSize: 14 }}>
+            还没有编辑账号？{' '}
+            <a href="/admin-register" style={{ color: '#1976d2', textDecoration: 'none' }}>
+              点击这里注册
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -1286,6 +1296,12 @@ const AdminPanel: React.FC = () => {
             </div>
             <span className={activeTab === 'novel-review' ? styles.active : ''}>小说审批</span>
           </div>
+          <div className={styles.navItem} onClick={() => setActiveTab('new-novel-pool')}>
+            <div className={`${styles.navIcon} ${activeTab === 'new-novel-pool' ? styles.active : ''}`}>
+              📖
+            </div>
+            <span className={activeTab === 'new-novel-pool' ? styles.active : ''}>新小说池</span>
+          </div>
           <div className={styles.navItem} onClick={() => setActiveTab('chapter-review')}>
             <div className={`${styles.navIcon} ${activeTab === 'chapter-review' ? styles.active : ''}`}>
               📝
@@ -1298,59 +1314,86 @@ const AdminPanel: React.FC = () => {
             </div>
             <span className={activeTab === 'chapter-approval' ? styles.active : ''}>章节审批</span>
           </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('payment-stats')}>
-            <div className={`${styles.navIcon} ${activeTab === 'payment-stats' ? styles.active : ''}`}>
-              💰
+          {/* 收益与编辑管理分组菜单：将收益相关和编辑管理菜单归类到一个父级菜单下，便于左侧导航分组显示 */}
+          <div className={styles.navGroup}>
+            <div 
+              className={styles.navGroupHeader} 
+              onClick={() => setIncomeAndEditorMenuExpanded(!incomeAndEditorMenuExpanded)}
+            >
+              <div className={styles.navIcon}>
+                💼
+              </div>
+              <span>收益与编辑管理</span>
+              <span className={styles.expandIcon}>
+                {incomeAndEditorMenuExpanded ? '▼' : '▶'}
+              </span>
             </div>
-            <span className={activeTab === 'payment-stats' ? styles.active : ''}>费用统计</span>
+            {incomeAndEditorMenuExpanded && (
+              <div className={styles.navSubItems}>
+                <div className={`${styles.navSubItem} ${activeTab === 'payment-stats' ? styles.active : ''}`} onClick={() => setActiveTab('payment-stats')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'payment-stats' ? styles.active : ''}`}>
+                    💰
+                  </div>
+                  <span className={activeTab === 'payment-stats' ? styles.active : ''}>费用统计</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'author-income' ? styles.active : ''}`} onClick={() => setActiveTab('author-income')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'author-income' ? styles.active : ''}`}>
+                    ✍️
+                  </div>
+                  <span className={activeTab === 'author-income' ? styles.active : ''}>作者收入统计</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'reader-income' ? styles.active : ''}`} onClick={() => setActiveTab('reader-income')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'reader-income' ? styles.active : ''}`}>
+                    👥
+                  </div>
+                  <span className={activeTab === 'reader-income' ? styles.active : ''}>读者收入统计</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'settlement-overview' ? styles.active : ''}`} onClick={() => setActiveTab('settlement-overview')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'settlement-overview' ? styles.active : ''}`}>
+                    💳
+                  </div>
+                  <span className={activeTab === 'settlement-overview' ? styles.active : ''}>结算总览</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'base-income' ? styles.active : ''}`} onClick={() => setActiveTab('base-income')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'base-income' ? styles.active : ''}`}>
+                    📊
+                  </div>
+                  <span className={activeTab === 'base-income' ? styles.active : ''}>基础收入统计-1</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'author-royalty' ? styles.active : ''}`} onClick={() => setActiveTab('author-royalty')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'author-royalty' ? styles.active : ''}`}>
+                    💵
+                  </div>
+                  <span className={activeTab === 'author-royalty' ? styles.active : ''}>作者基础收入表-2</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'commission-transaction' ? styles.active : ''}`} onClick={() => setActiveTab('commission-transaction')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'commission-transaction' ? styles.active : ''}`}>
+                    💰
+                  </div>
+                  <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细-3</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'commission-settings' ? styles.active : ''}`} onClick={() => setActiveTab('commission-settings')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'commission-settings' ? styles.active : ''}`}>
+                    ⚙️
+                  </div>
+                  <span className={activeTab === 'commission-settings' ? styles.active : ''}>提成设置</span>
+                </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'editor-management' ? styles.active : ''}`} onClick={() => setActiveTab('editor-management')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'editor-management' ? styles.active : ''}`}>
+                    👥
+                  </div>
+                  <span className={activeTab === 'editor-management' ? styles.active : ''}>编辑管理</span>
+                </div>
+              </div>
+            )}
           </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('author-income')}>
-            <div className={`${styles.navIcon} ${activeTab === 'author-income' ? styles.active : ''}`}>
-              ✍️
-            </div>
-            <span className={activeTab === 'author-income' ? styles.active : ''}>作者收入统计</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('reader-income')}>
-            <div className={`${styles.navIcon} ${activeTab === 'reader-income' ? styles.active : ''}`}>
-              👥
-            </div>
-            <span className={activeTab === 'reader-income' ? styles.active : ''}>读者收入统计</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('settlement-overview')}>
-            <div className={`${styles.navIcon} ${activeTab === 'settlement-overview' ? styles.active : ''}`}>
+          
+          {/* 我的收款账户菜单项 */}
+          <div className={styles.navItem} onClick={() => setActiveTab('admin-payout-account')}>
+            <div className={`${styles.navIcon} ${activeTab === 'admin-payout-account' ? styles.active : ''}`}>
               💳
             </div>
-            <span className={activeTab === 'settlement-overview' ? styles.active : ''}>结算总览</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('base-income')}>
-            <div className={`${styles.navIcon} ${activeTab === 'base-income' ? styles.active : ''}`}>
-              📊
-            </div>
-            <span className={activeTab === 'base-income' ? styles.active : ''}>基础收入统计-1</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('author-royalty')}>
-            <div className={`${styles.navIcon} ${activeTab === 'author-royalty' ? styles.active : ''}`}>
-              💵
-            </div>
-            <span className={activeTab === 'author-royalty' ? styles.active : ''}>作者基础收入表-2</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('commission-transaction')}>
-            <div className={`${styles.navIcon} ${activeTab === 'commission-transaction' ? styles.active : ''}`}>
-              💰
-            </div>
-            <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细-3</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('commission-settings')}>
-            <div className={`${styles.navIcon} ${activeTab === 'commission-settings' ? styles.active : ''}`}>
-              ⚙️
-            </div>
-            <span className={activeTab === 'commission-settings' ? styles.active : ''}>提成设置</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('editor-management')}>
-            <div className={`${styles.navIcon} ${activeTab === 'editor-management' ? styles.active : ''}`}>
-              👥
-            </div>
-            <span className={activeTab === 'editor-management' ? styles.active : ''}>编辑管理</span>
+            <span className={activeTab === 'admin-payout-account' ? styles.active : ''}>我的收款账户</span>
           </div>
         </div>
 
@@ -1361,6 +1404,17 @@ const AdminPanel: React.FC = () => {
           {/* 小说审批选项卡 */}
           {activeTab === 'novel-review' && (
             <NovelReview onError={setError} />
+          )}
+
+          {/* 新小说池选项卡 */}
+          {activeTab === 'new-novel-pool' && (
+            <NewNovelPool 
+              onError={setError}
+              onNavigateToChapter={(chapterId) => {
+                // 跳转到章节审批页面
+                setActiveTab('chapter-approval');
+              }}
+            />
           )}
 
           {/* 章节审核选项卡 */}
@@ -2580,6 +2634,11 @@ const AdminPanel: React.FC = () => {
           )}
           {activeTab === 'editor-management' && (
             <AdminUserPage onError={setError} />
+          )}
+          
+          {/* 我的收款账户选项卡 */}
+          {activeTab === 'admin-payout-account' && (
+            <AdminPayoutAccounts onError={setError} />
           )}
                 </div>
               </div>

@@ -464,79 +464,124 @@ const ContractApprovalTab: React.FC<ContractApprovalTabProps> = ({ onError, admi
 
       {/* 申请查看弹窗 */}
       {showApplicationModal && selectedNovel && (
-        <div className={styles.modal} onClick={() => setShowApplicationModal(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '80vh', overflow: 'auto' }}>
-            <h3>编辑申请 - {selectedNovel.title}</h3>
-            <div className={styles.tableContainer}>
-              <table className={styles.adminTable}>
-                <thead>
-                  <tr>
-                    <th>申请编辑</th>
-                    <th>状态</th>
-                    <th>申请时间</th>
-                    <th>审批时间</th>
-                    <th>审批人</th>
-                    <th>申请理由</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {applications.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', color: '#999' }}>暂无申请记录</td>
-                    </tr>
-                  ) : (
-                    applications.map((app) => (
-                      <tr key={app.id}>
-                        <td>{app.editor_name}</td>
-                        <td>
-                          <span className={`${styles.statusTag} ${getApplicationStatusClass(app.status)}`}>
-                            {app.status === 'pending' ? '待审批' :
-                             app.status === 'approved' ? '已通过' :
-                             app.status === 'rejected' ? '已拒绝' : '已取消'}
-                          </span>
-                        </td>
-                        <td>{new Date(app.created_at).toLocaleString('zh-CN')}</td>
-                        <td>{app.handled_at ? new Date(app.handled_at).toLocaleString('zh-CN') : '-'}</td>
-                        <td>{app.handler_name || '-'}</td>
-                        <td style={{ maxWidth: '200px', wordBreak: 'break-word' }}>
-                          {app.reason || '-'}
-                        </td>
-                        <td>
-                          {app.status === 'pending' && (
-                            <>
-                              <button 
-                                onClick={() => handleApplication(app.id, 'approve', 'editor')}
-                                className={styles.saveButton}
-                                style={{ marginRight: '4px', padding: '4px 8px', fontSize: '12px' }}
-                              >
-                                通过设为责任编辑
-                              </button>
-                              <button 
-                                onClick={() => handleApplication(app.id, 'approve', 'chief_editor')}
-                                className={styles.saveButton}
-                                style={{ marginRight: '4px', padding: '4px 8px', fontSize: '12px' }}
-                              >
-                                通过设为主编
-                              </button>
-                              <button 
-                                onClick={() => handleApplication(app.id, 'reject')}
-                                className={styles.cancelButton}
-                                style={{ padding: '4px 8px', fontSize: '12px' }}
-                              >
-                                拒绝
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        <div className={styles.applicationModal} onClick={() => setShowApplicationModal(false)}>
+          <div className={styles.applicationModalContent} onClick={(e) => e.stopPropagation()}>
+            {/* 模态框头部 */}
+            <div className={styles.applicationModalHeader}>
+              <div className={styles.applicationModalTitle}>
+                <h3>编辑申请</h3>
+                <p className={styles.applicationModalSubtitle}>{selectedNovel.title}</p>
+              </div>
+              <button 
+                className={styles.applicationModalClose}
+                onClick={() => setShowApplicationModal(false)}
+                aria-label="关闭"
+              >
+                ×
+              </button>
             </div>
-            <div className={styles.formActions}>
-              <button onClick={() => setShowApplicationModal(false)} className={styles.cancelButton}>关闭</button>
+
+            {/* 申请列表 */}
+            <div className={styles.applicationList}>
+              {applications.length === 0 ? (
+                <div className={styles.applicationEmpty}>
+                  <div className={styles.applicationEmptyIcon}>📝</div>
+                  <p className={styles.applicationEmptyText}>暂无申请记录</p>
+                </div>
+              ) : (
+                applications.map((app) => (
+                  <div key={app.id} className={styles.applicationCard}>
+                    {/* 卡片头部 */}
+                    <div className={styles.applicationCardHeader}>
+                      <div className={styles.applicationCardUser}>
+                        <div className={styles.applicationCardAvatar}>
+                          {app.editor_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className={styles.applicationCardUserInfo}>
+                          <div className={styles.applicationCardUserName}>{app.editor_name}</div>
+                          <div className={styles.applicationCardTime}>
+                            {new Date(app.created_at).toLocaleString('zh-CN')}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`${styles.applicationStatusBadge} ${
+                        app.status === 'pending' ? styles.statusPending :
+                        app.status === 'approved' ? styles.statusApproved :
+                        app.status === 'rejected' ? styles.statusRejected :
+                        styles.statusCancelled
+                      }`}>
+                        {app.status === 'pending' ? '待审批' :
+                         app.status === 'approved' ? '已通过' :
+                         app.status === 'rejected' ? '已拒绝' : '已取消'}
+                      </span>
+                    </div>
+
+                    {/* 申请理由 */}
+                    {app.reason && (
+                      <div className={styles.applicationCardReason}>
+                        <div className={styles.applicationCardLabel}>申请理由</div>
+                        <div className={styles.applicationCardReasonText}>{app.reason}</div>
+                      </div>
+                    )}
+
+                    {/* 审批信息 */}
+                    {app.status !== 'pending' && (
+                      <div className={styles.applicationCardApproval}>
+                        <div className={styles.applicationCardApprovalItem}>
+                          <span className={styles.applicationCardLabel}>审批时间：</span>
+                          <span className={styles.applicationCardValue}>
+                            {app.handled_at ? new Date(app.handled_at).toLocaleString('zh-CN') : '-'}
+                          </span>
+                        </div>
+                        <div className={styles.applicationCardApprovalItem}>
+                          <span className={styles.applicationCardLabel}>审批人：</span>
+                          <span className={styles.applicationCardValue}>{app.handler_name || '-'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 操作按钮 */}
+                    {app.status === 'pending' && (
+                      <div className={styles.applicationCardActions}>
+                        <button 
+                          onClick={() => handleApplication(app.id, 'approve', 'editor')}
+                          className={styles.applicationActionButton}
+                          data-action="approve-editor"
+                        >
+                          <span>✓</span>
+                          通过设为责任编辑
+                        </button>
+                        <button 
+                          onClick={() => handleApplication(app.id, 'approve', 'chief_editor')}
+                          className={styles.applicationActionButton}
+                          data-action="approve-chief"
+                        >
+                          <span>✓</span>
+                          通过设为主编
+                        </button>
+                        <button 
+                          onClick={() => handleApplication(app.id, 'reject')}
+                          className={styles.applicationActionButton}
+                          data-action="reject"
+                        >
+                          <span>✗</span>
+                          拒绝
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 模态框底部 */}
+            <div className={styles.applicationModalFooter}>
+              <button 
+                onClick={() => setShowApplicationModal(false)} 
+                className={styles.applicationModalCloseButton}
+              >
+                关闭
+              </button>
             </div>
           </div>
         </div>

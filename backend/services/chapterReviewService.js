@@ -25,7 +25,7 @@ class ChapterReviewService {
     const db = await this.createConnection();
     try {
       const [chapters] = await db.execute(
-        'SELECT id, novel_id, review_status, editor_admin_id FROM chapter WHERE id = ?',
+        'SELECT id, novel_id, review_status, editor_admin_id, chief_editor_admin_id FROM chapter WHERE id = ?',
         [chapterId]
       );
       return chapters.length > 0 ? chapters[0] : null;
@@ -110,7 +110,8 @@ class ChapterReviewService {
 
 
   /**
-   * 写入审核日志
+   * 写入审核日志（upsert 方式）
+   * 现在 chapter_review_log 以 (chapter_id, admin_id) 唯一，记录该编辑对该章节的最终审核结果，用于统计工作量和提成。
    * @param {Object} db - 数据库连接
    * @param {number} chapterId - 章节ID
    * @param {number} adminId - 审核人ID
@@ -120,8 +121,13 @@ class ChapterReviewService {
    */
   async insertReviewLog(db, chapterId, adminId, adminRole, action, comment) {
     await db.execute(
-      `INSERT INTO chapter_review_log (chapter_id, admin_id, admin_role, action, comment)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO chapter_review_log (chapter_id, admin_id, admin_role, action, comment, created_at)
+       VALUES (?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         action = VALUES(action),
+         comment = VALUES(comment),
+         admin_role = VALUES(admin_role),
+         created_at = NOW()`,
       [chapterId, adminId, adminRole, action, comment || null]
     );
   }
@@ -171,15 +177,25 @@ class ChapterReviewService {
       const editorAdminId = novel.current_editor_admin_id || chapter.editor_admin_id;
 
       // 处理审核逻辑
+      // 防止接手的新编辑重审老章节，导致前任编辑的提成被覆盖
       if (result === 'approved') {
         if (!requiresChief) {
           // ✅ 不需要主编终审：责任编辑/超管直接终结
           finalStatus = 'approved';
           
+          // 防止抢功：如果章节已有编辑归属，且不是当前审核人，则拒绝
+          if (chapter.editor_admin_id && chapter.editor_admin_id !== adminId && adminRole === 'editor') {
+            throw new Error('章节已由其他编辑审核通过，不能修改归属');
+          }
+          
           // 如果还没有绑定责任编辑，且当前审核人是编辑或超管，则绑定
-          let finalEditorId = chapter.editor_admin_id || editorAdminId;
-          if (!finalEditorId && (adminRole === 'editor' || adminRole === 'super_admin')) {
-            finalEditorId = adminId;
+          let finalEditorId = chapter.editor_admin_id;
+          if (!finalEditorId) {
+            if (adminRole === 'editor' || adminRole === 'super_admin') {
+              finalEditorId = adminId;
+            } else {
+              finalEditorId = editorAdminId;
+            }
           }
 
           await db.execute(
@@ -198,6 +214,11 @@ class ChapterReviewService {
             // 责任编辑审核通过 -> 等待主编终审
             finalStatus = 'pending_chief';
             
+            // 防止抢功：如果章节已有编辑归属，且不是当前审核人，则拒绝
+            if (chapter.editor_admin_id && chapter.editor_admin_id !== adminId) {
+              throw new Error('章节已由其他编辑审核通过，不能修改归属');
+            }
+            
             let finalEditorId = chapter.editor_admin_id;
             if (!finalEditorId) {
               finalEditorId = adminId;
@@ -215,10 +236,24 @@ class ChapterReviewService {
             // 主编/超管终审通过 -> 最终 approved
             finalStatus = 'approved';
             
+            // 防止抢功：如果章节已有主编归属，且不是当前审核人，则拒绝（主编角色）
+            if (adminRole === 'chief_editor' && chapter.chief_editor_admin_id && chapter.chief_editor_admin_id !== adminId) {
+              throw new Error('章节已由其他主编审核通过，不能修改归属');
+            }
+            
             let finalEditorId = chapter.editor_admin_id || editorAdminId;
-            if (!finalEditorId && adminRole === 'super_admin') {
-              // 超管终审时，如果没有编辑，可以设置为当前编辑
-              finalEditorId = null; // 保持原值或null
+            let finalChiefEditorId = chapter.chief_editor_admin_id;
+            
+            // 如果还没有主编归属，且当前审核人是主编，则绑定
+            if (!finalChiefEditorId && adminRole === 'chief_editor') {
+              finalChiefEditorId = adminId;
+            }
+            
+            // 超管可以设置主编归属，但不能覆盖已有主编
+            if (adminRole === 'super_admin' && !finalChiefEditorId) {
+              // 超管终审时，如果没有主编，可以设置为当前主编（如果有）
+              const novel = await this.getNovelById(chapter.novel_id);
+              finalChiefEditorId = novel?.chief_editor_admin_id || null;
             }
 
             await db.execute(
@@ -226,9 +261,10 @@ class ChapterReviewService {
                review_status = ?,
                review_admin_id = ?,
                reviewed_at = NOW(),
-               editor_admin_id = COALESCE(?, editor_admin_id)
+               editor_admin_id = COALESCE(?, editor_admin_id),
+               chief_editor_admin_id = COALESCE(?, chief_editor_admin_id)
                WHERE id = ?`,
-              [finalStatus, adminId, finalEditorId, chapter_id]
+              [finalStatus, adminId, finalEditorId, finalChiefEditorId, chapter_id]
             );
 
           } else {

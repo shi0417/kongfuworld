@@ -18,6 +18,8 @@ interface ChapterDetailData {
   author: string;
   editor_admin_id?: number;
   editor_name?: string;
+  chief_editor_admin_id?: number;
+  chief_editor_name?: string;
   review_status: string;
   is_released: boolean;
   is_advance: boolean;
@@ -48,15 +50,15 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
   canNavigatePrev,
   canNavigateNext
 }) => {
-  const [reviewStatus, setReviewStatus] = useState(chapter.review_status);
   const [reviewComment, setReviewComment] = useState('');
   const [fontSize, setFontSize] = useState(14);
   const [showEmptyLines, setShowEmptyLines] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
 
   useEffect(() => {
-    setReviewStatus(chapter.review_status);
     setReviewComment('');
+    setShowFullContent(false);
   }, [chapter.id]);
 
   const getStatusText = (status: string) => {
@@ -121,6 +123,11 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
     }
   };
 
+  // 处理审核操作
+  // 三个按钮的语义：
+  // - 保存为"审核中"：标记章节为审核中状态，不写入归属信息
+  // - 审核通过/提交主编终审/终审通过：审核通过，写入 editor_admin_id/chief_editor_admin_id 归属信息
+  // - 审核拒绝：拒绝章节，必须填写备注
   const handleReview = async (result: string) => {
     if (result === 'rejected' && !reviewComment.trim()) {
       alert('拒绝时必须填写审核备注');
@@ -133,6 +140,11 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  // 打开章节阅读页
+  const openReader = () => {
+    window.open(`/novel/${chapter.novel_id}/chapter/${chapter.id}`, '_blank');
   };
 
   const formatContent = (content: string) => {
@@ -189,7 +201,16 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
               <span><strong>章节ID：</strong>{chapter.id}</span>
               <span><strong>字数：</strong>{chapter.word_count}</span>
               <span><strong>作者：</strong>{chapter.author}</span>
-              <span><strong>主编：</strong>{chapter.editor_name || '—'}</span>
+              <span><strong>本章责任编辑：</strong>
+                {chapter.editor_admin_id ? (
+                  chapter.editor_name || `ID: ${chapter.editor_admin_id}`
+                ) : '尚未分配'}
+              </span>
+              {chapter.chief_editor_admin_id && (
+                <span><strong>本章主编：</strong>
+                  {chapter.chief_editor_name || `ID: ${chapter.chief_editor_admin_id}`}
+                </span>
+              )}
               <span><strong>是否预读：</strong>{chapter.is_advance ? '是' : '否'}</span>
               <span><strong>审核状态：</strong>
                 <span className={`${styles.statusBadge} ${getStatusClass(chapter.review_status)}`}>
@@ -258,8 +279,8 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
             </label>
           </div>
           <div className={styles.toolbarGroup}>
-            <button className={styles.compareBtn} disabled>
-              对比历史版本（待实现）
+            <button onClick={openReader} className={styles.readerBtn}>
+              在阅读页中打开完整内容
             </button>
           </div>
         </div>
@@ -267,7 +288,21 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
         <div className={styles.contentArea} style={{ fontSize: `${fontSize}px` }}>
           {chapter.content ? (
             <div className={styles.contentText}>
-              {formatContent(chapter.content)}
+              {showFullContent ? (
+                formatContent(chapter.content)
+              ) : (
+                <>
+                  {formatContent(chapter.content.substring(0, 2000))}
+                  {chapter.content.length > 2000 && (
+                    <div className={styles.contentPreviewHint}>
+                      <p>（仅显示前2000字预览）</p>
+                      <button onClick={() => setShowFullContent(true)} className={styles.showMoreBtn}>
+                        显示全部内容
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <div className={styles.emptyContent}>暂无内容</div>
@@ -287,18 +322,12 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
         <h3>审核操作</h3>
         
         <div className={styles.reviewForm}>
+          {/* 当前审核状态（只读展示） */}
           <div className={styles.formGroup}>
-            <label>审核状态：</label>
-            <select
-              value={reviewStatus}
-              onChange={(e) => setReviewStatus(e.target.value)}
-              className={styles.statusSelect}
-            >
-              <option value="reviewing">审核中</option>
-              <option value="approved">已批准</option>
-              <option value="rejected">已拒绝</option>
-              {requiresChiefEdit && <option value="pending_chief">等待主编终审</option>}
-            </select>
+            <label>当前审核状态：</label>
+            <span className={`${styles.statusBadge} ${getStatusClass(chapter.review_status)}`}>
+              {getStatusText(chapter.review_status)}
+            </span>
           </div>
 
           <div className={styles.formGroup}>
@@ -306,7 +335,7 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
             <textarea
               value={reviewComment}
               onChange={(e) => setReviewComment(e.target.value)}
-              placeholder="请输入审核备注..."
+              placeholder="请输入审核备注（审核拒绝时必填）..."
               rows={4}
               className={styles.commentTextarea}
             />
@@ -315,7 +344,7 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
           <div className={styles.reviewActions}>
             <button
               onClick={() => handleReview('reviewing')}
-              disabled={saving || reviewStatus === 'reviewing'}
+              disabled={saving || chapter.review_status === 'reviewing'}
               className={styles.saveBtn}
             >
               保存为"审核中"

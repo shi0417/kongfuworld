@@ -8248,17 +8248,22 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         n.title as novel_title,
         n.author,
         n.current_editor_admin_id,
+        n.chief_editor_admin_id,
         n.requires_chief_edit,
         n.cover as novel_cover,
         v.title as volume_name,
         u.username as author_name,
         u.pen_name as author_pen_name,
-        a.name as editor_name
+        ae.name as editor_name,
+        ac.name as chief_editor_name,
+        c.editor_admin_id as chapter_editor_admin_id,
+        c.chief_editor_admin_id as chapter_chief_editor_admin_id
       FROM chapter c
       LEFT JOIN novel n ON c.novel_id = n.id
       LEFT JOIN volume v ON c.volume_id = v.id
       LEFT JOIN user u ON n.user_id = u.id
-      LEFT JOIN admin a ON n.current_editor_admin_id = a.id
+      LEFT JOIN admin ae ON n.current_editor_admin_id = ae.id
+      LEFT JOIN admin ac ON n.chief_editor_admin_id = ac.id
       WHERE 1=1 ${permissionFilter.where}
     `;
     const params = [...permissionFilter.params];
@@ -8312,6 +8317,10 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         author: ch.author_name || ch.author_pen_name || ch.author,
         editor_admin_id: ch.current_editor_admin_id,
         editor_name: ch.editor_name || null,
+        chief_editor_admin_id: ch.chief_editor_admin_id,
+        chief_editor_name: ch.chief_editor_name || null,
+        chapter_editor_admin_id: ch.chapter_editor_admin_id,
+        chapter_chief_editor_admin_id: ch.chapter_chief_editor_admin_id,
         review_status: ch.review_status,
         is_released: ch.is_released === 1,
         is_advance: ch.is_advance === 1,
@@ -8401,8 +8410,10 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
         translator_note: chapter.translator_note,
         word_count: parseInt(chapter.word_count || 0),
         author: chapter.author_name || chapter.author_pen_name || chapter.author,
-        editor_admin_id: chapter.current_editor_admin_id,
+        editor_admin_id: chapter.editor_admin_id,
         editor_name: chapter.editor_name || null,
+        chief_editor_admin_id: chapter.chief_editor_admin_id,
+        chief_editor_name: chapter.chief_editor_name || null,
         review_status: chapter.review_status,
         is_released: chapter.is_released === 1,
         is_advance: chapter.is_advance === 1,
@@ -8601,7 +8612,6 @@ router.post('/novel/assign-editor', authenticateAdmin, requireRole('super_admin'
         db,
         req.admin.adminId,
         req.admin.role,
-        req.admin.supervisor_admin_id,
         novel_id
       );
       
@@ -9052,6 +9062,44 @@ router.get('/editor-contracts', authenticateAdmin, requireRole('super_admin'), a
   }
 });
 
+// 检查是否存在活跃合同（用于前端校验）
+router.get('/editor-contracts/check-active', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { novel_id, role } = req.query;
+    if (!novel_id || !role) {
+      return res.status(400).json({
+        success: false,
+        message: '缺少必要参数：novel_id 和 role'
+      });
+    }
+    
+    const db = await mysql.createConnection(dbConfig);
+    try {
+      const [rows] = await db.execute(
+        'SELECT id FROM novel_editor_contract WHERE novel_id = ? AND role = ? AND status = ?',
+        [novel_id, role, 'active']
+      );
+      
+      res.json({
+        success: true,
+        data: {
+          hasActive: rows.length > 0,
+          contractId: rows.length > 0 ? rows[0].id : null
+        }
+      });
+    } finally {
+      await db.end();
+    }
+  } catch (error) {
+    console.error('检查活跃合同失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '检查活跃合同失败',
+      error: error.message
+    });
+  }
+});
+
 // 获取单个合同详情
 router.get('/editor-contracts/:id', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
   try {
@@ -9087,11 +9135,21 @@ router.post('/editor-contracts', authenticateAdmin, requireRole('super_admin'), 
     });
   } catch (error) {
     console.error('创建合同失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '创建合同失败',
-      error: error.message
-    });
+    // 检查是否是冲突错误，返回友好的错误信息
+    const errorMessage = error.message || '创建合同失败';
+    if (errorMessage.includes('已有有效的') || errorMessage.includes('请先结束旧合同')) {
+      res.status(400).json({
+        success: false,
+        message: '当前已有有效的编辑合同，请先结束旧合同',
+        error: errorMessage
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: '创建合同失败',
+        error: errorMessage
+      });
+    }
   }
 });
 
@@ -9270,6 +9328,684 @@ router.post('/editor-applications/:id/handle', authenticateAdmin, requireRole('s
       message: '审批申请失败',
       error: error.message
     });
+  }
+});
+
+// ============================================
+// 新小说池接口
+// ============================================
+
+// 获取新小说池列表（新申请、审核中、未分配编辑的小说）
+// 所有编辑、总编、超管都可以访问
+router.get('/new-novel-pool', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { status = 'all', keyword, page = 1, pageSize = 20 } = req.query;
+    const currentAdminId = req.admin.adminId; // 当前登录的管理员ID
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 构建基础查询条件：新申请、审核中、未分配编辑的小说
+    // 注意：这里不应用权限过滤，所有编辑都可以看到新小说池
+    const whereConditions = [
+      "n.review_status IN ('created', 'submitted', 'reviewing')",
+      "n.current_editor_admin_id IS NULL",
+      "n.chief_editor_admin_id IS NULL"
+    ];
+    const queryParams = [];
+    
+    // 状态筛选
+    if (status && status !== 'all') {
+      whereConditions.push('n.review_status = ?');
+      queryParams.push(status);
+    }
+    
+    // 关键词搜索（小说名、作者名、ID）
+    if (keyword) {
+      whereConditions.push('(n.title LIKE ? OR n.author LIKE ? OR n.id = ?)');
+      const keywordPattern = `%${keyword}%`;
+      queryParams.push(keywordPattern, keywordPattern, keyword);
+    }
+    
+    // 过滤掉有 active 编辑合同的小说
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : '';
+    
+    // 分页参数
+    const pageNum = parseInt(page) || 1;
+    const pageSizeNum = parseInt(pageSize) || 20;
+    const offset = (pageNum - 1) * pageSizeNum;
+    
+    // 主查询：获取新小说池列表，并统计待审章节数量，同时查询当前用户的申请状态
+    const listQuery = `
+      SELECT 
+        n.id,
+        n.title,
+        n.author,
+        n.review_status,
+        n.description,
+        n.cover,
+        n.created_at,
+        MAX(u.username) as author_name,
+        MAX(u.pen_name) as pen_name,
+        (
+          SELECT COUNT(*) 
+          FROM chapter c 
+          WHERE c.novel_id = n.id 
+            AND c.review_status IN ('submitted', 'reviewing', 'pending_chief')
+        ) as pending_chapter_count,
+        GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_names,
+        (
+          SELECT status 
+          FROM editor_novel_application 
+          WHERE novel_id = n.id 
+            AND editor_admin_id = ?
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) as application_status
+      FROM novel n
+      LEFT JOIN user u ON n.user_id = u.id
+      LEFT JOIN novel_genre_relation ngr ON n.id = ngr.novel_id
+      LEFT JOIN genre g ON (ngr.genre_id_1 = g.id OR ngr.genre_id_2 = g.id)
+      LEFT JOIN novel_editor_contract c ON c.novel_id = n.id AND c.status = 'active'
+      ${whereClause}
+        AND c.id IS NULL
+      GROUP BY n.id
+      ORDER BY n.created_at DESC
+      LIMIT ${pageSizeNum} OFFSET ${offset}
+    `;
+    
+    const allParams = [currentAdminId, ...queryParams];
+    const [novels] = await db.execute(listQuery, allParams);
+    
+    // 获取总数
+    const countQuery = `
+      SELECT COUNT(DISTINCT n.id) as total
+      FROM novel n
+      LEFT JOIN novel_editor_contract c ON c.novel_id = n.id AND c.status = 'active'
+      ${whereClause}
+        AND c.id IS NULL
+    `;
+    const [countResult] = await db.execute(countQuery, queryParams);
+    const total = countResult[0].total;
+    
+    // 处理标签数据和申请状态
+    const processedNovels = novels.map(novel => {
+      const genres = novel.genre_names ? novel.genre_names.split(',').filter(g => g && g !== 'null') : [];
+      return {
+        ...novel,
+        genres: genres,
+        pending_chapter_count: parseInt(novel.pending_chapter_count) || 0,
+        application_status: novel.application_status || null // 当前用户的申请状态：pending/approved/rejected/cancelled 或 null
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        list: processedNovels,
+        total: total,
+        page: pageNum,
+        pageSize: pageSizeNum
+      }
+    });
+    
+  } catch (error) {
+    console.error('获取新小说池列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取新小说池列表失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取新小说池中某本小说的详情（包含待审章节列表）
+router.get('/new-novel-pool/:novelId', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { novelId } = req.params;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 获取小说基本信息
+    const [novels] = await db.execute(
+      `SELECT 
+        n.*,
+        u.username as author_name,
+        u.pen_name as author_pen_name,
+        GROUP_CONCAT(DISTINCT g.chinese_name ORDER BY g.id SEPARATOR ',') as genre_names,
+        GROUP_CONCAT(DISTINCT p.name ORDER BY p.created_at SEPARATOR ',') as protagonist_names
+       FROM novel n
+       LEFT JOIN user u ON n.user_id = u.id
+       LEFT JOIN novel_genre_relation ngr ON n.id = ngr.novel_id
+       LEFT JOIN genre g ON (ngr.genre_id_1 = g.id OR ngr.genre_id_2 = g.id)
+       LEFT JOIN protagonist p ON n.id = p.novel_id
+       WHERE n.id = ?
+       GROUP BY n.id`,
+      [novelId]
+    );
+    
+    if (novels.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '小说不存在'
+      });
+    }
+    
+    const novel = novels[0];
+    
+    // 获取待审章节列表
+    const [chapters] = await db.execute(
+      `SELECT 
+        c.id,
+        c.novel_id,
+        c.volume_id,
+        c.chapter_number,
+        c.title,
+        c.word_count,
+        c.review_status,
+        c.created_at,
+        v.title as volume_name
+       FROM chapter c
+       LEFT JOIN volume v ON c.volume_id = v.id
+       WHERE c.novel_id = ? 
+         AND c.review_status IN ('submitted', 'reviewing', 'pending_chief')
+       ORDER BY c.chapter_number ASC, c.created_at ASC`,
+      [novelId]
+    );
+    
+    // 处理标签和主角数据
+    const genres = novel.genre_names ? novel.genre_names.split(',').filter(g => g && g !== 'null') : [];
+    const protagonists = novel.protagonist_names ? novel.protagonist_names.split(',').filter(p => p) : [];
+    
+    res.json({
+      success: true,
+      data: {
+        novel: {
+          ...novel,
+          genres: genres,
+          protagonists: protagonists,
+          application_status: novel.application_status || null // 当前用户的申请状态
+        },
+        pendingChapters: chapters
+      }
+    });
+    
+  } catch (error) {
+    console.error('获取新小说详情失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取新小说详情失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 申请成为新小说的责任编辑
+router.post('/new-novel-pool/:novelId/apply-editor', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const { novelId } = req.params;
+    const { reason } = req.body;
+    const editorAdminId = req.admin.adminId;
+    
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: '申请理由不能为空'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 校验小说是否仍然符合新小说池条件
+    const [novels] = await db.execute(
+      `SELECT id, review_status, current_editor_admin_id, chief_editor_admin_id
+       FROM novel 
+       WHERE id = ?`,
+      [novelId]
+    );
+    
+    if (novels.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '小说不存在'
+      });
+    }
+    
+    const novel = novels[0];
+    
+    // 检查小说是否仍然符合新小说池条件
+    if (!['created', 'submitted', 'reviewing'].includes(novel.review_status)) {
+      return res.status(400).json({
+        success: false,
+        message: '该小说已通过审核或状态已变更，无法申请'
+      });
+    }
+    
+    if (novel.current_editor_admin_id || novel.chief_editor_admin_id) {
+      return res.status(400).json({
+        success: false,
+        message: '该小说已分配编辑，无法申请'
+      });
+    }
+    
+    // 检查是否已有 active 编辑合同
+    const [contracts] = await db.execute(
+      'SELECT id FROM novel_editor_contract WHERE novel_id = ? AND status = ?',
+      [novelId, 'active']
+    );
+    
+    if (contracts.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '该小说已有有效编辑合同，无法申请'
+      });
+    }
+    
+    // 检查是否已存在 pending 状态的申请
+    const [existing] = await db.execute(
+      'SELECT id FROM editor_novel_application WHERE novel_id = ? AND editor_admin_id = ? AND status = ?',
+      [novelId, editorAdminId, 'pending']
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '你已申请过该小说的责任编辑，请等待审批'
+      });
+    }
+    
+    // 插入申请记录
+    const [result] = await db.execute(
+      'INSERT INTO editor_novel_application (novel_id, editor_admin_id, reason, status) VALUES (?, ?, ?, ?)',
+      [novelId, editorAdminId, reason.trim(), 'pending']
+    );
+    
+    res.json({
+      success: true,
+      message: '申请已提交，等待后台审批',
+      data: {
+        applicationId: result.insertId
+      }
+    });
+    
+  } catch (error) {
+    console.error('提交编辑申请失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '提交申请失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 编辑注册 + 邮箱验证 ====================
+
+// 导入 admin 邮箱验证模块
+const adminEmailVerification = require('./adminEmailVerification');
+const { verifyAdminCode } = require('./adminEmailVerification');
+
+// 注册 admin 邮箱验证路由
+router.use('/email-verification', adminEmailVerification);
+
+/**
+ * 编辑注册接口
+ * POST /api/admin/register-editor
+ */
+router.post('/register-editor', async (req, res) => {
+  let db;
+  try {
+    const { name, email, password, confirmPassword, phone, real_name, verificationCode } = req.body;
+    
+    // 1. 基本校验
+    if (!name || !email || !password || !verificationCode) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名、邮箱、密码和验证码不能为空'
+      });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '两次输入的密码不一致'
+      });
+    }
+    
+    // 2. 邮箱格式校验
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: '邮箱格式不正确'
+      });
+    }
+    
+    // 3. 验证验证码
+    if (!verifyAdminCode(email, verificationCode)) {
+      return res.status(400).json({
+        success: false,
+        message: '验证码错误或已过期'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 4. 检查 name 和 email 是否已存在
+    const [existingAdmins] = await db.execute(
+      'SELECT id FROM admin WHERE name = ? OR email = ?',
+      [name, email]
+    );
+    
+    if (existingAdmins.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '用户名或邮箱已被使用'
+      });
+    }
+    
+    // 5. 密码哈希
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 6. 插入 admin 记录
+    await db.execute(
+      `INSERT INTO admin (name, email, password, phone, real_name, role, level, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'editor', 1, 1, NOW())`,
+      [name, email, hashedPassword, phone || null, real_name || null]
+    );
+    
+    res.json({
+      success: true,
+      message: '注册成功，请使用该账号登录后台'
+    });
+    
+  } catch (error) {
+    console.error('编辑注册错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '注册失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== admin 收款账户管理接口 ====================
+
+/**
+ * 获取 admin 收款账户列表
+ * GET /api/admin/payout-account/list
+ */
+router.get('/payout-account/list', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    const [accounts] = await db.execute(
+      'SELECT * FROM admin_payout_account WHERE admin_id = ? AND status = "active" ORDER BY is_default DESC, created_at DESC',
+      [adminId]
+    );
+    
+    res.json({
+      success: true,
+      data: accounts.map(acc => {
+        // account_data 在数据库中已经是 JSON 类型，MySQL 会自动解析为对象
+        let accountData = acc.account_data;
+        if (typeof accountData === 'string') {
+          try {
+            accountData = JSON.parse(accountData);
+          } catch (e) {
+            accountData = {};
+          }
+        }
+        return {
+          id: acc.id,
+          method: acc.method,
+          account_label: acc.account_label,
+          account_data: accountData || {},
+          is_default: acc.is_default === 1,
+          status: acc.status,
+          created_at: acc.created_at,
+          updated_at: acc.updated_at
+        };
+      })
+    });
+  } catch (error) {
+    console.error('获取收款账户列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+/**
+ * 创建或更新 admin 收款账户
+ * POST /api/admin/payout-account/save
+ */
+router.post('/payout-account/save', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { id, method, account_label, account_data, is_default } = req.body;
+    
+    if (!method || !account_label || !account_data) {
+      return res.status(400).json({
+        success: false,
+        message: '缺少必要参数'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    await db.beginTransaction();
+    
+    try {
+      // 如果设置为默认账户，先取消其他默认账户
+      if (is_default) {
+        await db.execute(
+          'UPDATE admin_payout_account SET is_default = 0 WHERE admin_id = ?',
+          [adminId]
+        );
+      }
+      
+      if (id) {
+        // 更新现有账户
+        await db.execute(
+          `UPDATE admin_payout_account 
+           SET method = ?, account_label = ?, account_data = ?, is_default = ?, updated_at = NOW()
+           WHERE id = ? AND admin_id = ?`,
+          [method, account_label, JSON.stringify(account_data), is_default ? 1 : 0, id, adminId]
+        );
+        
+        await db.commit();
+        
+        res.json({
+          success: true,
+          data: { id },
+          message: '收款账户已更新'
+        });
+      } else {
+        // 创建新账户
+        const [result] = await db.execute(
+          `INSERT INTO admin_payout_account (admin_id, method, account_label, account_data, is_default, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())`,
+          [adminId, method, account_label, JSON.stringify(account_data), is_default ? 1 : 0]
+        );
+        
+        await db.commit();
+        
+        res.json({
+          success: true,
+          data: { id: result.insertId },
+          message: '收款账户已创建'
+        });
+      }
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('保存收款账户错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '保存失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+/**
+ * 删除 admin 收款账户
+ * DELETE /api/admin/payout-account/:accountId
+ */
+router.delete('/payout-account/:accountId', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const accountId = parseInt(req.params.accountId);
+    
+    if (isNaN(accountId)) {
+      return res.status(400).json({
+        success: false,
+        message: '账户ID无效'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 检查账户是否存在且属于当前 admin
+    const [account] = await db.execute(
+      'SELECT is_default FROM admin_payout_account WHERE id = ? AND admin_id = ? AND status = "active"',
+      [accountId, adminId]
+    );
+    
+    if (account.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '账户不存在'
+      });
+    }
+    
+    // 检查是否是唯一的默认账户
+    if (account[0].is_default === 1) {
+      const [otherAccounts] = await db.execute(
+        'SELECT COUNT(*) as count FROM admin_payout_account WHERE admin_id = ? AND id != ? AND status = "active"',
+        [adminId, accountId]
+      );
+      
+      if (otherAccounts[0].count === 0) {
+        return res.status(400).json({
+          success: false,
+          message: '不能删除唯一的默认账户，请先添加其他账户'
+        });
+      }
+    }
+    
+    // 物理删除（和 user 端保持一致）
+    await db.execute(
+      'DELETE FROM admin_payout_account WHERE id = ? AND admin_id = ?',
+      [accountId, adminId]
+    );
+    
+    res.json({
+      success: true,
+      message: '收款账户已删除'
+    });
+  } catch (error) {
+    console.error('删除收款账户错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '删除失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+/**
+ * 设置默认 admin 收款账户
+ * PUT /api/admin/payout-account/:accountId/set-default
+ */
+router.put('/payout-account/:accountId/set-default', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const accountId = parseInt(req.params.accountId);
+    
+    if (isNaN(accountId)) {
+      return res.status(400).json({
+        success: false,
+        message: '账户ID无效'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    await db.beginTransaction();
+    
+    try {
+      // 检查账户是否存在且属于当前 admin
+      const [account] = await db.execute(
+        'SELECT id FROM admin_payout_account WHERE id = ? AND admin_id = ? AND status = "active"',
+        [accountId, adminId]
+      );
+      
+      if (account.length === 0) {
+        await db.rollback();
+        return res.status(404).json({
+          success: false,
+          message: '账户不存在'
+        });
+      }
+      
+      // 取消其他默认账户
+      await db.execute(
+        'UPDATE admin_payout_account SET is_default = 0 WHERE admin_id = ?',
+        [adminId]
+      );
+      
+      // 设置当前账户为默认
+      await db.execute(
+        'UPDATE admin_payout_account SET is_default = 1 WHERE id = ? AND admin_id = ?',
+        [accountId, adminId]
+      );
+      
+      await db.commit();
+      
+      res.json({
+        success: true,
+        message: '已设置为默认账户'
+      });
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('设置默认账户错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '设置失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
   }
 });
 

@@ -22,6 +22,7 @@ import CreateNovel from './pages/CreateNovel';
 import NovelManage from './pages/NovelManage';
 import ChapterWriter from './pages/ChapterWriter';
 import AdminPanel from './pages/AdminPanel';
+import AdminRegister from './pages/AdminRegister';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -55,6 +56,7 @@ function App() {
         <Route path="/novel-manage/:novelId" element={<NovelManage />} />
         <Route path="/novel-upload" element={<ChapterWriter />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin-register" element={<AdminRegister />} />
         </Routes>
       </Router>
     </GoogleOAuthProvider>

@@ -172,6 +172,7 @@ class EditorContractService {
 
   /**
    * 创建新合同
+   * 添加行级锁和冲突检查，确保同一本小说 novel_id + 同一个 role 角色，同一时间只能有一个 status='active' 的合同
    */
   async createContract(params) {
     const { 
@@ -183,21 +184,44 @@ class EditorContractService {
       start_chapter_id, 
       end_chapter_id, 
       start_date, 
-      end_date 
+      end_date,
+      status = 'active'
     } = params;
     
     const db = await this.createConnection();
     
     try {
+      await db.beginTransaction();
+      
+      // 如果状态为 active，使用行级锁检查是否已存在 active 合同
+      if (status === 'active') {
+        // 使用 SELECT ... FOR UPDATE 锁定相关行，防止并发冲突
+        const [existing] = await db.execute(
+          `SELECT id FROM novel_editor_contract 
+           WHERE novel_id = ? AND role = ? AND status = 'active' 
+           FOR UPDATE`,
+          [novel_id, role]
+        );
+        
+        if (existing.length > 0) {
+          await db.rollback();
+          throw new Error(`当前已有有效的${role === 'chief_editor' ? '主编' : role === 'editor' ? '编辑' : '校对'}合同，请先结束旧合同`);
+        }
+      }
+      
       // 插入数据库
       const [result] = await db.execute(
         `INSERT INTO novel_editor_contract 
          (novel_id, editor_admin_id, role, share_type, share_percent, start_chapter_id, end_chapter_id, start_date, end_date, status) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [novel_id, editor_admin_id, role, share_type, share_percent || null, start_chapter_id || null, end_chapter_id || null, start_date, end_date || null]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [novel_id, editor_admin_id, role, share_type, share_percent || null, start_chapter_id || null, end_chapter_id || null, start_date, end_date || null, status]
       );
       
+      await db.commit();
       return await this.getContractById(result.insertId);
+    } catch (error) {
+      await db.rollback();
+      throw error;
     } finally {
       await db.end();
     }
@@ -205,11 +229,65 @@ class EditorContractService {
 
   /**
    * 更新合同
+   * 添加行级锁和冲突检查，确保同一本小说 novel_id + 同一个 role 角色，同一时间只能有一个 status='active' 的合同
    */
   async updateContract(id, updateData) {
     const db = await this.createConnection();
     
     try {
+      await db.beginTransaction();
+      
+      // 先获取当前合同信息，使用行级锁
+      const [currentContract] = await db.execute(
+        'SELECT novel_id, role, status FROM novel_editor_contract WHERE id = ? FOR UPDATE',
+        [id]
+      );
+      
+      if (currentContract.length === 0) {
+        await db.rollback();
+        throw new Error('合同不存在');
+      }
+      
+      const oldContract = currentContract[0];
+      const newNovelId = updateData.novel_id !== undefined ? updateData.novel_id : oldContract.novel_id;
+      const newRole = updateData.role !== undefined ? updateData.role : oldContract.role;
+      const newStatus = updateData.status !== undefined ? updateData.status : oldContract.status;
+      
+      // 如果状态为 active，或更新了 novel_id/role 且状态为 active，检查冲突
+      if (newStatus === 'active') {
+        // 检查是否修改了 novel_id 或 role
+        const novelIdChanged = updateData.novel_id !== undefined && updateData.novel_id !== oldContract.novel_id;
+        const roleChanged = updateData.role !== undefined && updateData.role !== oldContract.role;
+        
+        // 如果修改了 novel_id 或 role，或状态从非 active 变为 active，需要检查冲突
+        if (novelIdChanged || roleChanged || oldContract.status !== 'active') {
+          // 使用行级锁检查是否已存在 active 合同
+          const [existing] = await db.execute(
+            `SELECT id FROM novel_editor_contract 
+             WHERE novel_id = ? AND role = ? AND status = 'active' AND id != ?
+             FOR UPDATE`,
+            [newNovelId, newRole, id]
+          );
+          
+          if (existing.length > 0) {
+            await db.rollback();
+            throw new Error(`当前已有有效的${newRole === 'chief_editor' ? '主编' : newRole === 'editor' ? '编辑' : '校对'}合同，请先结束旧合同`);
+          }
+        }
+      }
+      
+      // 如果当前合同是 active 状态，禁止修改 novel_id 和 role
+      if (oldContract.status === 'active') {
+        if (updateData.novel_id !== undefined && updateData.novel_id !== oldContract.novel_id) {
+          await db.rollback();
+          throw new Error('活跃合同不允许修改小说ID，请先结束合同');
+        }
+        if (updateData.role !== undefined && updateData.role !== oldContract.role) {
+          await db.rollback();
+          throw new Error('活跃合同不允许修改角色，请先结束合同');
+        }
+      }
+      
       const updates = [];
       const params = [];
       
@@ -244,9 +322,14 @@ class EditorContractService {
       if (updateData.status !== undefined) {
         updates.push('status = ?');
         params.push(updateData.status);
+        // 如果状态变为 ended 或 cancelled，自动设置 end_date
+        if ((updateData.status === 'ended' || updateData.status === 'cancelled') && updateData.end_date === undefined) {
+          updates.push('end_date = NOW()');
+        }
       }
       
       if (updates.length === 0) {
+        await db.commit();
         return await this.getContractById(id);
       }
       
@@ -256,7 +339,11 @@ class EditorContractService {
         params
       );
       
+      await db.commit();
       return await this.getContractById(id);
+    } catch (error) {
+      await db.rollback();
+      throw error;
     } finally {
       await db.end();
     }
@@ -266,7 +353,17 @@ class EditorContractService {
    * 终止合同
    */
   async terminateContract(id) {
-    return await this.updateContract(id, { status: 'ended' });
+    const db = await this.createConnection();
+    try {
+      // 同时设置状态为 ended 和结束日期为当前时间
+      await db.execute(
+        'UPDATE novel_editor_contract SET status = ?, end_date = NOW() WHERE id = ?',
+        ['ended', id]
+      );
+      return await this.getContractById(id);
+    } finally {
+      await db.end();
+    }
   }
 }
 

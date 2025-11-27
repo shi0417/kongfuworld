@@ -249,10 +249,11 @@ class NovelContractApprovalService {
       
       // 2. 处理主编合同
       if (chief_editor_admin_id) {
-        // 查找是否存在 active 的主编合同
+        // 使用行级锁查找是否存在 active 的主编合同
         const [existingChief] = await db.execute(
           `SELECT id, editor_admin_id FROM novel_editor_contract 
            WHERE novel_id = ? AND role = 'chief_editor' AND status = 'active' 
+           FOR UPDATE
            LIMIT 1`,
           [novelId]
         );
@@ -298,10 +299,11 @@ class NovelContractApprovalService {
       
       // 3. 处理责任编辑合同
       if (current_editor_admin_id) {
-        // 查找是否存在 active 的编辑合同
+        // 使用行级锁查找是否存在 active 的编辑合同
         const [existingEditor] = await db.execute(
           `SELECT id, editor_admin_id FROM novel_editor_contract 
            WHERE novel_id = ? AND role = 'editor' AND status = 'active' 
+           FOR UPDATE
            LIMIT 1`,
           [novelId]
         );

@@ -146,6 +146,84 @@
   gap: 8px;
 }
 
+/* 分组菜单容器 */
+.navGroup {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+/* 分组菜单头部 */
+.navGroupHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-weight: 600;
+  color: #333;
+  user-select: none;
+  gap: 12px;
+}
+
+.navGroupHeader:hover {
+  background: #f5f5f5;
+}
+
+.navGroupHeader .navIcon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+}
+
+.expandIcon {
+  margin-left: auto;
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s;
+}
+
+/* 子菜单项容器 */
+.navSubItems {
+  background: #f9f9f9;
+  padding: 4px 0;
+}
+
+/* 子菜单项 */
+.navSubItem {
+  display: flex;
+  align-items: center;
+  padding: 10px 24px 10px 48px;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: #666;
+  font-size: 14px;
+  gap: 12px;
+}
+
+.navSubItem:hover {
+  background: #f0f0f0;
+}
+
+.navSubItem.active {
+  background: #e8f0fe;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.navSubItem .navIcon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.navSubItem.active .navIcon {
+  color: #1976d2;
+}
+
+.navSubItem.active span.active {
+  color: #1976d2;
+}
+
 .navItem {
   display: flex;
   align-items: center;

@@ -405,3 +405,401 @@
   min-height: 400px;
 }
 
+/* ============================================
+   编辑申请对话框样式（重新设计 - 美观大气简约）
+   ============================================ */
+
+.applicationModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.applicationModalContent {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 模态框头部 */
+.applicationModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 28px;
+  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.applicationModalTitle h3 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.applicationModalSubtitle {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+  color: white;
+}
+
+.applicationModalClose {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 28px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.applicationModalClose:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* 申请列表容器 */
+.applicationList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 28px;
+  background: #fafbfc;
+}
+
+/* 申请卡片 */
+.applicationCard {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8e8e8;
+  transition: all 0.2s;
+}
+
+.applicationCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.applicationCard:last-child {
+  margin-bottom: 0;
+}
+
+/* 卡片头部 */
+.applicationCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.applicationCardUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.applicationCardAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.applicationCardUserInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.applicationCardUserName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.applicationCardTime {
+  font-size: 13px;
+  color: #8c8c8c;
+}
+
+/* 状态标签 */
+.applicationStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.applicationStatusBadge.statusPending {
+  background: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
+}
+
+.applicationStatusBadge.statusApproved {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.applicationStatusBadge.statusRejected {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+.applicationStatusBadge.statusCancelled {
+  background: #f5f5f5;
+  color: #8c8c8c;
+  border: 1px solid #d9d9d9;
+}
+
+/* 独立的状态类（用于动态类名） */
+.statusPending {
+  background: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
+}
+
+.statusApproved {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.statusRejected {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+.statusCancelled {
+  background: #f5f5f5;
+  color: #8c8c8c;
+  border: 1px solid #d9d9d9;
+}
+
+/* 申请理由 */
+.applicationCardReason {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.applicationCardLabel {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.applicationCardReasonText {
+  font-size: 14px;
+  color: #262626;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* 审批信息 */
+.applicationCardApproval {
+  display: flex;
+  gap: 24px;
+  padding: 12px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 12px;
+}
+
+.applicationCardApprovalItem {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.applicationCardValue {
+  color: #262626;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* 操作按钮 */
+.applicationCardActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.applicationActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.applicationActionButton span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.applicationActionButton[data-action="approve-editor"],
+.applicationActionButton[data-action="approve-chief"] {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.applicationActionButton[data-action="approve-editor"]:hover,
+.applicationActionButton[data-action="approve-chief"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.applicationActionButton[data-action="reject"] {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+.applicationActionButton[data-action="reject"]:hover {
+  background: #ff4d4f;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
+}
+
+/* 空状态 */
+.applicationEmpty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #8c8c8c;
+}
+
+.applicationEmptyIcon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.applicationEmptyText {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* 模态框底部 */
+.applicationModalFooter {
+  padding: 16px 28px;
+  border-top: 1px solid #f0f0f0;
+  background: white;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.applicationModalCloseButton {
+  padding: 8px 24px;
+  background: #f5f5f5;
+  color: #262626;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.applicationModalCloseButton:hover {
+  background: #e8e8e8;
+  color: #1a1a1a;
+}
+
+/* 滚动条样式 */
+.applicationList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.applicationList::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 3px;
+}
+
+.applicationList::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.applicationList::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+

@@ -47,6 +47,19 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
     pageSize: 20,
     total: 0
   });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [editForm, setEditForm] = useState({
+    share_type: 'percent_of_book' as string,
+    share_percent: 0 as number,
+    start_chapter_id: null as number | null,
+    end_chapter_id: null as number | null,
+    start_date: '' as string,
+    end_date: '' as string,
+    status: 'active' as string
+  });
+  const [saving, setSaving] = useState(false);
+  const [loadingContract, setLoadingContract] = useState(false);
 
   // 加载合同列表
   const loadContracts = async () => {
@@ -158,6 +171,132 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
   const formatPercent = (percent: number | null) => {
     if (percent === null || percent === undefined) return '-';
     return `${(percent * 100).toFixed(2)}%`;
+  };
+
+  // 打开修改弹窗
+  const openEditModal = async (contract: Contract) => {
+    setSelectedContract(contract);
+    setLoadingContract(true);
+    setShowEditModal(true);
+    
+    try {
+      // 获取合同详情
+      const { data } = await adminApiRequest(`/admin/editor-contracts/${contract.id}`);
+      
+      if (data.success && data.data) {
+        const contractData = data.data;
+        setEditForm({
+          share_type: contractData.share_type || 'percent_of_book',
+          // 数据库存储的是小数（0.05表示5%），前端表单显示百分比数值（5.00）
+          share_percent: contractData.share_percent ? parseFloat(contractData.share_percent) * 100 : 0,
+          start_chapter_id: contractData.start_chapter_id || null,
+          end_chapter_id: contractData.end_chapter_id || null,
+          start_date: contractData.start_date ? contractData.start_date.split('T')[0] : '',
+          end_date: contractData.end_date ? contractData.end_date.split('T')[0] : '',
+          status: contractData.status || 'active'
+        });
+      }
+    } catch (error: any) {
+      if (onError) {
+        onError(error.message || '加载合同详情失败');
+      }
+      setShowEditModal(false);
+    } finally {
+      setLoadingContract(false);
+    }
+  };
+
+  // 保存修改
+  const handleSaveEdit = async () => {
+    if (!selectedContract) return;
+    
+    // 如果当前合同是活跃状态，且状态要改为active，检查是否有冲突
+    if (selectedContract.status === 'active' && editForm.status === 'active') {
+      // 活跃合同不允许修改 novel_id 和 role（已在UI中禁用，这里做双重检查）
+      // 如果状态从active改为其他，需要检查是否有其他active合同
+    }
+    
+    // 如果状态从非active改为active，需要先检查是否已有active合同
+    if (selectedContract.status !== 'active' && editForm.status === 'active') {
+      try {
+        const { data } = await adminApiRequest(
+          `/admin/editor-contracts/check-active?novel_id=${selectedContract.novel_id}&role=${selectedContract.role}`
+        );
+        if (data.success && data.data.hasActive) {
+          alert('当前已有有效的编辑合同，请先结束旧合同');
+          return;
+        }
+      } catch (error: any) {
+        // 如果检查失败，继续保存，让后端处理
+      }
+    }
+    
+    try {
+      setSaving(true);
+      
+      // 准备更新数据（活跃合同不允许修改 novel_id 和 role）
+      const updateData: any = {
+        share_type: editForm.share_type,
+        share_percent: editForm.share_percent / 100, // 转换为小数（例如：5.00% -> 0.05）
+        start_date: editForm.start_date ? `${editForm.start_date} 00:00:00` : null,
+        end_date: editForm.end_date ? `${editForm.end_date} 00:00:00` : null,
+        status: editForm.status
+      };
+      
+      // 处理章节ID
+      if (editForm.start_chapter_id) {
+        updateData.start_chapter_id = editForm.start_chapter_id;
+      } else {
+        updateData.start_chapter_id = null;
+      }
+      
+      if (editForm.end_chapter_id) {
+        updateData.end_chapter_id = editForm.end_chapter_id;
+      } else {
+        updateData.end_chapter_id = null;
+      }
+      
+      const { data } = await adminApiRequest(`/admin/editor-contracts/${selectedContract.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData)
+      });
+      
+      if (data.success) {
+        alert('合同修改成功');
+        setShowEditModal(false);
+        loadContracts();
+      }
+    } catch (error: any) {
+      // 检查是否是活跃合同不允许修改的错误
+      const errorMessage = error.message || '保存失败，请稍后重试';
+      if (errorMessage.includes('活跃合同不允许修改') || errorMessage.includes('请先结束旧合同')) {
+        alert(errorMessage);
+      } else {
+        alert(errorMessage);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 终止合同
+  const handleTerminate = async (contract: Contract) => {
+    if (!window.confirm(`确定要终止合同 #${contract.id} 吗？终止后将无法恢复。`)) {
+      return;
+    }
+    
+    try {
+      const { data } = await adminApiRequest(`/admin/editor-contracts/${contract.id}/terminate`, {
+        method: 'PATCH'
+      });
+      
+      if (data.success) {
+        alert('合同已终止');
+        loadContracts();
+      }
+    } catch (error: any) {
+      alert(error.message || '终止失败，请稍后重试');
+    }
   };
 
   return (
@@ -285,9 +424,19 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
                   </td>
                   <td>{new Date(contract.created_at).toLocaleString('zh-CN')}</td>
                   <td>
-                    <button className={styles.editButton}>查看</button>
+                    <button 
+                      className={styles.editButton}
+                      onClick={() => openEditModal(contract)}
+                    >
+                      修改
+                    </button>
                     {contract.status === 'active' && (
-                      <button className={styles.toggleButton}>终止</button>
+                      <button 
+                        className={styles.toggleButton}
+                        onClick={() => handleTerminate(contract)}
+                      >
+                        终止
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -315,6 +464,136 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 修改合同弹窗 */}
+      {showEditModal && selectedContract && (
+        <div className={styles.modal} onClick={() => setShowEditModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <h3>修改合同 - {selectedContract.novel_title}</h3>
+            
+            {loadingContract ? (
+              <div className={styles.loading}>加载中...</div>
+            ) : (
+              <div className={styles.form}>
+                <div className={styles.formGroup}>
+                  <label>编辑账号：</label>
+                  <input 
+                    type="text" 
+                    value={selectedContract.editor_name} 
+                    disabled 
+                    style={{ background: '#f5f5f5' }}
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>角色：</label>
+                  <input 
+                    type="text" 
+                    value={getRoleText(selectedContract.role)} 
+                    disabled 
+                    style={{ background: '#f5f5f5' }}
+                    title={selectedContract.status === 'active' ? '活跃合同不允许修改角色，请先结束合同' : ''}
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>分成类型：</label>
+                  <select
+                    value={editForm.share_type}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, share_type: e.target.value }))}
+                  >
+                    <option value="percent_of_book">整书分成</option>
+                    <option value="percent_of_author">作者分成</option>
+                  </select>
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>分成比例（%）：</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={editForm.share_percent}
+                    onChange={(e) => setEditForm(prev => ({ 
+                      ...prev, 
+                      share_percent: parseFloat(e.target.value) || 0 
+                    }))}
+                    placeholder="例如：3.00 表示 3%"
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>起始章节ID（可选）：</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.start_chapter_id || ''}
+                    onChange={(e) => setEditForm(prev => ({ 
+                      ...prev, 
+                      start_chapter_id: e.target.value ? parseInt(e.target.value) : null 
+                    }))}
+                    placeholder="留空表示从第一章开始"
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>结束章节ID（可选）：</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.end_chapter_id || ''}
+                    onChange={(e) => setEditForm(prev => ({ 
+                      ...prev, 
+                      end_chapter_id: e.target.value ? parseInt(e.target.value) : null 
+                    }))}
+                    placeholder="留空表示到最后一章"
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>生效日期：</label>
+                  <input
+                    type="date"
+                    value={editForm.start_date}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, start_date: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>结束日期（可选）：</label>
+                  <input
+                    type="date"
+                    value={editForm.end_date}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, end_date: e.target.value }))}
+                    placeholder="留空表示长期有效"
+                  />
+                </div>
+                
+                <div className={styles.formGroup}>
+                  <label>状态：</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="active">活跃</option>
+                    <option value="ended">已结束</option>
+                    <option value="cancelled">已取消</option>
+                  </select>
+                </div>
+                
+                <div className={styles.formActions}>
+                  <button onClick={handleSaveEdit} disabled={saving} className={styles.saveButton}>
+                    {saving ? '保存中...' : '保存修改'}
+                  </button>
+                  <button onClick={() => setShowEditModal(false)} className={styles.cancelButton}>取消</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>

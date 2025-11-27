@@ -56,7 +56,6 @@ class ChapterReviewController {
         db,
         adminId,
         role,
-        supervisorAdminId,
         chapter.novel_id
       );
       await db.end();
@@ -102,7 +101,6 @@ class ChapterReviewController {
       const { chapter_ids, result, comment } = req.body;
       const adminId = req.admin.adminId;
       const role = req.admin.role;
-      const supervisorAdminId = req.admin.supervisor_admin_id;
 
       // 参数验证
       if (!chapter_ids || !Array.isArray(chapter_ids) || chapter_ids.length === 0) {
@@ -146,7 +144,6 @@ class ChapterReviewController {
           db,
           adminId,
           role,
-          supervisorAdminId,
           chapter.novel_id
         );
 
