@@ -239,7 +239,7 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
 
           {/* 详细列表 */}
           <div className={styles.paymentTable} style={{ marginTop: '24px' }}>
-            <h3>作者基础收入明细</h3>
+            <h3>作者基础收入明细 (author_royalty)</h3>
             <table>
               <thead>
                 <tr>

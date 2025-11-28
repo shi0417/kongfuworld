@@ -32,6 +32,13 @@ interface ChapterDetailData extends Chapter {
   content?: string;
   translator_note?: string;
   requires_chief_edit?: boolean;
+  can_review?: boolean;
+  chief_editor_admin_id?: number;
+  chief_editor_name?: string;
+  novel_editor_admin_id?: number | null;
+  novel_editor_name?: string | null;
+  novel_chief_editor_admin_id?: number | null;
+  novel_chief_editor_name?: string | null;
 }
 
 interface ChapterApprovalProps {
@@ -170,6 +177,17 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
       const { data } = await adminApiRequest(`/admin/chapter/${chapterId}`);
       
       if (data.success) {
+        // 调试日志：检查后端返回的数据
+        console.log('[index.tsx] 后端返回的完整响应:', data);
+        console.log('[index.tsx] 后端返回的章节详情数据:', data.data);
+        console.log('[index.tsx] 字段检查:', {
+          'data.data.novel_editor_admin_id': data.data?.novel_editor_admin_id,
+          'data.data.novel_editor_name': data.data?.novel_editor_name,
+          'data.data.novel_chief_editor_admin_id': data.data?.novel_chief_editor_admin_id,
+          'data.data.novel_chief_editor_name': data.data?.novel_chief_editor_name,
+          'data.data.novel_id': data.data?.novel_id
+        });
+        console.log('[index.tsx] JSON字符串:', JSON.stringify(data.data, null, 2));
         setSelectedChapter(data.data);
       } else {
         if (onError) {

@@ -41,7 +41,7 @@ interface NovelDetail {
 
 interface NewNovelPoolProps {
   onError?: (error: string) => void;
-  onNavigateToChapter?: (chapterId: number) => void; // 用于跳转到章节审核页面
+  onNavigateToChapter?: (chapterId: number) => void; // 用于跳转到章节审批页面
 }
 
 const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapter }) => {
@@ -270,14 +270,14 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
            novel.application_status === 'cancelled';
   };
 
-  // 跳转到章节审核页面
+      // 跳转到章节审批页面
   const handleGoToChapter = (chapterId: number) => {
     if (onNavigateToChapter) {
       onNavigateToChapter(chapterId);
     } else {
       // 如果没有传入导航函数，尝试通过其他方式跳转
       // 这里可以根据项目实际情况调整
-      alert(`跳转到章节审核页面，章节ID: ${chapterId}`);
+            alert(`跳转到章节审批页面，章节ID: ${chapterId}`);
     }
   };
 
@@ -510,7 +510,7 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
                                   onClick={() => handleGoToChapter(chapter.id)}
                                   className={styles.goToChapterButton}
                                 >
-                                  去章节审核
+                                  去章节审批
                                 </button>
                               </td>
                             </tr>

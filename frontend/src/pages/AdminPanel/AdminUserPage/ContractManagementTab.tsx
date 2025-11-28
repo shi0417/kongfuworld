@@ -60,6 +60,7 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
   });
   const [saving, setSaving] = useState(false);
   const [loadingContract, setLoadingContract] = useState(false);
+  const [chapterOptions, setChapterOptions] = useState<{ id: number; chapter_number: number; title: string }[]>([]);
 
   // 加载合同列表
   const loadContracts = async () => {
@@ -195,6 +196,24 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
           end_date: contractData.end_date ? contractData.end_date.split('T')[0] : '',
           status: contractData.status || 'active'
         });
+        
+        // 加载该小说的章节列表（用于下拉选择）
+        // 如果合同详情中没有 novel_id，使用 selectedContract.novel_id
+        const novelId = contractData.novel_id || selectedContract?.novel_id;
+        if (novelId) {
+          try {
+            const chaptersRes = await adminApiRequest(`/admin/novels/${novelId}/chapters/simple`);
+            if (chaptersRes.data.success) {
+              setChapterOptions(chaptersRes.data.data || []);
+            }
+          } catch (error: any) {
+            // 如果加载章节列表失败，不影响合同编辑，只记录错误
+            console.warn('加载章节列表失败:', error);
+            setChapterOptions([]);
+          }
+        } else {
+          setChapterOptions([]);
+        }
       }
     } catch (error: any) {
       if (onError) {
@@ -531,12 +550,25 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
                     type="number"
                     min="1"
                     value={editForm.start_chapter_id || ''}
-                    onChange={(e) => setEditForm(prev => ({ 
-                      ...prev, 
-                      start_chapter_id: e.target.value ? parseInt(e.target.value) : null 
-                    }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEditForm(prev => ({ 
+                        ...prev, 
+                        start_chapter_id: value === '' ? null : parseInt(value) 
+                      }));
+                    }}
                     placeholder="留空表示从第一章开始"
+                    list="start-chapter-options"
                   />
+                  <datalist id="start-chapter-options">
+                    {chapterOptions.map(ch => (
+                      <option
+                        key={ch.id}
+                        value={ch.id}
+                        label={`第${ch.chapter_number}章 ${ch.title}`}
+                      />
+                    ))}
+                  </datalist>
                 </div>
                 
                 <div className={styles.formGroup}>
@@ -545,12 +577,25 @@ const ContractManagementTab: React.FC<ContractManagementTabProps> = ({ onError, 
                     type="number"
                     min="1"
                     value={editForm.end_chapter_id || ''}
-                    onChange={(e) => setEditForm(prev => ({ 
-                      ...prev, 
-                      end_chapter_id: e.target.value ? parseInt(e.target.value) : null 
-                    }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEditForm(prev => ({ 
+                        ...prev, 
+                        end_chapter_id: value === '' ? null : parseInt(value) 
+                      }));
+                    }}
                     placeholder="留空表示到最后一章"
+                    list="end-chapter-options"
                   />
+                  <datalist id="end-chapter-options">
+                    {chapterOptions.map(ch => (
+                      <option
+                        key={ch.id}
+                        value={ch.id}
+                        label={`第${ch.chapter_number}章 ${ch.title}`}
+                      />
+                    ))}
+                  </datalist>
                 </div>
                 
                 <div className={styles.formGroup}>

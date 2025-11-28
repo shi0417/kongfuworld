@@ -11,6 +11,8 @@ const AdminUserController = require('../controllers/adminUserController');
 const EditorContractService = require('../services/editorContractService');
 const EditorApplicationService = require('../services/editorApplicationService');
 const NovelContractApprovalService = require('../services/novelContractApprovalService');
+// 导入权限中间件：小说审批权限基于 novel_editor_contract，有效合同才能审核，与章节审批保持一致
+const { getNovelPermissionFilter, checkNovelPermission } = require('../middleware/permissionMiddleware');
 const router = express.Router();
 
 // 初始化PayPal服务
@@ -108,74 +110,8 @@ const requireRole = (...allowedRoles) => {
   };
 };
 
-// 权限过滤辅助函数：根据角色生成小说查询的 WHERE 条件
-const getNovelPermissionFilter = async (db, adminId, role) => {
-  // super_admin：可看所有
-  if (role === 'super_admin') {
-    return { where: '', params: [] };
-  }
-  
-  // chief_editor：只能看自己负责的小说
-  if (role === 'chief_editor') {
-    return {
-      where: 'AND n.current_editor_admin_id = ?',
-      params: [adminId]
-    };
-  }
-  
-  // editor：只能看自己负责的小说
-  if (role === 'editor') {
-    return {
-      where: 'AND n.current_editor_admin_id = ?',
-      params: [adminId]
-    };
-  }
-  
-  // 其他角色：无权限
-  return {
-    where: 'AND 1 = 0', // 永远不匹配
-    params: []
-  };
-};
-
-// 检查管理员是否有权限访问指定的小说
-const checkNovelPermission = async (db, adminId, role, novelId) => {
-  // super_admin：有所有权限
-  if (role === 'super_admin') {
-    return true;
-  }
-  
-  // 获取小说的 current_editor_admin_id
-  const [novels] = await db.execute(
-    'SELECT current_editor_admin_id FROM novel WHERE id = ?',
-    [novelId]
-  );
-  
-  if (novels.length === 0) {
-    return false; // 小说不存在
-  }
-  
-  const novel = novels[0];
-  const novelEditorId = novel.current_editor_admin_id;
-  
-  if (!novelEditorId) {
-    // 如果小说没有分配编辑，只有 super_admin 可以访问
-    return false;
-  }
-  
-  // chief_editor：只能看自己负责的小说
-  if (role === 'chief_editor') {
-    return novelEditorId === adminId;
-  }
-  
-  // editor：只能看自己负责的小说
-  if (role === 'editor') {
-    return novelEditorId === adminId;
-  }
-  
-  // 其他角色：无权限
-  return false;
-};
+// 注意：权限过滤函数已移至 permissionMiddleware.js，统一基于 novel_editor_contract 表进行权限控制
+// 小说审批权限基于 novel_editor_contract，有效合同才能审核，与章节审批保持一致
 
 // 管理员登录
 router.post('/login', async (req, res) => {
@@ -323,9 +259,45 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
       };
     });
 
+    // 计算 can_review 字段：小说审批权限基于 novel_editor_contract，有效合同才能审核
+    const { adminId, role } = req.admin;
+    let novelIds = processedNovels.map(n => n.id);
+    let contractMap = {};
+
+    // super_admin 需要查询是否有合同
+    if (role === 'super_admin' && novelIds.length > 0) {
+      const placeholders = novelIds.map(() => '?').join(',');
+      const [contracts] = await db.execute(
+        `SELECT novel_id 
+         FROM novel_editor_contract 
+         WHERE editor_admin_id = ? 
+           AND status = 'active' 
+           AND start_date <= NOW()
+           AND (end_date IS NULL OR end_date >= NOW())
+           AND novel_id IN (${placeholders})`,
+        [adminId, ...novelIds]
+      );
+      contractMap = Object.fromEntries(contracts.map(c => [c.novel_id, true]));
+    }
+
+    // 为每本小说添加 can_review 字段
+    const result = processedNovels.map(novel => {
+      let can_review = false;
+      if (role === 'editor' || role === 'chief_editor') {
+        // 能看到就说明有合同（已通过 getNovelPermissionFilter 过滤）
+        can_review = true;
+      } else if (role === 'super_admin') {
+        can_review = !!contractMap[novel.id];
+      }
+      return {
+        ...novel,
+        can_review
+      };
+    });
+
     res.json({
       success: true,
-      data: processedNovels
+      data: result
     });
 
   } catch (error) {
@@ -345,6 +317,7 @@ router.post('/review-novel', authenticateAdmin, async (req, res) => {
   let db;
   try {
     const { novelId, action, reason } = req.body; // action: 'approve' 或 'reject'
+    const { adminId, role } = req.admin;
     
     if (!novelId || !action) {
       return res.status(400).json({
@@ -360,7 +333,37 @@ router.post('/review-novel', authenticateAdmin, async (req, res) => {
       });
     }
 
+    // 角色基础校验：只有编辑、主编或超级管理员可以审核小说
+    if (!['editor', 'chief_editor', 'super_admin'].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: '只有编辑、主编或超级管理员可以审核小说'
+      });
+    }
+
     db = await mysql.createConnection(dbConfig);
+    
+    // 检查小说是否存在
+    const [rows] = await db.execute(
+      'SELECT id FROM novel WHERE id = ?',
+      [novelId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '小说不存在'
+      });
+    }
+
+    // 权限检查：小说审批权限基于 novel_editor_contract，有效合同才能审核，与章节审批保持一致
+    const hasPermission = await checkNovelPermission(db, adminId, role, novelId);
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        message: '无权限审核此小说（需要与该小说有有效合同）'
+      });
+    }
     
     // 审批通过设置为 approved，拒绝设置为 locked（违规锁定）
     const status = action === 'approve' ? 'approved' : 'locked';
@@ -528,9 +531,45 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
     const [countResult] = await db.execute(countQuery, countParams);
     const total = countResult[0].total;
 
+    // 计算 can_review 字段：小说审批权限基于 novel_editor_contract，有效合同才能审核
+    const { adminId, role } = req.admin;
+    let novelIds = processedNovels.map(n => n.id);
+    let contractMap = {};
+
+    // super_admin 需要查询是否有合同
+    if (role === 'super_admin' && novelIds.length > 0) {
+      const placeholders = novelIds.map(() => '?').join(',');
+      const [contracts] = await db.execute(
+        `SELECT novel_id 
+         FROM novel_editor_contract 
+         WHERE editor_admin_id = ? 
+           AND status = 'active' 
+           AND start_date <= NOW()
+           AND (end_date IS NULL OR end_date >= NOW())
+           AND novel_id IN (${placeholders})`,
+        [adminId, ...novelIds]
+      );
+      contractMap = Object.fromEntries(contracts.map(c => [c.novel_id, true]));
+    }
+
+    // 为每本小说添加 can_review 字段
+    const result = processedNovels.map(novel => {
+      let can_review = false;
+      if (role === 'editor' || role === 'chief_editor') {
+        // 能看到就说明有合同（已通过 getNovelPermissionFilter 过滤）
+        can_review = true;
+      } else if (role === 'super_admin') {
+        can_review = !!contractMap[novel.id];
+      }
+      return {
+        ...novel,
+        can_review
+      };
+    });
+
     res.json({
       success: true,
-      data: processedNovels,
+      data: result,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -8130,81 +8169,6 @@ router.get('/pending-chapters', authenticateAdmin, requireRole('super_admin', 'c
   }
 });
 
-// 获取章节详情（全文）
-router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_editor', 'editor'), async (req, res) => {
-  let db;
-  try {
-    const { id } = req.params;
-    db = await mysql.createConnection(dbConfig);
-    
-    const [chapters] = await db.execute(
-      `SELECT 
-        c.*,
-        n.title as novel_title,
-        n.author,
-        n.current_editor_admin_id,
-        u.username as author_name,
-        u.pen_name as author_pen_name
-      FROM chapter c
-      LEFT JOIN novel n ON c.novel_id = n.id
-      LEFT JOIN user u ON n.user_id = u.id
-      WHERE c.id = ?`,
-      [id]
-    );
-    
-    if (chapters.length === 0) {
-      return res.status(404).json({ success: false, message: '章节不存在' });
-    }
-    
-    const chapter = chapters[0];
-    
-    // 检查权限
-    const hasPermission = await checkNovelPermission(
-      db,
-      req.admin.adminId,
-      req.admin.role,
-      chapter.novel_id
-    );
-    
-    if (!hasPermission) {
-      return res.status(403).json({ success: false, message: '无权限访问此章节' });
-    }
-    
-    // 如果状态是submitted，自动更新为reviewing
-    if (chapter.review_status === 'submitted') {
-      await db.execute(
-        'UPDATE chapter SET review_status = ? WHERE id = ?',
-        ['reviewing', id]
-      );
-      chapter.review_status = 'reviewing';
-    }
-    
-    res.json({
-      success: true,
-      data: {
-        id: chapter.id,
-        novel_id: chapter.novel_id,
-        novel_title: chapter.novel_title,
-        author: chapter.author_name || chapter.author_pen_name || chapter.author,
-        chapter_number: chapter.chapter_number,
-        title: chapter.title || `第${chapter.chapter_number}章`,
-        content: chapter.content,
-        translator_note: chapter.translator_note,
-        word_count: parseInt(chapter.word_count || 0),
-        review_status: chapter.review_status,
-        is_released: chapter.is_released === 1,
-        release_date: chapter.release_date,
-        created_at: chapter.created_at
-      }
-    });
-  } catch (error) {
-    console.error('获取章节详情失败:', error);
-    res.status(500).json({ success: false, message: '获取失败', error: error.message });
-  } finally {
-    if (db) await db.end();
-  }
-});
-
 // ==================== 章节审批系统（Phase 1） ====================
 
 // 获取章节列表（分页+筛选+搜索）
@@ -8228,6 +8192,7 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
       req.admin.role
     );
     
+    // requires_chief_edit 已不再是 novel 表字段，而是运行时计算：当前是否存在有效主编合同，用于前端控制是否走主编终审流程
     let query = `
       SELECT 
         c.id,
@@ -8249,7 +8214,6 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         n.author,
         n.current_editor_admin_id,
         n.chief_editor_admin_id,
-        n.requires_chief_edit,
         n.cover as novel_cover,
         v.title as volume_name,
         u.username as author_name,
@@ -8257,13 +8221,21 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         ae.name as editor_name,
         ac.name as chief_editor_name,
         c.editor_admin_id as chapter_editor_admin_id,
-        c.chief_editor_admin_id as chapter_chief_editor_admin_id
+        c.chief_editor_admin_id as chapter_chief_editor_admin_id,
+        nec_chief.id as chief_contract_id
       FROM chapter c
       LEFT JOIN novel n ON c.novel_id = n.id
       LEFT JOIN volume v ON c.volume_id = v.id
       LEFT JOIN user u ON n.user_id = u.id
       LEFT JOIN admin ae ON n.current_editor_admin_id = ae.id
       LEFT JOIN admin ac ON n.chief_editor_admin_id = ac.id
+      LEFT JOIN novel_editor_contract nec_chief
+        ON nec_chief.novel_id = n.id
+       AND nec_chief.editor_admin_id = n.chief_editor_admin_id
+       AND nec_chief.role = 'chief_editor'
+       AND nec_chief.status = 'active'
+       AND nec_chief.start_date <= NOW()
+       AND (nec_chief.end_date IS NULL OR nec_chief.end_date >= NOW())
       WHERE 1=1 ${permissionFilter.where}
     `;
     const params = [...permissionFilter.params];
@@ -8308,7 +8280,7 @@ router.get('/chapters', authenticateAdmin, requireRole('super_admin', 'chief_edi
         novel_id: ch.novel_id,
         novel_title: ch.novel_title,
         novel_cover: ch.novel_cover,
-        requires_chief_edit: ch.requires_chief_edit === 1,
+        requires_chief_edit: !!ch.chief_contract_id, // 运行时计算：是否存在有效主编合同（字段+合同双判断），用于前端控制是否走主编终审流程
         volume_id: ch.volume_id,
         volume_name: ch.volume_name || `第${ch.volume_id}卷`,
         chapter_number: ch.chapter_number,
@@ -8353,24 +8325,59 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
     const { id } = req.params;
     db = await mysql.createConnection(dbConfig);
     
+    // requires_chief_edit 已不再是 novel 表字段，而是运行时计算：当前是否存在有效主编合同，用于前端控制是否走主编终审流程
+    // 注意：明确列出所有字段，避免c.*覆盖别名字段
+    // 先查询chapter表的所有字段，然后添加别名字段
     const [chapters] = await db.execute(
       `SELECT 
-        c.*,
+        c.id,
+        c.novel_id,
+        c.volume_id,
+        c.chapter_number,
+        c.title,
+        c.content,
+        c.translator_note,
+        c.word_count,
+        c.review_status,
+        c.is_released,
+        c.is_advance,
+        c.unlock_price,
+        c.key_cost,
+        c.unlock_priority,
+        c.release_date,
+        c.created_at,
+        c.updated_at,
+        c.editor_admin_id,
+        c.chief_editor_admin_id,
         n.title as novel_title,
         n.author,
-        n.current_editor_admin_id,
-        n.requires_chief_edit,
+        n.current_editor_admin_id as novel_editor_admin_id,
+        n.chief_editor_admin_id as novel_chief_editor_admin_id,
         n.cover as novel_cover,
         v.title as volume_name,
         v.volume_id as volume_number,
         u.username as author_name,
         u.pen_name as author_pen_name,
-        a.name as editor_name
+        ae.name as novel_editor_name,
+        ac.name as novel_chief_editor_name,
+        ce.name as chapter_editor_name,
+        cce.name as chapter_chief_editor_name,
+        nec_chief.id as chief_contract_id
       FROM chapter c
       LEFT JOIN novel n ON c.novel_id = n.id
       LEFT JOIN volume v ON c.volume_id = v.id
       LEFT JOIN user u ON n.user_id = u.id
-      LEFT JOIN admin a ON n.current_editor_admin_id = a.id
+      LEFT JOIN admin ae ON n.current_editor_admin_id = ae.id
+      LEFT JOIN admin ac ON n.chief_editor_admin_id = ac.id
+      LEFT JOIN admin ce ON ce.id = c.editor_admin_id
+      LEFT JOIN admin cce ON cce.id = c.chief_editor_admin_id
+      LEFT JOIN novel_editor_contract nec_chief
+        ON nec_chief.novel_id = n.id
+       AND nec_chief.editor_admin_id = n.chief_editor_admin_id
+       AND nec_chief.role = 'chief_editor'
+       AND nec_chief.status = 'active'
+       AND nec_chief.start_date <= NOW()
+       AND (nec_chief.end_date IS NULL OR nec_chief.end_date >= NOW())
       WHERE c.id = ?`,
       [id]
     );
@@ -8381,26 +8388,107 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
     
     const chapter = chapters[0];
     
-    // 检查权限
-    const hasPermission = await checkNovelPermission(
+    // 调试日志：检查所有章节的查询结果
+    console.log('[章节详情调试] SQL查询结果 - 所有字段:', Object.keys(chapter));
+    console.log('[章节详情调试] SQL查询结果 - novel相关字段:', {
+      'novel_editor_admin_id': chapter.novel_editor_admin_id,
+      'novel_editor_name': chapter.novel_editor_name,
+      'novel_chief_editor_admin_id': chapter.novel_chief_editor_admin_id,
+      'novel_chief_editor_name': chapter.novel_chief_editor_name,
+      'novel_id': chapter.novel_id
+    });
+    
+    // 调试日志：检查小说级别编辑信息是否正确查询（仅针对小说ID=10）
+    if (chapter.novel_id === 10) {
+      console.log(`[章节详情调试] 小说ID=10的章节详情查询结果:`);
+      console.log(`  novel_editor_admin_id=${chapter.novel_editor_admin_id}, novel_editor_name=${chapter.novel_editor_name}`);
+      console.log(`  novel_chief_editor_admin_id=${chapter.novel_chief_editor_admin_id}, novel_chief_editor_name=${chapter.novel_chief_editor_name}`);
+      
+      // 直接查询novel表检查数据
+      const [novelCheck] = await db.execute(
+        'SELECT current_editor_admin_id, chief_editor_admin_id FROM novel WHERE id = ?',
+        [chapter.novel_id]
+      );
+      console.log(`[章节详情调试] novel表原始数据:`, novelCheck[0]);
+      
+      // 如果有current_editor_admin_id，检查admin表
+      if (novelCheck[0]?.current_editor_admin_id) {
+        const [editorCheck] = await db.execute(
+          'SELECT id, name FROM admin WHERE id = ?',
+          [novelCheck[0].current_editor_admin_id]
+        );
+        console.log(`[章节详情调试] admin表editor数据:`, editorCheck[0]);
+      }
+      
+      // 如果有chief_editor_admin_id，检查admin表
+      if (novelCheck[0]?.chief_editor_admin_id) {
+        const [chiefCheck] = await db.execute(
+          'SELECT id, name FROM admin WHERE id = ?',
+          [novelCheck[0].chief_editor_admin_id]
+        );
+        console.log(`[章节详情调试] admin表chief_editor数据:`, chiefCheck[0]);
+      }
+    }
+    
+    // 检查权限（用于查看章节详情）
+    // super_admin 可以看到所有章节，但审核权限仍需检查合同
+    const canView = req.admin.role === 'super_admin' || await checkNovelPermission(
       db,
       req.admin.adminId,
       req.admin.role,
       chapter.novel_id
     );
     
-    if (!hasPermission) {
+    if (!canView) {
       return res.status(403).json({ success: false, message: '无权限访问此章节' });
     }
     
-    res.json({
-      success: true,
-      data: {
+    // 检查是否有审核权限（所有人包括 super_admin 都必须有有效合同）
+    const canReview = await checkNovelPermission(
+      db,
+      req.admin.adminId,
+      req.admin.role,
+      chapter.novel_id
+    );
+    
+    // requires_chief_edit 运行时计算：是否存在有效主编合同（字段+合同双判断）
+    const requiresChiefEdit = !!chapter.chief_contract_id;
+    
+    // 调试日志：检查返回前的数据
+    console.log('[后端返回前] chapter对象中的字段:', {
+      'chapter.novel_editor_admin_id': chapter.novel_editor_admin_id,
+      'chapter.novel_editor_name': chapter.novel_editor_name,
+      'chapter.novel_chief_editor_admin_id': chapter.novel_chief_editor_admin_id,
+      'chapter.novel_chief_editor_name': chapter.novel_chief_editor_name,
+      'chapter.novel_id': chapter.novel_id
+    });
+    
+    // 参考章节列表API的实现方式，确保novel编辑字段正确获取
+    // 直接从SQL查询结果中获取，如果为undefined则设为null
+    const novelEditorAdminId = chapter.novel_editor_admin_id !== undefined ? chapter.novel_editor_admin_id : null;
+    const novelEditorName = chapter.novel_editor_name !== undefined ? chapter.novel_editor_name : null;
+    const novelChiefEditorAdminId = chapter.novel_chief_editor_admin_id !== undefined ? chapter.novel_chief_editor_admin_id : null;
+    const novelChiefEditorName = chapter.novel_chief_editor_name !== undefined ? chapter.novel_chief_editor_name : null;
+    
+    // 调试：检查从SQL查询结果中获取的值
+    console.log('[章节详情调试] 从chapter对象中提取的novel编辑字段:', {
+      'chapter.novel_editor_admin_id (原始值)': chapter.novel_editor_admin_id,
+      'chapter.novel_editor_name (原始值)': chapter.novel_editor_name,
+      'chapter.novel_chief_editor_admin_id (原始值)': chapter.novel_chief_editor_admin_id,
+      'chapter.novel_chief_editor_name (原始值)': chapter.novel_chief_editor_name,
+      '提取后的novelEditorAdminId': novelEditorAdminId,
+      '提取后的novelEditorName': novelEditorName,
+      '提取后的novelChiefEditorAdminId': novelChiefEditorAdminId,
+      '提取后的novelChiefEditorName': novelChiefEditorName
+    });
+    
+    const responseData = {
         id: chapter.id,
         novel_id: chapter.novel_id,
         novel_title: chapter.novel_title,
         novel_cover: chapter.novel_cover,
-        requires_chief_edit: chapter.requires_chief_edit === 1,
+        requires_chief_edit: requiresChiefEdit,
+        can_review: canReview,
         volume_id: chapter.volume_id,
         volume_name: chapter.volume_name || `第${chapter.volume_number}卷`,
         volume_number: chapter.volume_number,
@@ -8411,9 +8499,14 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
         word_count: parseInt(chapter.word_count || 0),
         author: chapter.author_name || chapter.author_pen_name || chapter.author,
         editor_admin_id: chapter.editor_admin_id,
-        editor_name: chapter.editor_name || null,
+        editor_name: chapter.chapter_editor_name || null,
         chief_editor_admin_id: chapter.chief_editor_admin_id,
-        chief_editor_name: chapter.chief_editor_name || null,
+        chief_editor_name: chapter.chapter_chief_editor_name || null,
+        // 强制包含novel编辑字段，使用明确的值（参考章节列表API的实现）
+        novel_editor_admin_id: novelEditorAdminId,
+        novel_editor_name: novelEditorName,
+        novel_chief_editor_admin_id: novelChiefEditorAdminId,
+        novel_chief_editor_name: novelChiefEditorName,
         review_status: chapter.review_status,
         is_released: chapter.is_released === 1,
         is_advance: chapter.is_advance === 1,
@@ -8423,8 +8516,77 @@ router.get('/chapter/:id', authenticateAdmin, requireRole('super_admin', 'chief_
         release_date: chapter.release_date,
         created_at: chapter.created_at,
         updated_at: chapter.updated_at
-      }
+    };
+    
+    // 调试：检查responseData中的字段
+    console.log('[章节详情调试] responseData中的novel编辑字段:', {
+      'responseData.novel_editor_admin_id': responseData.novel_editor_admin_id,
+      'responseData.novel_editor_name': responseData.novel_editor_name,
+      'responseData.novel_chief_editor_admin_id': responseData.novel_chief_editor_admin_id,
+      'responseData.novel_chief_editor_name': responseData.novel_chief_editor_name
     });
+    
+    console.log('[后端返回前] responseData中的字段:', {
+      'novel_editor_admin_id': responseData.novel_editor_admin_id,
+      'novel_editor_name': responseData.novel_editor_name,
+      'novel_chief_editor_admin_id': responseData.novel_chief_editor_admin_id,
+      'novel_chief_editor_name': responseData.novel_chief_editor_name
+    });
+    
+    // 直接使用responseData，因为字段已经在上面强制包含了
+    const finalData = {
+      ...responseData,
+      // 再次强制确保这些字段存在（双重保险）
+      novel_editor_admin_id: responseData.novel_editor_admin_id ?? null,
+      novel_editor_name: responseData.novel_editor_name ?? null,
+      novel_chief_editor_admin_id: responseData.novel_chief_editor_admin_id ?? null,
+      novel_chief_editor_name: responseData.novel_chief_editor_name ?? null
+    };
+    
+    console.log('[后端返回前] finalData中的字段:', {
+      'novel_editor_admin_id': finalData.novel_editor_admin_id,
+      'novel_editor_name': finalData.novel_editor_name,
+      'novel_chief_editor_admin_id': finalData.novel_chief_editor_admin_id,
+      'novel_chief_editor_name': finalData.novel_chief_editor_name
+    });
+    
+    console.log('[后端返回前] 最终发送的数据（JSON） - 仅novel编辑字段:', JSON.stringify({
+      novel_editor_admin_id: finalData.novel_editor_admin_id,
+      novel_editor_name: finalData.novel_editor_name,
+      novel_chief_editor_admin_id: finalData.novel_chief_editor_admin_id,
+      novel_chief_editor_name: finalData.novel_chief_editor_name
+    }));
+    
+    // 调试：输出完整的finalData对象（仅关键字段，避免内容过长）
+    console.log('[后端返回前] finalData对象的所有字段:', Object.keys(finalData));
+    console.log('[后端返回前] finalData完整对象（JSON）:', JSON.stringify({
+      ...finalData,
+      content: finalData.content ? `[内容长度: ${finalData.content.length}字符]` : null
+    }, null, 2));
+    
+    // 最终检查：确保novel编辑字段一定存在（防止任何意外情况）
+    const finalResponse = {
+      success: true,
+      data: {
+        ...finalData,
+        // 最后一次强制确保这些字段存在
+        novel_editor_admin_id: finalData.novel_editor_admin_id ?? null,
+        novel_editor_name: finalData.novel_editor_name ?? null,
+        novel_chief_editor_admin_id: finalData.novel_chief_editor_admin_id ?? null,
+        novel_chief_editor_name: finalData.novel_chief_editor_name ?? null
+      }
+    };
+    
+    // 调试：检查最终响应中的字段
+    console.log('[后端返回前] 最终响应data对象的所有字段:', Object.keys(finalResponse.data));
+    console.log('[后端返回前] 最终响应中的novel编辑字段:', {
+      'novel_editor_admin_id': finalResponse.data.novel_editor_admin_id,
+      'novel_editor_name': finalResponse.data.novel_editor_name,
+      'novel_chief_editor_admin_id': finalResponse.data.novel_chief_editor_admin_id,
+      'novel_chief_editor_name': finalResponse.data.novel_chief_editor_name
+    });
+    
+    res.json(finalResponse);
   } catch (error) {
     console.error('获取章节详情失败:', error);
     res.status(500).json({ success: false, message: '获取失败', error: error.message });
@@ -8756,84 +8918,21 @@ router.post('/novels/:novelId/assign-editor', authenticateAdmin, requireRole('su
   }
 });
 
-// 结束编辑合同
-router.post('/editor-contracts/:contractId/end', authenticateAdmin, requireRole('super_admin', 'chief_editor', 'editor'), async (req, res) => {
-  let db;
+// 结束编辑合同（统一调用 terminateContract）
+router.post('/editor-contracts/:contractId/end', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
   try {
-    const { contractId } = req.params;
-    db = await mysql.createConnection(dbConfig);
-    
-    // 检查合同是否存在
-    const [contracts] = await db.execute(
-      'SELECT novel_id, status FROM novel_editor_contract WHERE id = ?',
-      [contractId]
-    );
-    if (contracts.length === 0) {
-      return res.status(404).json({ success: false, message: '合同不存在' });
-    }
-    
-    const contract = contracts[0];
-    if (contract.status !== 'active') {
-      return res.status(400).json({ success: false, message: '合同不是活跃状态' });
-    }
-    
-    // 检查权限（只有 super_admin 和 chief_editor 可以结束合同）
-    if (req.admin.role !== 'super_admin' && req.admin.role !== 'chief_editor') {
-      return res.status(403).json({ success: false, message: '只有超级管理员和主编可以结束编辑合同' });
-    }
-    
-    // 如果是 chief_editor，检查是否有权限管理此小说
-    if (req.admin.role === 'chief_editor') {
-      const hasPermission = await checkNovelPermission(
-        db,
-        req.admin.adminId,
-        req.admin.role,
-        req.admin.supervisor_admin_id,
-        contract.novel_id
-      );
-      
-      if (!hasPermission) {
-        return res.status(403).json({ success: false, message: '无权限结束此编辑合同' });
-      }
-    }
-    
-    await db.beginTransaction();
-    
-    try {
-      // 结束合同
-      await db.execute(
-        'UPDATE novel_editor_contract SET end_date = NOW(), status = ? WHERE id = ?',
-        ['ended', contractId]
-      );
-      
-      // 检查是否还有其他活跃合同，如果没有则清空current_editor_admin_id
-      const [activeContracts] = await db.execute(
-        'SELECT id FROM novel_editor_contract WHERE novel_id = ? AND status = "active"',
-        [contract.novel_id]
-      );
-      
-      if (activeContracts.length === 0) {
-        await db.execute(
-          'UPDATE novel SET current_editor_admin_id = NULL WHERE id = ?',
-          [contract.novel_id]
-        );
-      }
-      
-      await db.commit();
-      
-      res.json({
-        success: true,
-        message: '合同已结束'
-      });
-    } catch (error) {
-      await db.rollback();
-      throw error;
-    }
+    const result = await editorContractService.terminateContract(parseInt(req.params.contractId, 10));
+    res.json({ 
+      success: true, 
+      message: '合同已结束',
+      data: result 
+    });
   } catch (error) {
     console.error('结束合同失败:', error);
-    res.status(500).json({ success: false, message: '操作失败', error: error.message });
-  } finally {
-    if (db) await db.end();
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || '终止合同失败' 
+    });
   }
 });
 

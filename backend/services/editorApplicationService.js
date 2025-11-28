@@ -118,6 +118,7 @@ class EditorApplicationService {
             [application.editor_admin_id, application.novel_id]
           );
         } else if (role === 'chief_editor') {
+          // requires_chief_edit 字段已删除，改为运行时计算（基于是否有有效主编合同）
           await db.execute(
             'UPDATE novel SET chief_editor_admin_id = ? WHERE id = ?',
             [application.editor_admin_id, application.novel_id]

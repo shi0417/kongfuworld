@@ -121,7 +121,6 @@ class NovelContractApprovalService {
           ce.name as chief_editor_name,
           n.current_editor_admin_id,
           e.name as editor_name,
-          n.requires_chief_edit,
           n.author,
           n.created_at,
           (SELECT COUNT(*) FROM novel_editor_contract WHERE novel_id = n.id AND status = 'active') as active_contract_count,
@@ -242,6 +241,7 @@ class NovelContractApprovalService {
       await db.beginTransaction();
       
       // 1. 更新 novel 表
+      // requires_chief_edit 字段已删除，改为运行时计算（基于是否有有效主编合同）
       await db.execute(
         'UPDATE novel SET chief_editor_admin_id = ?, current_editor_admin_id = ? WHERE id = ?',
         [chief_editor_admin_id || null, current_editor_admin_id || null, novelId]
@@ -249,37 +249,32 @@ class NovelContractApprovalService {
       
       // 2. 处理主编合同
       if (chief_editor_admin_id) {
-        // 使用行级锁查找是否存在 active 的主编合同
+        // 新主编非 null，想要"分配/更换主编"
         const [existingChief] = await db.execute(
           `SELECT id, editor_admin_id FROM novel_editor_contract 
-           WHERE novel_id = ? AND role = 'chief_editor' AND status = 'active' 
-           FOR UPDATE
-           LIMIT 1`,
+           WHERE novel_id = ? AND role = 'chief_editor' AND status = 'active'
+           FOR UPDATE`,
           [novelId]
         );
         
         if (existingChief.length > 0) {
-          // 如果存在且编辑不同，结束旧合同，创建新合同
-          if (existingChief[0].editor_admin_id !== chief_editor_admin_id) {
-            // 结束旧合同
-            await db.execute(
-              `UPDATE novel_editor_contract 
-               SET status = 'ended', end_date = NOW() 
-               WHERE id = ?`,
-              [existingChief[0].id]
-            );
-            
-            // 创建新合同
-            await db.execute(
-              `INSERT INTO novel_editor_contract 
-               (novel_id, editor_admin_id, role, share_type, share_percent, start_date, status) 
-               VALUES (?, ?, 'chief_editor', 'percent_of_book', 0.0000, NOW(), 'active')`,
-              [novelId, chief_editor_admin_id]
-            );
+          // 有 active 主编合同
+          const currentChiefId = parseInt(existingChief[0].editor_admin_id);
+          const newChiefId = parseInt(chief_editor_admin_id);
+          
+          // 调试日志（生产环境可移除）
+          console.log(`[saveEditorAssignment] 主编合同检查: novelId=${novelId}, currentChiefId=${currentChiefId}, newChiefId=${newChiefId}, 相等=${currentChiefId === newChiefId}`);
+          
+          if (currentChiefId === newChiefId) {
+            // 选中的人跟当前合同中的一致：只需要保证 novel.chief_editor_admin_id 一致即可（保持不变或同步一下），不创建新合同
+            // 可以直接跳过合同处理逻辑
+          } else {
+            // 尝试更换成另一个主编：禁止
+            await db.rollback();
+            throw new Error('当前小说已经存在一个正在生效的主编合同，请先在「合同管理」中终止现有主编合同，然后再分配新的主编。');
           }
-          // 如果相同，不做任何操作
         } else {
-          // 不存在 active 合同，直接创建
+          // 没有 active 主编合同，可以创建新合同
           await db.execute(
             `INSERT INTO novel_editor_contract 
              (novel_id, editor_admin_id, role, share_type, share_percent, start_date, status) 
@@ -288,10 +283,12 @@ class NovelContractApprovalService {
           );
         }
       } else {
-        // 如果 chief_editor_admin_id 为 null，结束所有 active 的主编合同
+        // chief_editor_admin_id 为 null：取消主编
+        // 1）更新 novel 的 chief_editor_admin_id = NULL（已在开头统一更新）
+        // 2）结束所有 active 主编合同
         await db.execute(
           `UPDATE novel_editor_contract 
-           SET status = 'ended', end_date = NOW() 
+           SET status = 'ended', end_date = NOW()
            WHERE novel_id = ? AND role = 'chief_editor' AND status = 'active'`,
           [novelId]
         );
@@ -299,37 +296,32 @@ class NovelContractApprovalService {
       
       // 3. 处理责任编辑合同
       if (current_editor_admin_id) {
-        // 使用行级锁查找是否存在 active 的编辑合同
+        // 新编辑非 null，想要"分配/更换编辑"
         const [existingEditor] = await db.execute(
           `SELECT id, editor_admin_id FROM novel_editor_contract 
-           WHERE novel_id = ? AND role = 'editor' AND status = 'active' 
-           FOR UPDATE
-           LIMIT 1`,
+           WHERE novel_id = ? AND role = 'editor' AND status = 'active'
+           FOR UPDATE`,
           [novelId]
         );
         
         if (existingEditor.length > 0) {
-          // 如果存在且编辑不同，结束旧合同，创建新合同
-          if (existingEditor[0].editor_admin_id !== current_editor_admin_id) {
-            // 结束旧合同
-            await db.execute(
-              `UPDATE novel_editor_contract 
-               SET status = 'ended', end_date = NOW() 
-               WHERE id = ?`,
-              [existingEditor[0].id]
-            );
-            
-            // 创建新合同
-            await db.execute(
-              `INSERT INTO novel_editor_contract 
-               (novel_id, editor_admin_id, role, share_type, share_percent, start_date, status) 
-               VALUES (?, ?, 'editor', 'percent_of_book', 0.0000, NOW(), 'active')`,
-              [novelId, current_editor_admin_id]
-            );
+          // 有 active 编辑合同
+          const currentEditorId = parseInt(existingEditor[0].editor_admin_id);
+          const newEditorId = parseInt(current_editor_admin_id);
+          
+          // 调试日志（生产环境可移除）
+          console.log(`[saveEditorAssignment] 编辑合同检查: novelId=${novelId}, currentEditorId=${currentEditorId}, newEditorId=${newEditorId}, 相等=${currentEditorId === newEditorId}`);
+          
+          if (currentEditorId === newEditorId) {
+            // 同一个人，不做合同变更
+            // 可以直接跳过合同处理逻辑
+          } else {
+            // 尝试更换成另一个编辑：禁止
+            await db.rollback();
+            throw new Error('当前小说已经存在一个正在生效的编辑合同，请先在「合同管理」中终止现有编辑合同，然后再分配新的编辑。');
           }
-          // 如果相同，不做任何操作
         } else {
-          // 不存在 active 合同，直接创建
+          // 无 active 编辑合同 → 创建新合同
           await db.execute(
             `INSERT INTO novel_editor_contract 
              (novel_id, editor_admin_id, role, share_type, share_percent, start_date, status) 
@@ -338,10 +330,12 @@ class NovelContractApprovalService {
           );
         }
       } else {
-        // 如果 current_editor_admin_id 为 null，结束所有 active 的编辑合同
+        // current_editor_admin_id 为 null：取消责任编辑
+        // 1）更新 novel 的 current_editor_admin_id = NULL（已在开头统一更新）
+        // 2）结束所有 active 编辑合同
         await db.execute(
           `UPDATE novel_editor_contract 
-           SET status = 'ended', end_date = NOW() 
+           SET status = 'ended', end_date = NOW()
            WHERE novel_id = ? AND role = 'editor' AND status = 'active'`,
           [novelId]
         );

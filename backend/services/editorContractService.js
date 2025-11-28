@@ -351,16 +351,67 @@ class EditorContractService {
 
   /**
    * 终止合同
+   * 终止合同时同步更新 novel 表中对应字段：
+   * - 如果终止的是某本小说的唯一活跃"编辑合同"，清空 novel.current_editor_admin_id
+   * - 如果终止的是某本小说的唯一活跃"主编合同"，清空 novel.chief_editor_admin_id
    */
   async terminateContract(id) {
     const db = await this.createConnection();
     try {
-      // 同时设置状态为 ended 和结束日期为当前时间
+      await db.beginTransaction();
+
+      // 1. 先查出该合同的关键信息（novel_id, role, 状态等），使用行级锁
+      const [rows] = await db.execute(
+        'SELECT novel_id, editor_admin_id, role, status FROM novel_editor_contract WHERE id = ? FOR UPDATE',
+        [id]
+      );
+
+      if (!rows.length) {
+        await db.rollback();
+        throw new Error('合同不存在');
+      }
+
+      const contract = rows[0];
+
+      // 如果已经是 ended/cancelled，可以直接返回（幂等处理）
+      if (contract.status === 'ended' || contract.status === 'cancelled') {
+        await db.commit();
+        return await this.getContractById(id);
+      }
+
+      // 2. 更新当前合同为 ended，设置 end_date = NOW()
       await db.execute(
         'UPDATE novel_editor_contract SET status = ?, end_date = NOW() WHERE id = ?',
         ['ended', id]
       );
+
+      // 3. 检查同一小说 + 同一角色是否还有其他 active 合同
+      const [activeSameRole] = await db.execute(
+        'SELECT id FROM novel_editor_contract WHERE novel_id = ? AND role = ? AND status = "active" LIMIT 1',
+        [contract.novel_id, contract.role]
+      );
+
+      // 4. 如果没有其他同角色的 active 合同，则同步清空 novel 对应字段
+      if (activeSameRole.length === 0) {
+        if (contract.role === 'editor') {
+          await db.execute(
+            'UPDATE novel SET current_editor_admin_id = NULL WHERE id = ?',
+            [contract.novel_id]
+          );
+        } else if (contract.role === 'chief_editor') {
+          await db.execute(
+            'UPDATE novel SET chief_editor_admin_id = NULL WHERE id = ?',
+            [contract.novel_id]
+          );
+        }
+        // role = 'proofreader' 目前 novel 表没有对应字段，可忽略
+      }
+
+      await db.commit();
       return await this.getContractById(id);
+    } catch (error) {
+      await db.rollback();
+      throw error;
     } finally {
       await db.end();
     }

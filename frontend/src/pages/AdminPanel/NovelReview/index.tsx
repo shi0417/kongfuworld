@@ -23,6 +23,7 @@ interface Novel {
   editor_display_name?: string;
   chief_editor_name?: string;
   chief_editor_display_name?: string;
+  can_review?: boolean; // 是否有权限审核此小说（基于 novel_editor_contract 有效合同）
 }
 
 interface Editor {
@@ -465,17 +466,24 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                   </button>
                   {novel.review_status === 'submitted' || novel.review_status === 'reviewing' ? (
                     <>
+                      {!(novel.can_review ?? true) && (
+                        <span className={styles.noPermission} title="需要与该小说有有效合同才能审核">
+                          无审核权限
+                        </span>
+                      )}
                       <button
                         onClick={() => handleReview(novel.id, 'approve')}
                         className={styles.approveButton}
-                        disabled={loading}
+                        disabled={loading || !(novel.can_review ?? true)}
+                        title={!(novel.can_review ?? true) ? '需要与该小说有有效合同才能审核' : ''}
                       >
                         批准
                       </button>
                       <button
                         onClick={() => handleReview(novel.id, 'reject')}
                         className={styles.rejectButton}
-                        disabled={loading}
+                        disabled={loading || !(novel.can_review ?? true)}
+                        title={!(novel.can_review ?? true) ? '需要与该小说有有效合同才能审核' : ''}
                       >
                         拒绝
                       </button>
@@ -596,13 +604,19 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
               </div>
               {(selectedNovel.review_status === 'submitted' || selectedNovel.review_status === 'reviewing') && (
                 <div className={styles.modalActions}>
+                  {!(selectedNovel.can_review ?? true) && (
+                    <span className={styles.noPermission} style={{ marginRight: '10px' }} title="需要与该小说有有效合同才能审核">
+                      无审核权限
+                    </span>
+                  )}
                   <button
                     onClick={() => {
                       handleReview(selectedNovel.id, 'approve');
                       setSelectedNovel(null);
                     }}
                     className={styles.approveButton}
-                    disabled={loading}
+                    disabled={loading || !(selectedNovel.can_review ?? true)}
+                    title={!(selectedNovel.can_review ?? true) ? '需要与该小说有有效合同才能审核' : ''}
                   >
                     批准
                   </button>
@@ -612,7 +626,8 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                       setSelectedNovel(null);
                     }}
                     className={styles.rejectButton}
-                    disabled={loading}
+                    disabled={loading || !(selectedNovel.can_review ?? true)}
+                    title={!(selectedNovel.can_review ?? true) ? '需要与该小说有有效合同才能审核' : ''}
                   >
                     拒绝
                   </button>

@@ -35,7 +35,7 @@ class ChapterReviewService {
   }
 
   /**
-   * 获取小说信息（包括 requires_chief_edit）
+   * 获取小说信息（包括 chief_editor_admin_id）
    * @param {number} novelId - 小说ID
    * @returns {Promise<Object|null>} 小说信息或null
    */
@@ -43,13 +43,47 @@ class ChapterReviewService {
     const db = await this.createConnection();
     try {
       const [novels] = await db.execute(
-        'SELECT id, requires_chief_edit, current_editor_admin_id FROM novel WHERE id = ?',
+        'SELECT id, chief_editor_admin_id, current_editor_admin_id FROM novel WHERE id = ?',
         [novelId]
       );
       return novels.length > 0 ? novels[0] : null;
     } finally {
       await db.end();
     }
+  }
+
+  /**
+   * 判断小说当前配置的主编是否有有效合同
+   * 有效主编合同定义为 novel_editor_contract 中满足：
+   * - novel_id = 当前小说 id
+   * - editor_admin_id = novel.chief_editor_admin_id
+   * - role = 'chief_editor'
+   * - status = 'active'
+   * - start_date <= NOW()
+   * - (end_date IS NULL OR end_date >= NOW())
+   * @param {Object} db - 数据库连接
+   * @param {number} novelId - 小说ID
+   * @param {number|null} chiefEditorAdminId - 主编 admin ID
+   * @returns {Promise<boolean>} 是否存在有效主编合同
+   */
+  async hasActiveChiefContract(db, novelId, chiefEditorAdminId) {
+    if (!chiefEditorAdminId) {
+      return false;
+    }
+
+    const [contracts] = await db.execute(
+      `SELECT 1 FROM novel_editor_contract nec
+       WHERE nec.novel_id = ?
+         AND nec.editor_admin_id = ?
+         AND nec.role = 'chief_editor'
+         AND nec.status = 'active'
+         AND nec.start_date <= NOW()
+         AND (nec.end_date IS NULL OR nec.end_date >= NOW())
+       LIMIT 1`,
+      [novelId, chiefEditorAdminId]
+    );
+
+    return contracts.length > 0;
   }
 
   /**
@@ -169,7 +203,21 @@ class ChapterReviewService {
         throw new Error('小说不存在');
       }
 
-      const requiresChief = novel.requires_chief_edit === 1;
+      // requiresChief 现在以是否配置了主编且该主编有有效合同为准
+      // 如果 chief_editor_admin_id 指向一个已失效合同的主编，则视为不需要主编终审
+      const chiefEditorId = novel.chief_editor_admin_id;
+      const hasChiefEditorField = !!chiefEditorId;
+      let requiresChief = false;
+
+      if (hasChiefEditorField) {
+        requiresChief = await this.hasActiveChiefContract(db, novel.id, chiefEditorId);
+        
+        // 如果字段有值但合同已失效，记录警告日志
+        if (!requiresChief) {
+          console.warn(`小说 ${novel.id} 配置了主编 (chief_editor_admin_id=${chiefEditorId})，但该主编没有有效合同，视为不需要主编终审`);
+        }
+      }
+
       const previousStatus = chapter.review_status;
       let finalStatus = result;
 
@@ -180,15 +228,19 @@ class ChapterReviewService {
       // 防止接手的新编辑重审老章节，导致前任编辑的提成被覆盖
       if (result === 'approved') {
         if (!requiresChief) {
-          // ✅ 不需要主编终审：责任编辑/超管直接终结
+          // ✅ 没有主编：editor / super_admin 审核通过后直接变为 approved
           finalStatus = 'approved';
           
           // 防止抢功：如果章节已有编辑归属，且不是当前审核人，则拒绝
-          if (chapter.editor_admin_id && chapter.editor_admin_id !== adminId && adminRole === 'editor') {
-            throw new Error('章节已由其他编辑审核通过，不能修改归属');
+          if (chapter.editor_admin_id && chapter.editor_admin_id !== adminId) {
+            if (adminRole === 'editor') {
+              throw new Error('该章节已由其他编辑审核通过，不能修改责任编辑归属');
+            } else if (adminRole === 'super_admin') {
+              throw new Error('该章节已由其他编辑审核通过，不能修改责任编辑归属');
+            }
           }
           
-          // 如果还没有绑定责任编辑，且当前审核人是编辑或超管，则绑定
+          // 如果还没有绑定责任编辑，则绑定当前审核人
           let finalEditorId = chapter.editor_admin_id;
           if (!finalEditorId) {
             if (adminRole === 'editor' || adminRole === 'super_admin') {
@@ -201,24 +253,24 @@ class ChapterReviewService {
           await db.execute(
             `UPDATE chapter SET 
              review_status = ?,
-             review_admin_id = ?,
              reviewed_at = NOW(),
              editor_admin_id = ?
              WHERE id = ?`,
-            [finalStatus, adminId, finalEditorId, chapter_id]
+            [finalStatus, finalEditorId, chapter_id]
           );
 
         } else {
-          // ✅ 需要主编终审
+          // ✅ 有主编：需要主编终审流程
           if (adminRole === 'editor') {
             // 责任编辑审核通过 -> 等待主编终审
             finalStatus = 'pending_chief';
             
             // 防止抢功：如果章节已有编辑归属，且不是当前审核人，则拒绝
             if (chapter.editor_admin_id && chapter.editor_admin_id !== adminId) {
-              throw new Error('章节已由其他编辑审核通过，不能修改归属');
+              throw new Error('该章节已由其他编辑审核通过，不能修改责任编辑归属');
             }
             
+            // 如果还没有绑定责任编辑，则绑定当前审核人
             let finalEditorId = chapter.editor_admin_id;
             if (!finalEditorId) {
               finalEditorId = adminId;
@@ -233,38 +285,36 @@ class ChapterReviewService {
             );
 
           } else if (adminRole === 'chief_editor' || adminRole === 'super_admin') {
-            // 主编/超管终审通过 -> 最终 approved
+            // 主编/有主编合同的 super_admin 终审通过 -> 最终 approved
             finalStatus = 'approved';
             
-            // 防止抢功：如果章节已有主编归属，且不是当前审核人，则拒绝（主编角色）
-            if (adminRole === 'chief_editor' && chapter.chief_editor_admin_id && chapter.chief_editor_admin_id !== adminId) {
-              throw new Error('章节已由其他主编审核通过，不能修改归属');
+            // 防止抢功：如果章节已有主编归属，且不是当前审核人，则拒绝
+            if (chapter.chief_editor_admin_id && chapter.chief_editor_admin_id !== adminId) {
+              throw new Error('该章节已由其他主编审核通过，不能修改主编归属');
             }
             
+            // 保持已有的 editor_admin_id，如果没有则使用小说的当前编辑
             let finalEditorId = chapter.editor_admin_id || editorAdminId;
+            
+            // 如果还没有主编归属，则绑定当前审核人
             let finalChiefEditorId = chapter.chief_editor_admin_id;
-            
-            // 如果还没有主编归属，且当前审核人是主编，则绑定
-            if (!finalChiefEditorId && adminRole === 'chief_editor') {
-              finalChiefEditorId = adminId;
-            }
-            
-            // 超管可以设置主编归属，但不能覆盖已有主编
-            if (adminRole === 'super_admin' && !finalChiefEditorId) {
-              // 超管终审时，如果没有主编，可以设置为当前主编（如果有）
-              const novel = await this.getNovelById(chapter.novel_id);
-              finalChiefEditorId = novel?.chief_editor_admin_id || null;
+            if (!finalChiefEditorId) {
+              if (adminRole === 'chief_editor') {
+                finalChiefEditorId = adminId;
+              } else if (adminRole === 'super_admin') {
+                // super_admin 终审时，如果没有主编归属，设置为小说的主编（如果有）
+                finalChiefEditorId = novel.chief_editor_admin_id || null;
+              }
             }
 
             await db.execute(
               `UPDATE chapter SET 
                review_status = ?,
-               review_admin_id = ?,
                reviewed_at = NOW(),
                editor_admin_id = COALESCE(?, editor_admin_id),
                chief_editor_admin_id = COALESCE(?, chief_editor_admin_id)
                WHERE id = ?`,
-              [finalStatus, adminId, finalEditorId, finalChiefEditorId, chapter_id]
+              [finalStatus, finalEditorId, finalChiefEditorId, chapter_id]
             );
 
           } else {
@@ -273,16 +323,15 @@ class ChapterReviewService {
         }
 
       } else if (result === 'rejected') {
-        // 拒绝：无论是否需要主编
+        // 拒绝：无论是否需要主编，仅更新状态，不写入归属信息
         finalStatus = 'rejected';
         
         await db.execute(
           `UPDATE chapter SET 
            review_status = ?,
-           review_admin_id = ?,
            reviewed_at = NOW()
            WHERE id = ?`,
-          [finalStatus, adminId, chapter_id]
+          [finalStatus, chapter_id]
         );
 
       } else if (result === 'reviewing') {
@@ -319,12 +368,11 @@ class ChapterReviewService {
    * @param {Object} params - 批量审核参数
    * @param {number[]} params.chapterIds - 章节ID数组
    * @param {string} params.result - 审核结果 (approved/rejected)
-   * @param {number} params.reviewAdminId - 审核人ID
    * @param {string|null} params.comment - 审核备注
    * @returns {Promise<Object>} 批量审核结果
    */
   async batchReviewChapters(params) {
-    const { chapterIds, result, reviewAdminId, comment } = params;
+    const { chapterIds, result, comment } = params;
 
     const db = await this.createConnection();
     try {
@@ -349,11 +397,10 @@ class ChapterReviewService {
       // 构建更新字段
       const updateFields = [
         'review_status = ?',
-        'review_admin_id = ?',
         'reviewed_at = NOW()',
         'editor_admin_id = ?'
       ];
-      const updateValues = [result, reviewAdminId];
+      const updateValues = [result]; // 移除 reviewAdminId，不再使用 review_admin_id 字段
 
       // 处理审核备注
       if (comment) {
@@ -370,7 +417,7 @@ class ChapterReviewService {
         const editorId = chapterEditorMap[chapterId] || null;
         const chapter = chapters.find(c => c.id === chapterId);
         
-        // updateValues = [result, reviewAdminId, ...(comment if exists)]
+        // updateValues = [result, ...(comment if exists)]
         // 需要添加 editorId 和 chapterId
         const values = [...updateValues, editorId, chapterId];
         

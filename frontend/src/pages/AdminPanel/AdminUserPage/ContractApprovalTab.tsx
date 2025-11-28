@@ -216,13 +216,19 @@ const ContractApprovalTab: React.FC<ContractApprovalTabProps> = ({ onError, admi
     
     try {
       setSaving(true);
-      const { data } = await adminApiRequest(`/admin/novels/${selectedNovel.id}/editor-assignment`, {
+      const { response, data } = await adminApiRequest(`/admin/novels/${selectedNovel.id}/editor-assignment`, {
         method: 'POST',
         body: JSON.stringify({
           chief_editor_admin_id: assignForm.chief_editor_admin_id || null,
           current_editor_admin_id: assignForm.current_editor_admin_id || null
         })
       });
+      
+      if (!response.ok) {
+        // 如果响应不成功，尝试解析错误消息
+        const errorData = data;
+        throw new Error(errorData?.message || `请求失败: ${response.status}`);
+      }
       
       if (data.success) {
         alert('编辑分配已更新');
@@ -234,7 +240,9 @@ const ContractApprovalTab: React.FC<ContractApprovalTabProps> = ({ onError, admi
       if (error.message && error.message.includes('权限')) {
         alert('没有权限，只有超级管理员可以调整编辑分配');
       } else {
-        alert(error.message || '保存失败，请稍后重试');
+        // 显示后端返回的错误消息（包括"请先在合同管理中终止现有合同"的提示）
+        const errorMessage = error.message || '保存失败，请稍后重试';
+        alert(errorMessage);
       }
     } finally {
       setSaving(false);
@@ -663,6 +671,17 @@ const ContractApprovalTab: React.FC<ContractApprovalTabProps> = ({ onError, admi
                       {assignmentData.activeContracts.filter(c => c.status === 'active').length === 0 && (
                         <div style={{ color: '#999' }}>暂无活跃合同</div>
                       )}
+                    </div>
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '8px', 
+                      background: '#fff3cd', 
+                      border: '1px solid #ffc107',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: '#856404'
+                    }}>
+                      ⚠️ 提示：如果当前已经有活跃的主编/编辑合同，要更换负责人请先在「合同管理」中终止现有合同，再来分配新的主编/编辑。
                     </div>
                   </div>
                 )}

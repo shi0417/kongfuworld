@@ -255,7 +255,7 @@ const CommissionTransaction: React.FC<CommissionTransactionProps> = ({ onError }
 
           {/* 详细列表 */}
           <div className={styles.paymentTable} style={{ marginTop: '24px' }}>
-            <h3>推广佣金明细</h3>
+            <h3>推广佣金明细 (commission_transaction)</h3>
             <table>
               <thead>
                 <tr>

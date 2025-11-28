@@ -298,15 +298,32 @@
   font-size: 18px;
 }
 
+.novelEditorsLine {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #555;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.novelEditorsLine span {
+  white-space: nowrap;
+}
+
 .chapterMeta {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
   font-size: 13px;
+  color: #555;
+  word-break: break-all;
 }
 
 .chapterMeta span {
   color: #666;
+  min-width: 0;
 }
 
 .navigation {
@@ -341,6 +358,9 @@
   padding: 20px;
   border-bottom: 1px solid #ddd;
   min-height: 0; /* 确保 flex 子元素可以正确缩小 */
+  max-height: 40vh; /* 限制最大高度，避免遮挡下方审核操作区 */
+  position: relative; /* 确保层级正确 */
+  z-index: 1; /* 低于审核操作区的 z-index */
 }
 
 .contentToolbar {
@@ -385,8 +405,7 @@
   border-radius: 4px;
   line-height: 1.8;
   min-height: 0; /* 确保可以正确滚动 */
-  position: relative; /* 确保 z-index 生效 */
-  z-index: 1; /* 确保内容在顶层 */
+  /* 移除 z-index，以免压住下方区域 */
 }
 
 .contentText {
@@ -418,6 +437,9 @@
   padding: 20px;
   border-bottom: 1px solid #ddd;
   flex-shrink: 0;
+  position: relative;
+  background: white; /* 确保背景色，避免被上方内容透过 */
+  z-index: 2; /* 确保审核操作区在内容区域之上 */
 }
 
 .reviewSection h3 {
@@ -454,6 +476,20 @@
 .commentTextarea {
   resize: vertical;
   min-height: 80px;
+}
+
+.noReviewPermission {
+  padding: 12px;
+  margin-bottom: 15px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.noReviewPermission p {
+  margin: 0;
 }
 
 .reviewActions {

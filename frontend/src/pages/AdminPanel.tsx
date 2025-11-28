@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import ApiService from '../services/ApiService';
 import styles from './AdminPanel.module.css';
 import NovelReview from './AdminPanel/NovelReview';
-import ChapterReview from './AdminPanel/ChapterReview';
 import ChapterApproval from './AdminPanel/ChapterApproval';
 import PaymentStats from './AdminPanel/PaymentStats';
 import AuthorIncome from './AdminPanel/AuthorIncome';
@@ -54,7 +53,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-review' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'admin-payout-account';
+type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'admin-payout-account';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -1302,12 +1301,6 @@ const AdminPanel: React.FC = () => {
             </div>
             <span className={activeTab === 'new-novel-pool' ? styles.active : ''}>新小说池</span>
           </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('chapter-review')}>
-            <div className={`${styles.navIcon} ${activeTab === 'chapter-review' ? styles.active : ''}`}>
-              📝
-            </div>
-            <span className={activeTab === 'chapter-review' ? styles.active : ''}>章节审核</span>
-          </div>
           <div className={styles.navItem} onClick={() => setActiveTab('chapter-approval')}>
             <div className={`${styles.navIcon} ${activeTab === 'chapter-approval' ? styles.active : ''}`}>
               ✅
@@ -1417,11 +1410,6 @@ const AdminPanel: React.FC = () => {
             />
           )}
 
-          {/* 章节审核选项卡 */}
-          {activeTab === 'chapter-review' && (
-            <ChapterReview onError={setError} />
-          )}
-
           {/* 章节审批选项卡 */}
           {activeTab === 'chapter-approval' && (
             <ChapterApproval onError={setError} />
@@ -1496,7 +1484,7 @@ const AdminPanel: React.FC = () => {
               ) : (
                 <>
                   <div className={styles.paymentTable}>
-                    <h3>用户结算列表（作者+推广者）</h3>
+                    <h3>用户结算列表（作者+推广者）(user_income_monthly)</h3>
                     <table>
                       <thead>
                         <tr>

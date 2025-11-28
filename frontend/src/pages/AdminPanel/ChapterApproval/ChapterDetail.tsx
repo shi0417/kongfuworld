@@ -7,6 +7,7 @@ interface ChapterDetailData {
   novel_title: string;
   novel_cover?: string;
   requires_chief_edit?: boolean;
+  can_review?: boolean; // 是否有审核权限（基于有效合同）
   volume_id: number;
   volume_name: string;
   volume_number?: number;
@@ -20,6 +21,10 @@ interface ChapterDetailData {
   editor_name?: string;
   chief_editor_admin_id?: number;
   chief_editor_name?: string;
+  novel_editor_admin_id?: number | null;
+  novel_editor_name?: string | null;
+  novel_chief_editor_admin_id?: number | null;
+  novel_chief_editor_name?: string | null;
   review_status: string;
   is_released: boolean;
   is_advance: boolean;
@@ -147,6 +152,33 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
     window.open(`/novel/${chapter.novel_id}/chapter/${chapter.id}`, '_blank');
   };
 
+  // 小说级别编辑信息（便于使用）
+  // 始终显示小说级别的编辑信息，即使值为空也显示"未分配"
+  // 调试日志：检查接收到的数据
+  useEffect(() => {
+    console.log('[前端调试] 章节详情数据 - 原始对象:', chapter);
+    console.log('[前端调试] 章节详情数据 - 字段检查:', {
+      'chapter.novel_editor_admin_id': chapter.novel_editor_admin_id,
+      'chapter.novel_editor_name': chapter.novel_editor_name,
+      'chapter.novel_chief_editor_admin_id': chapter.novel_chief_editor_admin_id,
+      'chapter.novel_chief_editor_name': chapter.novel_chief_editor_name,
+      'chapter.novel_id': chapter.novel_id,
+      'chapter.novel_title': chapter.novel_title,
+      'typeof novel_editor_admin_id': typeof chapter.novel_editor_admin_id,
+      'novel_editor_admin_id === null': chapter.novel_editor_admin_id === null,
+      'novel_editor_admin_id === undefined': chapter.novel_editor_admin_id === undefined
+    });
+    console.log('[前端调试] 完整章节对象 (JSON):', JSON.stringify(chapter, null, 2));
+  }, [chapter.id]);
+  
+  const novelEditorName =
+    chapter.novel_editor_name ||
+    (chapter.novel_editor_admin_id ? `ID: ${chapter.novel_editor_admin_id}` : null);
+
+  const novelChiefEditorName =
+    chapter.novel_chief_editor_name ||
+    (chapter.novel_chief_editor_admin_id ? `ID: ${chapter.novel_chief_editor_admin_id}` : null);
+
   const formatContent = (content: string) => {
     if (!content) return '';
     if (showEmptyLines) {
@@ -194,6 +226,16 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
           )}
           <div className={styles.chapterInfoText}>
             <h3>{chapter.novel_title}</h3>
+            
+            <div className={styles.novelEditorsLine}>
+              <span>
+                小说责任编辑：{novelEditorName || '未分配'}
+              </span>
+              <span style={{ marginLeft: 16 }}>
+                主编：{novelChiefEditorName || '未分配'}
+              </span>
+            </div>
+
             <div className={styles.chapterMeta}>
               <span><strong>卷名：</strong>{chapter.volume_name}</span>
               <span><strong>章节号：</strong>{chapter.chapter_number}</span>
@@ -341,24 +383,31 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
             />
           </div>
 
+          {/* 如果没有审核权限，显示提示 */}
+          {chapter.can_review === false && (
+            <div className={styles.noReviewPermission}>
+              <p>您当前在该小说上没有生效的编辑/主编合同（包括 super_admin），因此不能进行审核操作。</p>
+            </div>
+          )}
+          
           <div className={styles.reviewActions}>
             <button
               onClick={() => handleReview('reviewing')}
-              disabled={saving || chapter.review_status === 'reviewing'}
+              disabled={saving || chapter.review_status === 'reviewing' || !chapter.can_review}
               className={styles.saveBtn}
             >
               保存为"审核中"
             </button>
             <button
               onClick={() => handleReview('approved')}
-              disabled={saving || !canApprove()}
+              disabled={saving || !canApprove() || !chapter.can_review}
               className={styles.approveBtn}
             >
               {getApproveButtonText()}
             </button>
             <button
               onClick={() => handleReview('rejected')}
-              disabled={saving || !reviewComment.trim()}
+              disabled={saving || !reviewComment.trim() || !chapter.can_review}
               className={styles.rejectBtn}
             >
               审核拒绝

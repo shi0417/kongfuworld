@@ -229,7 +229,7 @@ const BaseIncome: React.FC<BaseIncomeProps> = ({ onError }) => {
 
           {/* 详细列表 */}
           <div className={styles.paymentTable} style={{ marginTop: '24px' }}>
-            <h3>基础收入明细</h3>
+            <h3>基础收入明细 (reader_spending)</h3>
             <table>
               <thead>
                 <tr>

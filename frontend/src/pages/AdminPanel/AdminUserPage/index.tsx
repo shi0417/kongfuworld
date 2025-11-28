@@ -41,6 +41,14 @@ const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError }) => {
 
     const data = await response.json();
 
+    // 如果响应不成功，抛出错误（让调用方处理）
+    if (!response.ok) {
+      const error = new Error(data.message || `请求失败: ${response.status}`);
+      (error as any).response = response;
+      (error as any).data = data;
+      throw error;
+    }
+
     if (!data.success && data.message && 
         (data.message.includes('Token') || data.message.includes('token') || 
          data.message.includes('登录') || data.message.includes('无效') || 
