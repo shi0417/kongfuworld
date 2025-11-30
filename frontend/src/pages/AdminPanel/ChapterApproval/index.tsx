@@ -62,6 +62,7 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
   });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentAdminRole, setCurrentAdminRole] = useState<string>('');
+  const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
 
   // 获取当前管理员信息
   useEffect(() => {
@@ -76,6 +77,7 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
         }).join(''));
         const decoded = JSON.parse(jsonPayload);
         setCurrentAdminRole(decoded.role || '');
+        setCurrentAdminId(decoded.id ? parseInt(decoded.id) : null);
       } catch (error) {
         console.error('解析 token 失败:', error);
       }
@@ -278,19 +280,6 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
     }
   };
 
-  // 切换上一章/下一章
-  const handleNavigateChapter = (direction: 'prev' | 'next') => {
-    if (!selectedChapter) return;
-    
-    const currentIndex = chapters.findIndex(ch => ch.id === selectedChapter.id);
-    if (currentIndex === -1) return;
-    
-    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex >= 0 && targetIndex < chapters.length) {
-      loadChapterDetail(chapters[targetIndex].id);
-    }
-  };
-
   return (
     <div className={styles.container}>
       <div className={styles.leftPanel}>
@@ -314,11 +303,9 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
           <ChapterDetail
             chapter={selectedChapter}
             currentAdminRole={currentAdminRole}
+            currentAdminId={currentAdminId}
             onReview={handleReview}
-            onNavigate={handleNavigateChapter}
             onClose={() => setSelectedChapter(null)}
-            canNavigatePrev={chapters.findIndex(ch => ch.id === selectedChapter.id) > 0}
-            canNavigateNext={chapters.findIndex(ch => ch.id === selectedChapter.id) < chapters.length - 1}
           />
         ) : (
           <div className={styles.emptyDetail}>

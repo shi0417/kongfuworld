@@ -105,6 +105,12 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
   const handlePayPalPayment = async () => {
     if (!selectedTier) return;
 
+    // 检查用户是否已登录
+    if (!user || !user.id) {
+      alert('请先登录后再进行支付');
+      return;
+    }
+
     try {
       // 保存当前小说ID到localStorage，用于支付成功后的重定向
       localStorage.setItem('currentNovelId', novelId.toString());
@@ -113,7 +119,7 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
       const response = await ApiService.request('/payment/paypal/create', {
         method: 'POST',
         body: JSON.stringify({
-          userId: user?.id, // 使用当前登录用户的ID
+          userId: user.id, // 使用当前登录用户的ID
           amount: selectedTier.price,
           currency: 'USD',
           description: `KongFuWorld Champion Subscription - ${selectedTier.name}`,
@@ -133,6 +139,12 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
   };
 
   const handleStripePayment = () => {
+    // 检查用户是否已登录
+    if (!user || !user.id) {
+      alert('请先登录后再进行支付');
+      return;
+    }
+
     // 保存当前小说ID到localStorage，用于支付成功后的重定向
     localStorage.setItem('currentNovelId', novelId.toString());
     

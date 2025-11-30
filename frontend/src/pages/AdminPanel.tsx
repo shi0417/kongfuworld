@@ -10,6 +10,7 @@ import ReaderIncome from './AdminPanel/ReaderIncome';
 import BaseIncome from './AdminPanel/BaseIncome';
 import AuthorRoyalty from './AdminPanel/AuthorRoyalty';
 import CommissionTransaction from './AdminPanel/CommissionTransaction';
+import EditorBaseIncome from './AdminPanel/EditorBaseIncome';
 import CommissionSettings from './AdminPanel/CommissionSettings';
 import EditorManagement from './AdminPanel/EditorManagement';
 import AdminUserPage from './AdminPanel/AdminUserPage';
@@ -53,7 +54,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'admin-payout-account';
+type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'editor-base-income' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'admin-payout-account';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -94,6 +95,8 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState('');
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('novel-review');
+  const [currentAdminName, setCurrentAdminName] = useState<string>('');
+  const [currentAdminRole, setCurrentAdminRole] = useState<string>('');
   // 收益与编辑管理分组菜单的展开/折叠状态
   const [incomeAndEditorMenuExpanded, setIncomeAndEditorMenuExpanded] = useState(false);
   
@@ -155,6 +158,20 @@ const AdminPanel: React.FC = () => {
   const [settlementUserId, setSettlementUserId] = useState<string>('');
   const [settlementData, setSettlementData] = useState<any[]>([]);
   const [settlementLoading, setSettlementLoading] = useState(false);
+  
+  // 结算总览子Tab状态
+  const [settlementSubTab, setSettlementSubTab] = useState<'user' | 'editor'>('user');
+  
+  // 编辑结算相关状态
+  const [editorSettlementStatus, setEditorSettlementStatus] = useState<string>('all');
+  const [editorSettlementRole, setEditorSettlementRole] = useState<string>('all'); // 'all' | 'editor' | 'chief_editor'
+  const [editorSettlementId, setEditorSettlementId] = useState<string>('');
+  const [editorSettlements, setEditorSettlements] = useState<any[]>([]);
+  const [editorSettlementLoading, setEditorSettlementLoading] = useState(false);
+  const [selectedEditorSettlementDetail, setSelectedEditorSettlementDetail] = useState<any>(null);
+  const [showEditorSettlementDetailModal, setShowEditorSettlementDetailModal] = useState<boolean>(false);
+  const [editorExpandedRows, setEditorExpandedRows] = useState<{ [key: number]: any }>({});
+  const [editorLoadingRows, setEditorLoadingRows] = useState<{ [key: number]: boolean }>({});
   const [selectedUserDetail, setSelectedUserDetail] = useState<any>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
   const [showUserDetailModal, setShowUserDetailModal] = useState<boolean>(false);
@@ -263,12 +280,45 @@ const AdminPanel: React.FC = () => {
     return { response, data };
   };
 
+  // 从 token 中解码用户信息
+  const decodeToken = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('解析 token 失败:', error);
+      return null;
+    }
+  };
+
+  // 获取角色显示名称
+  const getRoleDisplayName = (role: string) => {
+    const roleMap: Record<string, string> = {
+      'super_admin': '超级管理员',
+      'chief_editor': '主编',
+      'editor': '编辑'
+    };
+    return roleMap[role] || role;
+  };
+
   // 检查是否已登录
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (token) {
       setAdminToken(token);
       setIsAuthenticated(true);
+      
+      // 解码 token 获取用户信息
+      const decoded = decodeToken(token);
+      if (decoded) {
+        setCurrentAdminName(decoded.name || decoded.username || '未知用户');
+        setCurrentAdminRole(decoded.role || '');
+      }
+      
       if (activeTab === 'novel-review') {
         loadNovels();
       } else if (activeTab === 'payment-stats') {
@@ -311,7 +361,11 @@ const AdminPanel: React.FC = () => {
           loadReaderIncomeStats();
         }
       } else if (activeTab === 'settlement-overview') {
-        loadSettlementOverview();
+        if (settlementSubTab === 'user') {
+          loadSettlementOverview();
+        } else if (settlementSubTab === 'editor') {
+          loadEditorSettlementOverview();
+        }
       }
     }
   }, [activeTab, isAuthenticated]);
@@ -997,6 +1051,203 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  // ========== 编辑结算相关函数 ==========
+
+  // 加载编辑结算总览
+  const loadEditorSettlementOverview = async () => {
+    try {
+      setEditorSettlementLoading(true);
+      const token = localStorage.getItem('adminToken');
+      let url = `http://localhost:5000/api/admin/editor-settlement/overview?month=${settlementMonth}`;
+      if (editorSettlementStatus !== 'all') {
+        url += `&status=${editorSettlementStatus}`;
+      }
+      if (editorSettlementRole !== 'all') {
+        url += `&role=${editorSettlementRole}`;
+      }
+      if (editorSettlementId) {
+        url += `&editorId=${editorSettlementId}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setEditorSettlements(data.data || []);
+      } else {
+        setError(data.message || '加载失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '加载失败');
+    } finally {
+      setEditorSettlementLoading(false);
+    }
+  };
+
+  // 生成编辑结算月度汇总
+  const generateEditorSettlementMonthly = async () => {
+    if (!settlementMonth) {
+      setError('请选择月份');
+      return;
+    }
+    
+    if (!window.confirm(`确定要生成 ${settlementMonth} 月的编辑结算汇总吗？`)) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('http://localhost:5000/api/admin/editor-settlement/generate-monthly', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          month: `${settlementMonth}-01`
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(data.message || '生成成功');
+        loadEditorSettlementOverview();
+      } else {
+        setError(data.message || '生成失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '生成失败');
+    }
+  };
+
+  // 发起编辑支付
+  const initiateEditorPayment = async (settlementMonthlyId: number, accountId: number, method: string = 'paypal', payoutCurrency: string = 'USD', fxRate: string = '1.0', note: string = '') => {
+    try {
+      setUserDetailLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/pay`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          account_id: accountId,
+          method: method,
+          payout_currency: payoutCurrency,
+          fx_rate: fxRate,
+          note: note
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadEditorSettlementOverview();
+        setError('');
+        alert(data.message || '支付已发起');
+      } else {
+        setError(data.message || '发起支付失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '发起支付失败');
+    } finally {
+      setUserDetailLoading(false);
+    }
+  };
+
+  // 同步编辑PayPal状态
+  const syncEditorPayPalStatus = async (settlementMonthlyId: number) => {
+    try {
+      setUserDetailLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/sync-paypal`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadEditorSettlementOverview();
+        setError('');
+        alert(data.message || '同步成功');
+      } else {
+        setError(data.message || '同步失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '同步失败');
+    } finally {
+      setUserDetailLoading(false);
+    }
+  };
+
+  // 查看编辑结算详情
+  const loadEditorSettlementDetail = async (settlementMonthlyId: number) => {
+    try {
+      setUserDetailLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/detail`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSelectedEditorSettlementDetail(data.data);
+        setShowEditorSettlementDetailModal(true);
+      } else {
+        setError(data.message || '加载失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '加载失败');
+    } finally {
+      setUserDetailLoading(false);
+    }
+  };
+
+  // 切换编辑结算行展开/折叠
+  const toggleEditorRowExpansion = async (settlementMonthlyId: number) => {
+    if (!settlementMonthlyId) {
+      setError('该编辑该月的结算记录ID不存在');
+      return;
+    }
+    
+    if (editorExpandedRows[settlementMonthlyId]) {
+      const newExpandedRows = { ...editorExpandedRows };
+      delete newExpandedRows[settlementMonthlyId];
+      setEditorExpandedRows(newExpandedRows);
+      return;
+    }
+    
+    if (editorLoadingRows[settlementMonthlyId]) {
+      return;
+    }
+    
+    try {
+      setEditorLoadingRows({ ...editorLoadingRows, [settlementMonthlyId]: true });
+      await loadEditorSettlementDetail(settlementMonthlyId);
+      // 详情会在弹窗中显示，这里不展开行
+    } catch (err: any) {
+      setError('加载支付详情失败：' + (err.message || '未知错误'));
+    } finally {
+      const newLoadingRows = { ...editorLoadingRows };
+      delete newLoadingRows[settlementMonthlyId];
+      setEditorLoadingRows(newLoadingRows);
+    }
+  };
+
 
 
   
@@ -1140,6 +1391,13 @@ const AdminPanel: React.FC = () => {
         localStorage.setItem('adminToken', token);
         setAdminToken(token);
         setIsAuthenticated(true);
+        
+        // 解码 token 获取用户信息
+        const decoded = decodeToken(token);
+        if (decoded) {
+          setCurrentAdminName(decoded.name || decoded.username || '未知用户');
+          setCurrentAdminRole(decoded.role || '');
+        }
         if (activeTab === 'novel-review') {
           loadNovels();
         } else if (activeTab === 'payment-stats') {
@@ -1281,9 +1539,19 @@ const AdminPanel: React.FC = () => {
     <div className={styles.adminContainer}>
       <header className={styles.header}>
         <h1>后台管理系统</h1>
-        <button onClick={handleLogout} className={styles.logoutButton}>
-          退出登录
-        </button>
+        <div className={styles.headerRight}>
+          {currentAdminName && (
+            <div className={styles.userInfo}>
+              <span className={styles.userName}>{currentAdminName}</span>
+              {currentAdminRole && (
+                <span className={styles.userRole}>{getRoleDisplayName(currentAdminRole)}</span>
+              )}
+            </div>
+          )}
+          <button onClick={handleLogout} className={styles.logoutButton}>
+            退出登录
+          </button>
+        </div>
       </header>
 
       <div className={styles.mainLayout}>
@@ -1365,6 +1633,12 @@ const AdminPanel: React.FC = () => {
                   </div>
                   <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细-3</span>
                 </div>
+                <div className={`${styles.navSubItem} ${activeTab === 'editor-base-income' ? styles.active : ''}`} onClick={() => setActiveTab('editor-base-income')}>
+                  <div className={`${styles.navIcon} ${activeTab === 'editor-base-income' ? styles.active : ''}`}>
+                    📝
+                  </div>
+                  <span className={activeTab === 'editor-base-income' ? styles.active : ''}>编辑基础收入-4</span>
+                </div>
                 <div className={`${styles.navSubItem} ${activeTab === 'commission-settings' ? styles.active : ''}`} onClick={() => setActiveTab('commission-settings')}>
                   <div className={`${styles.navIcon} ${activeTab === 'commission-settings' ? styles.active : ''}`}>
                     ⚙️
@@ -1435,56 +1709,150 @@ const AdminPanel: React.FC = () => {
             <div className={styles.tabContent}>
               <div className={styles.tabHeader}>
                 <h2>结算总览</h2>
+                {/* 子Tab切换 */}
+                <div style={{ marginBottom: '20px', borderBottom: '2px solid #e0e0e0' }}>
+                  <button
+                    onClick={() => {
+                      setSettlementSubTab('user');
+                      if (settlementSubTab !== 'user') {
+                        loadSettlementOverview();
+                      }
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      marginRight: '10px',
+                      border: 'none',
+                      borderBottom: settlementSubTab === 'user' ? '2px solid #007bff' : '2px solid transparent',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: settlementSubTab === 'user' ? '#007bff' : '#666',
+                      fontWeight: settlementSubTab === 'user' ? 'bold' : 'normal'
+                    }}
+                  >
+                    用户结算
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSettlementSubTab('editor');
+                      if (settlementSubTab !== 'editor') {
+                        loadEditorSettlementOverview();
+                      }
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      border: 'none',
+                      borderBottom: settlementSubTab === 'editor' ? '2px solid #007bff' : '2px solid transparent',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      color: settlementSubTab === 'editor' ? '#007bff' : '#666',
+                      fontWeight: settlementSubTab === 'editor' ? 'bold' : 'normal'
+                    }}
+                  >
+                    编辑结算
+                  </button>
+                </div>
                 <div className={styles.dateFilter}>
                   <input
                     type="month"
                     value={settlementMonth}
                     onChange={(e) => setSettlementMonth(e.target.value)}
                   />
-                  <select
-                    value={settlementStatus}
-                    onChange={(e) => setSettlementStatus(e.target.value)}
-                    style={{ marginLeft: '10px', padding: '5px' }}
-                  >
-                    <option value="all">全部状态</option>
-                    <option value="unpaid">未支付</option>
-                    <option value="paid">已支付</option>
-                  </select>
-                  <select
-                    value={settlementRole}
-                    onChange={(e) => setSettlementRole(e.target.value)}
-                    style={{ marginLeft: '10px', padding: '5px' }}
-                  >
-                    <option value="all">全部用户</option>
-                    <option value="author_only">仅作者</option>
-                    <option value="promoter_only">仅推广者</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="用户ID"
-                    value={settlementUserId}
-                    onChange={(e) => setSettlementUserId(e.target.value)}
-                    style={{ marginLeft: '10px', padding: '5px', width: '100px' }}
-                  />
-                  <button onClick={loadSettlementOverview} className={styles.searchButton} disabled={settlementLoading}>
-                    查询
-                  </button>
-                  <button 
-                    onClick={generateMonthlyIncome} 
-                    className={styles.generateButton}
-                    style={{ marginLeft: '10px' }}
-                  >
-                    生成月度汇总
-                  </button>
+                  {settlementSubTab === 'user' ? (
+                    <>
+                      <select
+                        value={settlementStatus}
+                        onChange={(e) => setSettlementStatus(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px' }}
+                      >
+                        <option value="all">全部状态</option>
+                        <option value="unpaid">未支付</option>
+                        <option value="paid">已支付</option>
+                      </select>
+                      <select
+                        value={settlementRole}
+                        onChange={(e) => setSettlementRole(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px' }}
+                      >
+                        <option value="all">全部用户</option>
+                        <option value="author_only">仅作者</option>
+                        <option value="promoter_only">仅推广者</option>
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={editorSettlementStatus}
+                        onChange={(e) => setEditorSettlementStatus(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px' }}
+                      >
+                        <option value="all">全部状态</option>
+                        <option value="unpaid">未支付</option>
+                        <option value="paid">已支付</option>
+                      </select>
+                      <select
+                        value={editorSettlementRole}
+                        onChange={(e) => setEditorSettlementRole(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px' }}
+                      >
+                        <option value="all">全部角色</option>
+                        <option value="editor">仅编辑</option>
+                        <option value="chief_editor">仅主编</option>
+                      </select>
+                    </>
+                  )}
+                  {settlementSubTab === 'user' ? (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="用户ID"
+                        value={settlementUserId}
+                        onChange={(e) => setSettlementUserId(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px', width: '100px' }}
+                      />
+                      <button onClick={loadSettlementOverview} className={styles.searchButton} disabled={settlementLoading}>
+                        查询
+                      </button>
+                      <button 
+                        onClick={generateMonthlyIncome} 
+                        className={styles.generateButton}
+                        style={{ marginLeft: '10px' }}
+                      >
+                        生成月度汇总
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="编辑ID"
+                        value={editorSettlementId}
+                        onChange={(e) => setEditorSettlementId(e.target.value)}
+                        style={{ marginLeft: '10px', padding: '5px', width: '100px' }}
+                      />
+                      <button onClick={loadEditorSettlementOverview} className={styles.searchButton} disabled={editorSettlementLoading}>
+                        查询
+                      </button>
+                      <button 
+                        onClick={generateEditorSettlementMonthly} 
+                        className={styles.generateButton}
+                        style={{ marginLeft: '10px' }}
+                      >
+                        生成月度汇总
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {settlementLoading ? (
-                <div className={styles.loading}>加载中...</div>
-              ) : (
+              {/* 用户结算Tab */}
+              {settlementSubTab === 'user' && (
                 <>
-                  <div className={styles.paymentTable}>
-                    <h3>用户结算列表（作者+推广者）(user_income_monthly)</h3>
+                  {settlementLoading ? (
+                    <div className={styles.loading}>加载中...</div>
+                  ) : (
+                    <>
+                      <div className={styles.paymentTable}>
+                        <h3>用户结算列表（作者+推广者）(user_income_monthly)</h3>
                     <table>
                       <thead>
                         <tr>
@@ -1710,12 +2078,156 @@ const AdminPanel: React.FC = () => {
                         )}
                       </tbody>
                     </table>
-                  </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
 
-                  {/* 用户详情模态框 */}
-                  {selectedUserDetail && (
-                    <div className={styles.modal} onClick={() => setSelectedUserDetail(null)}>
-                      <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+              {/* 编辑结算Tab */}
+              {settlementSubTab === 'editor' && (
+                <>
+                  {editorSettlementLoading ? (
+                    <div className={styles.loading}>加载中...</div>
+                  ) : (
+                    <>
+                      <div className={styles.paymentTable}>
+                        <h3>编辑结算列表（editor_settlement_monthly）</h3>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>编辑</th>
+                              <th>角色</th>
+                              <th>参与小说数</th>
+                              <th>记录条数</th>
+                              <th>当月总收入(USD)</th>
+                              <th>支付状态</th>
+                              <th>支付方式</th>
+                              <th>支付币种</th>
+                              <th>支付金额</th>
+                              <th>操作</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {editorSettlements.length === 0 ? (
+                              <tr>
+                                <td colSpan={10} className={styles.emptyCell}>暂无数据</td>
+                              </tr>
+                            ) : (
+                              editorSettlements.map((item: any) => {
+                                if (!item.total_income_usd || item.total_income_usd <= 0) {
+                                  return null;
+                                }
+                                
+                                const roleDisplay = item.role === 'chief_editor' ? '主编' : item.role === 'editor' ? '编辑' : item.role === 'proofreader' ? '校对' : item.role;
+                                
+                                return (
+                                  <tr 
+                                    key={item.settlement_id}
+                                    onClick={(e) => {
+                                      const target = e.target as HTMLElement;
+                                      if (target.tagName === 'BUTTON' || target.closest('button') || target.tagName === 'A' || target.closest('a')) {
+                                        return;
+                                      }
+                                      if (item.settlement_id) {
+                                        toggleEditorRowExpansion(item.settlement_id);
+                                      }
+                                    }}
+                                    style={{ 
+                                      cursor: item.settlement_id ? 'pointer' : 'default'
+                                    }}
+                                    title={item.settlement_id ? '点击查看详情' : ''}
+                                  >
+                                    <td>{item.editor_name} (ID: {item.editor_admin_id})</td>
+                                    <td>{roleDisplay}</td>
+                                    <td>{item.novel_count}</td>
+                                    <td>{item.record_count}</td>
+                                    <td><strong>${(item.total_income_usd || 0).toFixed(2)}</strong></td>
+                                    <td>
+                                      <span 
+                                        className={`${styles.status} ${
+                                          item.payout_status === 'paid' ? styles.completed :
+                                          item.payout_status === 'processing' ? styles.pending :
+                                          item.payout_status === 'failed' ? styles.error :
+                                          styles.pending
+                                        }`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (item.payout_status === 'paid' && item.settlement_id) {
+                                            loadEditorSettlementDetail(item.settlement_id);
+                                          }
+                                        }}
+                                        style={{
+                                          cursor: item.payout_status === 'paid' && item.settlement_id ? 'pointer' : 'default',
+                                          textDecoration: item.payout_status === 'paid' && item.settlement_id ? 'underline' : 'none',
+                                          userSelect: 'none'
+                                        }}
+                                      >
+                                        {item.payout_status === 'paid' ? '已支付' :
+                                         item.payout_status === 'processing' ? '处理中' :
+                                         item.payout_status === 'failed' ? '失败' :
+                                         '未支付'}
+                                      </span>
+                                    </td>
+                                    <td 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (item.payout_method === 'paypal' && item.settlement_id) {
+                                          syncEditorPayPalStatus(item.settlement_id);
+                                        }
+                                      }}
+                                      style={{
+                                        cursor: item.payout_method === 'paypal' && item.settlement_id ? 'pointer' : 'default',
+                                        textDecoration: item.payout_method === 'paypal' && item.settlement_id ? 'underline' : 'none',
+                                        color: item.payout_method === 'paypal' && item.settlement_id ? '#007bff' : 'inherit',
+                                        userSelect: 'none'
+                                      }}
+                                      title={item.payout_method === 'paypal' && item.settlement_id ? '点击同步PayPal状态' : ''}
+                                    >
+                                      {item.payout_method ? (item.payout_method === 'paypal' ? 'PayPal' : item.payout_method === 'alipay' ? '支付宝' : item.payout_method === 'wechat' ? '微信' : item.payout_method) : '-'}
+                                    </td>
+                                    <td>{item.payout_currency || '-'}</td>
+                                    <td>{item.payout_amount ? (item.payout_currency ? `${item.payout_currency} ${parseFloat(item.payout_amount).toFixed(2)}` : parseFloat(item.payout_amount).toFixed(2)) : '-'}</td>
+                                    <td onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        onClick={async () => {
+                                          if (!item.settlement_id) {
+                                            setError('该编辑该月的结算记录ID不存在');
+                                            return;
+                                          }
+                                          
+                                          // TODO: 加载编辑收款账户信息并显示支付弹窗
+                                          // 这里需要先实现获取编辑账户信息的接口，或者复用现有的支付弹窗逻辑
+                                          setError('发起支付功能开发中，请稍后');
+                                        }}
+                                        className={styles.searchButton}
+                                        disabled={userDetailLoading || item.payout_status === 'paid' || item.payout_status === 'processing'}
+                                        style={{ 
+                                          opacity: (item.payout_status === 'paid' || item.payout_status === 'processing') ? 0.5 : 1,
+                                          cursor: (item.payout_status === 'paid' || item.payout_status === 'processing') ? 'not-allowed' : 'pointer'
+                                        }}
+                                      >
+                                        {item.payout_status === 'processing' ? '处理中' : '发起支付'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              }).filter(Boolean)
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 用户详情模态框 */}
+          {selectedUserDetail && (
+            <div className={styles.modal} onClick={() => setSelectedUserDetail(null)}>
+              <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
                           <h3>用户结算详情 - {selectedUserDetail.user.pen_name || selectedUserDetail.user.username}</h3>
                           <button onClick={() => setSelectedUserDetail(null)} className={styles.closeButton}>×</button>
@@ -1994,10 +2506,6 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </>
-              )}
-            </div>
-          )}
 
           {/* 结算详情模态框（新版本，显示完整信息） */}
           {showSettlementDetailModal && selectedSettlementDetail && (
@@ -2601,6 +3109,122 @@ const AdminPanel: React.FC = () => {
             </div>
           )}
 
+          {/* 编辑结算详情模态框 */}
+          {selectedEditorSettlementDetail && showEditorSettlementDetailModal && (
+            <div className={styles.modal} onClick={() => {
+              setShowEditorSettlementDetailModal(false);
+              setSelectedEditorSettlementDetail(null);
+            }}>
+              <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.modalHeader}>
+                  <h3>编辑结算详情 - {selectedEditorSettlementDetail.editor?.real_name || selectedEditorSettlementDetail.editor?.name || `编辑${selectedEditorSettlementDetail.settlement_monthly?.editor_admin_id}`}</h3>
+                  <button onClick={() => {
+                    setShowEditorSettlementDetailModal(false);
+                    setSelectedEditorSettlementDetail(null);
+                  }} className={styles.closeButton}>×</button>
+                </div>
+                <div className={styles.modalBody}>
+                  {userDetailLoading ? (
+                    <div className={styles.loading}>加载中...</div>
+                  ) : (
+                    <>
+                      {/* 基本信息 */}
+                      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                        <h4 style={{ marginTop: 0 }}>基本信息</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <p><strong>编辑:</strong> {selectedEditorSettlementDetail.editor?.real_name || selectedEditorSettlementDetail.editor?.name || `编辑${selectedEditorSettlementDetail.settlement_monthly?.editor_admin_id}`}</p>
+                          <p><strong>编辑ID:</strong> {selectedEditorSettlementDetail.settlement_monthly?.editor_admin_id}</p>
+                          <p><strong>角色:</strong> {selectedEditorSettlementDetail.settlement_monthly?.role === 'chief_editor' ? '主编' : selectedEditorSettlementDetail.settlement_monthly?.role === 'editor' ? '编辑' : selectedEditorSettlementDetail.settlement_monthly?.role}</p>
+                          <p><strong>月份:</strong> {settlementMonth}</p>
+                          <p><strong>总收入(USD):</strong> ${(parseFloat(selectedEditorSettlementDetail.settlement_monthly?.total_income_usd || 0) || 0).toFixed(2)}</p>
+                          <p><strong>参与小说数:</strong> {selectedEditorSettlementDetail.settlement_monthly?.novel_count || 0}</p>
+                          <p><strong>记录条数:</strong> {selectedEditorSettlementDetail.settlement_monthly?.record_count || 0}</p>
+                          <p><strong>支付状态:</strong> {selectedEditorSettlementDetail.settlement_monthly?.payout_status === 'paid' ? '已支付' : '未支付'}</p>
+                        </div>
+                      </div>
+
+                      {/* 支付订单信息 */}
+                      {selectedEditorSettlementDetail.payouts && selectedEditorSettlementDetail.payouts.length > 0 && (
+                        <div className={styles.paymentTable} style={{ marginBottom: '20px' }}>
+                          <h4>支付订单</h4>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>支付单ID</th>
+                                <th>月份</th>
+                                <th>记账金额(USD)</th>
+                                <th>实付金额(币种)</th>
+                                <th>汇率</th>
+                                <th>方式</th>
+                                <th>状态</th>
+                                <th>申请时间</th>
+                                <th>支付时间</th>
+                                <th>备注</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedEditorSettlementDetail.payouts.map((payout: any) => {
+                                const baseAmount = parseFloat(payout.base_amount_usd || 0) || 0;
+                                const payoutAmount = parseFloat(payout.payout_amount || 0) || 0;
+                                const payoutCurrency = payout.payout_currency || 'USD';
+                                const fxRate = parseFloat(payout.fx_rate || (payoutCurrency === 'USD' ? '1.0' : '0')) || 0;
+                                
+                                const amountDisplay = payoutCurrency === 'USD' 
+                                  ? `$${payoutAmount.toFixed(2)}`
+                                  : `¥${payoutAmount.toFixed(2)} ${payoutCurrency}`;
+                                
+                                const formatMonth = (monthStr: string) => {
+                                  if (!monthStr) return '-';
+                                  try {
+                                    const date = new Date(monthStr);
+                                    return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+                                  } catch (e) {
+                                    return monthStr;
+                                  }
+                                };
+                                
+                                return (
+                                  <tr key={payout.id}>
+                                    <td>{payout.id}</td>
+                                    <td>{formatMonth(payout.month)}</td>
+                                    <td>${baseAmount.toFixed(2)}</td>
+                                    <td>{amountDisplay}</td>
+                                    <td>{fxRate.toFixed(6)}</td>
+                                    <td>{payout.method}</td>
+                                    <td>
+                                      <span className={`${styles.status} ${
+                                        payout.status === 'paid' ? styles.completed :
+                                        payout.status === 'processing' ? styles.pending :
+                                        payout.status === 'failed' ? styles.error :
+                                        styles.pending
+                                      }`}>
+                                        {payout.status === 'paid' ? '已支付' :
+                                         payout.status === 'processing' ? '处理中' :
+                                         payout.status === 'approved' ? '已审核' :
+                                         payout.status === 'pending' ? '待审核' :
+                                         payout.status === 'failed' ? '失败' :
+                                         payout.status === 'cancelled' ? '已取消' : payout.status}
+                                      </span>
+                                    </td>
+                                    <td>{new Date(payout.requested_at).toLocaleString('zh-CN')}</td>
+                                    <td>{payout.paid_at ? new Date(payout.paid_at).toLocaleString('zh-CN') : '-'}</td>
+                                    <td>
+                                      <div>{payout.note || '-'}</div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 基础收入统计选项卡 */}
           {activeTab === 'base-income' && (
             <BaseIncome onError={setError} />
@@ -2614,6 +3238,11 @@ const AdminPanel: React.FC = () => {
           {/* 推广佣金明细选项卡 */}
           {activeTab === 'commission-transaction' && (
             <CommissionTransaction onError={setError} />
+          )}
+
+          {/* 编辑基础收入-4选项卡 */}
+          {activeTab === 'editor-base-income' && (
+            <EditorBaseIncome onError={setError} />
           )}
 
           {/* 提成设置选项卡 */}

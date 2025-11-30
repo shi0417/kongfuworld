@@ -39,21 +39,17 @@ interface ChapterDetailData {
 interface ChapterDetailProps {
   chapter: ChapterDetailData;
   currentAdminRole: string;
+  currentAdminId: number | null;
   onReview: (chapterId: number, result: string, comment: string) => Promise<void>;
-  onNavigate: (direction: 'prev' | 'next') => void;
   onClose: () => void;
-  canNavigatePrev: boolean;
-  canNavigateNext: boolean;
 }
 
 const ChapterDetail: React.FC<ChapterDetailProps> = ({
   chapter,
   currentAdminRole,
+  currentAdminId,
   onReview,
-  onNavigate,
-  onClose,
-  canNavigatePrev,
-  canNavigateNext
+  onClose
 }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [fontSize, setFontSize] = useState(14);
@@ -89,7 +85,10 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
   const isSuperAdmin = currentAdminRole === 'super_admin';
   const isPendingChief = chapter.review_status === 'pending_chief';
 
-  // 获取"审核通过"按钮的文本
+  // 核心权限判断：完全依赖后端返回的 can_review 字段
+  const canReview = chapter.can_review === true;
+
+  // 获取"审核通过"按钮的文本（仅用于显示，不影响禁用逻辑）
   const getApproveButtonText = () => {
     if (!requiresChiefEdit) {
       // 不需要主编终审：直接显示"审核通过"
@@ -111,22 +110,26 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
     return '审核通过';
   };
 
-  // 判断"审核通过"按钮是否可用
-  const canApprove = () => {
-    if (requiresChiefEdit) {
-      if (isEditor) {
-        // 编辑可以提交主编终审
-        return true;
-      } else if (isChiefEditor || isSuperAdmin) {
-        // 主编/超管可以终审通过（特别是 pending_chief 状态）
-        return true;
-      }
-      return false;
-    } else {
-      // 不需要主编终审：编辑和超管都可以直接通过
-      return isEditor || isSuperAdmin;
-    }
-  };
+  // 按钮禁用状态计算（完全依赖 can_review，不再使用 review_status 判断）
+  const disableSaveAsReviewing = !canReview;
+  // "审核通过/提交主编终审/终审通过"按钮：只依赖 can_review
+  // 注意：按钮文本会根据 requires_chief_edit 和状态变化，但禁用逻辑统一
+  const disableApprove = !canReview;
+  const disableReject = !canReview;
+
+  // 调试日志
+  useEffect(() => {
+    console.log('[前端调试] 章节详情数据 - can_review:', chapter.can_review);
+    console.log('[前端调试] 章节详情数据 - requires_chief_edit:', chapter.requires_chief_edit);
+    console.log('[前端调试] 章节详情数据 - review_status:', chapter.review_status);
+    console.log('[前端调试] 按钮禁用状态:', {
+      disableSaveAsReviewing,
+      disableApprove,
+      disableReject,
+      canReview,
+      requiresChiefEdit
+    });
+  }, [chapter.id, disableSaveAsReviewing, disableApprove, disableReject, canReview, requiresChiefEdit]);
 
   // 处理审核操作
   // 三个按钮的语义：
@@ -275,24 +278,6 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
             </div>
           </div>
         </div>
-
-        {/* 快捷导航 */}
-        <div className={styles.navigation}>
-          <button
-            onClick={() => onNavigate('prev')}
-            disabled={!canNavigatePrev}
-            className={styles.navBtn}
-          >
-            ← 上一章
-          </button>
-          <button
-            onClick={() => onNavigate('next')}
-            disabled={!canNavigateNext}
-            className={styles.navBtn}
-          >
-            下一章 →
-          </button>
-        </div>
       </div>
 
       {/* 正文内容 */}
@@ -383,31 +368,31 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
             />
           </div>
 
-          {/* 如果没有审核权限，显示提示 */}
-          {chapter.can_review === false && (
+          {/* 如果没有审核权限，显示提示（super_admin 不显示此提示） */}
+          {chapter.can_review === false && currentAdminRole !== 'super_admin' && (
             <div className={styles.noReviewPermission}>
-              <p>您当前在该小说上没有生效的编辑/主编合同（包括 super_admin），因此不能进行审核操作。</p>
+              <p>您当前对本章节没有审核权限（可能是没有生效合同，或章节状态/归属不允许），因此不能进行审核操作。</p>
             </div>
           )}
           
           <div className={styles.reviewActions}>
             <button
               onClick={() => handleReview('reviewing')}
-              disabled={saving || chapter.review_status === 'reviewing' || !chapter.can_review}
+              disabled={saving || disableSaveAsReviewing}
               className={styles.saveBtn}
             >
               保存为"审核中"
             </button>
             <button
               onClick={() => handleReview('approved')}
-              disabled={saving || !canApprove() || !chapter.can_review}
+              disabled={saving || disableApprove}
               className={styles.approveBtn}
             >
               {getApproveButtonText()}
             </button>
             <button
               onClick={() => handleReview('rejected')}
-              disabled={saving || !reviewComment.trim() || !chapter.can_review}
+              disabled={saving || !reviewComment.trim() || disableReject}
               className={styles.rejectBtn}
             >
               审核拒绝
