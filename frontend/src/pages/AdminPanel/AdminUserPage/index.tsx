@@ -3,14 +3,19 @@ import styles from './AdminUserPage.module.css';
 import AccountManagementTab from './AccountManagementTab';
 import ContractManagementTab from './ContractManagementTab';
 import ContractApprovalTab from './ContractApprovalTab';
+import PermissionManagementTab from './PermissionManagementTab';
 
 interface AdminUserPageProps {
   onError?: (error: string) => void;
+  currentAdminRole?: string;
+  adminToken?: string | null;
 }
 
-const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError }) => {
+type AdminUserSubTab = 'account' | 'contract' | 'approval' | 'permission';
+
+const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError, currentAdminRole, adminToken }) => {
   const [noPermission, setNoPermission] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'contract' | 'approval'>('account');
+  const [activeTab, setActiveTab] = useState<AdminUserSubTab>('account');
 
   // API 请求函数
   const adminApiRequest = async (endpoint: string, options: RequestInit = {}) => {
@@ -99,6 +104,14 @@ const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError }) => {
         >
           合同审批
         </button>
+        {currentAdminRole === 'super_admin' && (
+          <button
+            className={`${styles.tab} ${activeTab === 'permission' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('permission')}
+          >
+            账号权限管理
+          </button>
+        )}
       </div>
 
       {/* Tab 内容 */}
@@ -119,6 +132,12 @@ const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError }) => {
           <ContractApprovalTab 
             onError={onError} 
             adminApiRequest={adminApiRequest}
+          />
+        )}
+        {activeTab === 'permission' && currentAdminRole === 'super_admin' && (
+          <PermissionManagementTab
+            adminToken={adminToken}
+            onError={onError}
           />
         )}
       </div>

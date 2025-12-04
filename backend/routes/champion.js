@@ -25,12 +25,49 @@ router.get('/config/:novelId', async (req, res) => {
       ORDER BY tier_level ASC
     `, [novelId]);
 
+    // 查询当前生效的促销活动
+    let promotionInfo = null;
+    const now = new Date();
+    const [promotions] = await db.execute(
+      `SELECT * FROM pricing_promotion 
+       WHERE novel_id = ? 
+         AND status IN ('scheduled', 'active')
+         AND start_at <= ? 
+         AND end_at >= ?
+       ORDER BY discount_value ASC, start_at DESC
+       LIMIT 1`,
+      [novelId, now, now]
+    );
+    
+    if (promotions.length > 0) {
+      const promotion = promotions[0];
+      const discount = parseFloat(promotion.discount_value);
+      
+      // 计算剩余时间
+      const endAt = new Date(promotion.end_at);
+      const timeRemaining = endAt.getTime() - now.getTime();
+      
+      promotionInfo = {
+        id: promotion.id,
+        promotion_type: promotion.promotion_type,
+        discount_value: discount,
+        discount_percentage: Math.round((1 - discount) * 100), // 折扣百分比，如70表示70% off
+        start_at: promotion.start_at,
+        end_at: promotion.end_at,
+        time_remaining: timeRemaining,
+        time_remaining_formatted: timeRemaining > 0 ? 
+          `${Math.floor(timeRemaining / (1000 * 60 * 60))}h:${Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))}m:${Math.floor((timeRemaining % (1000 * 60)) / 1000)}s` : 
+          '00h:00m:00s'
+      };
+    }
+
     // 直接返回实际数据，即使为空也不自动创建
     // 前端会根据是否有数据来决定是否显示默认配置供用户编辑
     res.json({
       success: true,
       data: {
-        tiers: tiers || []
+        tiers: tiers || [],
+        promotion: promotionInfo
       }
     });
   } catch (error) {
@@ -174,6 +211,39 @@ router.post('/subscribe', async (req, res) => {
 
     const tier = tiers[0];
     
+    // 查询当前生效的促销活动，计算折扣价
+    const basePrice = parseFloat(tier.monthly_price) || 0;
+    let finalPrice = basePrice;
+    let promotionId = null;
+    
+    const now = new Date();
+    const [promotions] = await db.execute(
+      `SELECT * FROM pricing_promotion 
+       WHERE novel_id = ? 
+         AND status IN ('scheduled', 'active')
+         AND start_at <= ? 
+         AND end_at >= ?
+       ORDER BY discount_value ASC, start_at DESC
+       LIMIT 1`,
+      [novelId, now, now]
+    );
+    
+    if (promotions.length > 0 && basePrice > 0) {
+      const promotion = promotions[0];
+      const discount = parseFloat(promotion.discount_value);
+      promotionId = promotion.id;
+      
+      // 计算折扣价
+      if (discount === 0) {
+        // 限时免费
+        finalPrice = 0;
+      } else if (discount < 1) {
+        // 折扣价：向上取整到分
+        finalPrice = Math.ceil(basePrice * discount * 100) / 100;
+        if (finalPrice < 0.01) finalPrice = 0.01;
+      }
+    }
+    
     // 计算订阅时间
     const startDate = new Date();
     const endDate = new Date();
@@ -189,14 +259,14 @@ router.post('/subscribe', async (req, res) => {
         [userId, novelId]
       );
 
-      // 创建新订阅
+      // 创建新订阅（使用折扣价）
       await db.execute(`
         INSERT INTO user_champion_subscription 
         (user_id, novel_id, tier_level, tier_name, monthly_price, start_date, end_date, payment_method)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         userId, novelId, tierLevel, tier.tier_name, 
-        tier.monthly_price, startDate, endDate, paymentMethod
+        finalPrice, startDate, endDate, paymentMethod
       ]);
 
       await db.query('COMMIT');
@@ -208,9 +278,11 @@ router.post('/subscribe', async (req, res) => {
           tier: {
             level: tierLevel,
             name: tier.tier_name,
-            price: tier.monthly_price,
+            price: finalPrice, // 返回实际支付的折扣价
+            basePrice: basePrice, // 原价
             advanceChapters: tier.advance_chapters,
-            endDate: endDate
+            endDate: endDate,
+            promotionApplied: promotionId ? true : false
           }
         }
       });

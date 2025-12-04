@@ -213,49 +213,82 @@ router.post('/unlock-with-karma/:chapterId/:userId', async (req, res) => {
         });
       }
       
-      // 5. Check user Golden Karma balance
-      if (user.golden_karma < chapter.unlock_price) {
+      // 5. 查询当前生效的促销活动，计算折扣价
+      const basePrice = chapter.unlock_price;
+      let finalPrice = basePrice;
+      let promotionId = null;
+      
+      const now = new Date();
+      const [promotions] = await db.execute(
+        `SELECT * FROM pricing_promotion 
+         WHERE novel_id = ? 
+           AND status IN ('scheduled', 'active')
+           AND start_at <= ? 
+           AND end_at >= ?
+         ORDER BY discount_value ASC, start_at DESC
+         LIMIT 1`,
+        [chapter.novel_id, now, now]
+      );
+      
+      if (promotions.length > 0) {
+        const promotion = promotions[0];
+        const discount = parseFloat(promotion.discount_value);
+        promotionId = promotion.id;
+        
+        // 计算折扣价
+        if (discount === 0) {
+          // 限时免费
+          finalPrice = 0;
+        } else if (discount < 1) {
+          // 折扣价：向上取整，至少为1
+          finalPrice = Math.ceil(basePrice * discount);
+          if (finalPrice < 1) finalPrice = 1;
+        }
+      }
+      
+      // 6. Check user Golden Karma balance (使用折扣价)
+      if (user.golden_karma < finalPrice) {
         return res.status(400).json({
           success: false,
-          message: `Insufficient Golden Karma balance. Required: ${chapter.unlock_price} Golden Karma, Current balance: ${user.golden_karma} Golden Karma`,
+          message: `Insufficient Golden Karma balance. Required: ${finalPrice} Golden Karma, Current balance: ${user.golden_karma} Golden Karma`,
           redirectUrl: 'http://localhost:3000/user-center?tab=karma',
           errorCode: 'INSUFFICIENT_KARMA'
         });
       }
       
-      // 6. Deduct Golden Karma balance
-      const newKarmaBalance = user.golden_karma - chapter.unlock_price;
+      // 7. Deduct Golden Karma balance (使用折扣价)
+      const newKarmaBalance = user.golden_karma - finalPrice;
       await db.execute('UPDATE user SET golden_karma = ? WHERE id = ?', [newKarmaBalance, userId]);
       
-      // 7. Record Karma transaction
+      // 8. Record Karma transaction (记录实际扣除的折扣价)
       await db.execute(`
         INSERT INTO user_karma_transactions (
           user_id, transaction_type, karma_amount, karma_type, balance_before, balance_after,
           chapter_id, description, status
         ) VALUES (?, 'consumption', ?, 'golden_karma', ?, ?, ?, ?, 'completed')
-      `, [userId, chapter.unlock_price, user.golden_karma, newKarmaBalance, chapterId, `Unlock chapter: ${chapter.novel_title} Chapter ${chapter.chapter_number}`]);
+      `, [userId, finalPrice, user.golden_karma, newKarmaBalance, chapterId, `Unlock chapter: ${chapter.novel_title} Chapter ${chapter.chapter_number}${promotionId ? ' (Promotion applied)' : ''}`]);
       
-      // 7. Check if unlock record already exists
+      // 9. Check if unlock record already exists
       const [unlockRecords] = await db.execute(`
         SELECT * FROM chapter_unlocks 
         WHERE user_id = ? AND chapter_id = ?
       `, [userId, chapterId]);
       
       if (unlockRecords.length > 0) {
-        // If record exists, update to Karma unlock
+        // If record exists, update to Karma unlock (记录折扣价)
         await db.execute(`
           UPDATE chapter_unlocks 
           SET unlock_method = 'karma', cost = ?, status = 'unlocked', unlocked_at = NOW()
           WHERE user_id = ? AND chapter_id = ?
-        `, [chapter.unlock_price, userId, chapterId]);
+        `, [finalPrice, userId, chapterId]);
         console.log('✅ Updated existing unlock record to Karma unlock');
       } else {
-        // If no record exists, insert new Karma unlock record
+        // If no record exists, insert new Karma unlock record (记录折扣价)
         await db.execute(`
           INSERT INTO chapter_unlocks (
             user_id, chapter_id, unlock_method, cost, status, unlocked_at
           ) VALUES (?, ?, 'karma', ?, 'unlocked', NOW())
-        `, [userId, chapterId, chapter.unlock_price]);
+        `, [userId, chapterId, finalPrice]);
         console.log('✅ Created new Karma unlock record');
       }
       
@@ -269,9 +302,11 @@ router.post('/unlock-with-karma/:chapterId/:userId', async (req, res) => {
           chapterId: chapterId,
           novelTitle: chapter.novel_title,
           chapterNumber: chapter.chapter_number,
-          karmaCost: chapter.unlock_price,
+          karmaCost: finalPrice, // 实际扣除的折扣价
+          basePrice: basePrice, // 原价
           karmaBefore: user.golden_karma,
-          karmaAfter: newKarmaBalance
+          karmaAfter: newKarmaBalance,
+          promotionApplied: promotionId ? true : false
         }
       });
       
@@ -581,6 +616,58 @@ router.get('/status/:chapterId/:userId', async (req, res) => {
     const unlockMethod = unlocks.length > 0 ? unlocks[0].unlock_method : 
                         championSubs.length > 0 ? 'champion' : 'none';
     
+    // 查询当前生效的促销活动
+    let promotionInfo = null;
+    const basePrice = chapter.unlock_price || 0;
+    if (basePrice > 0) {
+      const now = new Date();
+      const [promotions] = await db.execute(
+        `SELECT * FROM pricing_promotion 
+         WHERE novel_id = ? 
+           AND status IN ('scheduled', 'active')
+           AND start_at <= ? 
+           AND end_at >= ?
+         ORDER BY discount_value ASC, start_at DESC
+         LIMIT 1`,
+        [chapter.novel_id, now, now]
+      );
+      
+      if (promotions.length > 0) {
+        const promotion = promotions[0];
+        const discount = parseFloat(promotion.discount_value);
+        
+        // 计算折扣价
+        let discountedPrice = basePrice;
+        if (discount === 0) {
+          // 限时免费
+          discountedPrice = 0;
+        } else if (discount < 1) {
+          // 折扣价：向上取整，至少为1
+          discountedPrice = Math.ceil(basePrice * discount);
+          if (discountedPrice < 1) discountedPrice = 1;
+        }
+        
+        // 计算剩余时间
+        const endAt = new Date(promotion.end_at);
+        const timeRemaining = endAt.getTime() - now.getTime();
+        
+        promotionInfo = {
+          id: promotion.id,
+          promotion_type: promotion.promotion_type,
+          discount_value: discount,
+          discount_percentage: Math.round((1 - discount) * 100), // 折扣百分比，如70表示70% off
+          base_price: basePrice,
+          discounted_price: discountedPrice,
+          start_at: promotion.start_at,
+          end_at: promotion.end_at,
+          time_remaining: timeRemaining,
+          time_remaining_formatted: timeRemaining > 0 ? 
+            `${Math.floor(timeRemaining / (1000 * 60 * 60))}h:${Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))}m:${Math.floor((timeRemaining % (1000 * 60)) / 1000)}s` : 
+            '00h:00m:00s'
+        };
+      }
+    }
+    
     // 获取时间解锁信息 - 检查是否有进行中的时间解锁
     let timeUnlockInfo = null;
     if (!isUnlocked) {
@@ -650,6 +737,9 @@ router.get('/status/:chapterId/:userId', async (req, res) => {
       }
     }
       
+      // 计算最终价格（如果有促销则使用折扣价，否则使用原价）
+      const finalUnlockPrice = promotionInfo ? promotionInfo.discounted_price : (chapter.unlock_price || 0);
+      
       res.json({
         success: true,
         data: {
@@ -657,6 +747,7 @@ router.get('/status/:chapterId/:userId', async (req, res) => {
         novelTitle: chapter.novel_title,
         chapterNumber: chapter.chapter_number,
         unlock_price: chapter.unlock_price || 0,
+        final_unlock_price: finalUnlockPrice, // 最终价格（包含促销折扣）
         keyCost: chapter.key_cost,
         unlockPrice: chapter.unlock_price,
         isUnlocked: isUnlocked,
@@ -664,9 +755,10 @@ router.get('/status/:chapterId/:userId', async (req, res) => {
         userKeyBalance: user.points,
         userKarmaBalance: user.golden_karma,
         canUnlockWithKey: user.points >= chapter.key_cost && chapter.key_cost > 0,
-        canUnlockWithKarma: user.golden_karma >= chapter.unlock_price && chapter.unlock_price > 0,
+        canUnlockWithKarma: user.golden_karma >= finalUnlockPrice && finalUnlockPrice > 0,
         hasChampionSubscription: championSubs.length > 0,
-        timeUnlock: timeUnlockInfo
+        timeUnlock: timeUnlockInfo,
+        promotion: promotionInfo // 促销信息
       }
     });
     

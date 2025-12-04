@@ -1,0 +1,1 @@
+select * from admin_menu_permission;

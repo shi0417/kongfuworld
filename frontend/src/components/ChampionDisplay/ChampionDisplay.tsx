@@ -21,24 +21,72 @@ interface ChampionDisplayProps {
   onSubscribe?: (tierLevel: number) => void;
 }
 
+interface PromotionInfo {
+  id: number;
+  promotion_type: string;
+  discount_value: number;
+  discount_percentage: number;
+  start_at: string;
+  end_at: string;
+  time_remaining: number;
+  time_remaining_formatted: string;
+}
+
 const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, onSubscribe }) => {
   const { user } = useAuth();
   const [tiers, setTiers] = useState<ChampionTier[]>([]);
   const [userStatus, setUserStatus] = useState<any>(null);
+  const [promotion, setPromotion] = useState<PromotionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<{
     level: number;
     name: string;
     price: number;
+    basePrice?: number;
     advanceChapters: number;
     description: string;
   } | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSmartPaymentModal, setShowSmartPaymentModal] = useState(false);
+  const [promotionTimeRemaining, setPromotionTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
     fetchChampionData();
   }, [novelId]);
+
+  // 更新促销倒计时
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (promotion) {
+      const updatePromotionTime = () => {
+        const now = new Date();
+        const endAt = new Date(promotion.end_at);
+        const timeRemaining = endAt.getTime() - now.getTime();
+        
+        if (timeRemaining > 0) {
+          const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+          const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+          setPromotionTimeRemaining(`${hours}h:${minutes.toString().padStart(2, '0')}m:${seconds.toString().padStart(2, '0')}s`);
+        } else {
+          setPromotionTimeRemaining('00h:00m:00s');
+          // 促销已过期，刷新数据
+          fetchChampionData();
+        }
+      };
+      
+      // 立即执行一次
+      updatePromotionTime();
+      
+      // 每秒更新一次
+      interval = setInterval(updatePromotionTime, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [promotion]);
 
   const fetchChampionData = async () => {
     try {
@@ -49,6 +97,7 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
       
       if (configResponse.success) {
         setTiers(configResponse.data.tiers || []);
+        setPromotion(configResponse.data.promotion || null);
       }
 
       // 获取用户状态
@@ -73,12 +122,31 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
     }
   };
 
+  // 计算折扣价
+  const calculateDiscountedPrice = (basePrice: number): number => {
+    if (!promotion || basePrice <= 0) return basePrice;
+    
+    const discount = promotion.discount_value;
+    if (discount === 0) {
+      return 0; // 限时免费
+    } else if (discount < 1) {
+      // 折扣价：向上取整到分
+      const discounted = Math.ceil(basePrice * discount * 100) / 100;
+      return discounted < 0.01 ? 0.01 : discounted;
+    }
+    return basePrice;
+  };
+
   const handleSubscribe = (tier: ChampionTier) => {
+    const basePrice = Number(tier.monthly_price) || 0;
+    const finalPrice = calculateDiscountedPrice(basePrice);
+    
     // 转换字段名以匹配PaymentModal期望的接口
     const convertedTier = {
       level: tier.tier_level,
       name: tier.tier_name,
-      price: Number(tier.monthly_price) || 0,
+      price: finalPrice, // 使用折扣价
+      basePrice: basePrice, // 保存原价
       advanceChapters: tier.advance_chapters,
       description: tier.description
     };
@@ -115,14 +183,15 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
       // 保存当前小说ID到localStorage，用于支付成功后的重定向
       localStorage.setItem('currentNovelId', novelId.toString());
       
-      // 创建PayPal支付订单
+      // 创建PayPal支付订单（使用折扣价）
       const response = await ApiService.request('/payment/paypal/create', {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id, // 使用当前登录用户的ID
-          amount: selectedTier.price,
+          amount: selectedTier.price, // 使用折扣价
+          baseAmount: selectedTier.basePrice || selectedTier.price, // 原价（用于显示）
           currency: 'USD',
-          description: `KongFuWorld Champion Subscription - ${selectedTier.name}`,
+          description: `KongFuWorld Champion Subscription - ${selectedTier.name}${promotion ? ` (${promotion.discount_percentage}% OFF)` : ''}`,
           novelId: novelId // 传递当前小说ID
         })
       });
@@ -223,7 +292,31 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
               <div className={styles.tierHeader}>
                 <div className={styles.tierName}>{tier.tier_name}</div>
                 <div className={styles.tierPrice}>
-                  ${(Number(tier.monthly_price) || 0).toFixed(2)} / month
+                  {promotion ? (() => {
+                    const basePrice = Number(tier.monthly_price) || 0;
+                    const discountedPrice = calculateDiscountedPrice(basePrice);
+                    return (
+                      <div className={styles.promotionPrice}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <span className={styles.originalPrice}>
+                            ${basePrice.toFixed(2)}
+                          </span>
+                          <span className={styles.discountedPrice}>
+                            ${discountedPrice.toFixed(2)}
+                          </span>
+                          <span className={styles.discountBadge}>
+                            {promotion.discount_percentage}% OFF
+                          </span>
+                        </div>
+                        <div className={styles.promotionTime}>
+                          ⏰ {promotionTimeRemaining || promotion.time_remaining_formatted} remaining
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '2px' }}>/ month</div>
+                      </div>
+                    );
+                  })() : (
+                    <span>${(Number(tier.monthly_price) || 0).toFixed(2)} / month</span>
+                  )}
                 </div>
               </div>
               
@@ -272,6 +365,10 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
         tier={selectedTier!}
         novelTitle={novelTitle}
         onConfirm={handlePaymentConfirm}
+        promotion={promotion ? {
+          discount_percentage: promotion.discount_percentage,
+          time_remaining_formatted: promotionTimeRemaining || promotion.time_remaining_formatted
+        } : null}
       />
 
       {/* 智能支付模态框 */}
@@ -282,11 +379,16 @@ const ChampionDisplay: React.FC<ChampionDisplayProps> = ({ novelId, novelTitle, 
           tier={{
             name: selectedTier.name,
             price: selectedTier.price,
+            basePrice: selectedTier.basePrice,
             description: selectedTier.description
           }}
           novelId={novelId}
           onPaymentSuccess={handleSmartPaymentSuccess}
           onPaymentError={handleSmartPaymentError}
+          promotion={promotion ? {
+            discount_percentage: promotion.discount_percentage,
+            time_remaining_formatted: promotionTimeRemaining || promotion.time_remaining_formatted
+          } : null}
         />
       )}
     </div>

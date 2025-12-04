@@ -2005,5 +2005,79 @@ router.post('/novel/:novelId/publish', authenticateAuthor, async (req, res) => {
   }
 });
 
+// 获取作者更新日历统计
+router.get('/calendar', authenticateAuthor, async (req, res) => {
+  let db;
+  try {
+    const { year, month, userId, novelId } = req.query;
+    const loginUserId = req.authorId;
+    const authorId = userId || loginUserId;
+
+    if (!authorId || !year || !month) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required params: year, month, authorId' 
+      });
+    }
+
+    const yearInt = parseInt(year, 10);
+    const monthInt = parseInt(month, 10);
+
+    if (isNaN(yearInt) || isNaN(monthInt) || monthInt < 1 || monthInt > 12) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid year or month' 
+      });
+    }
+
+    const startDate = `${yearInt}-${String(monthInt).padStart(2, '0')}-01`;
+    const endMonth = monthInt === 12 ? 1 : monthInt + 1;
+    const endYear = monthInt === 12 ? yearInt + 1 : yearInt;
+    const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+
+    db = await mysql.createConnection(dbConfig);
+
+    const params = [authorId, startDate, endDate];
+    let sql = `
+      SELECT date,
+             SUM(word_delta) AS word_count,
+             COUNT(*) AS change_count
+      FROM author_daily_word_count
+      WHERE author_id = ?
+        AND date >= ?
+        AND date < ?
+    `;
+
+    if (novelId) {
+      sql += ' AND novel_id = ?';
+      params.push(parseInt(novelId));
+    }
+
+    sql += ' GROUP BY date ORDER BY date ASC';
+
+    const [rows] = await db.execute(sql, params);
+
+    res.json({
+      success: true,
+      year: yearInt,
+      month: monthInt,
+      days: rows.map(r => ({
+        date: r.date,                         // YYYY-MM-DD
+        word_count: Number(r.word_count) || 0, // 当天总增量
+        change_count: Number(r.change_count) || 0, // 当天发布/修改次数
+      })),
+    });
+  } catch (err) {
+    console.error('Error in /api/writer/calendar', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: err.message 
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
 module.exports = router;
 

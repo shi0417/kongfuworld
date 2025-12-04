@@ -1,6 +1,8 @@
 // Stripe fallback utility
 // 当Stripe.js加载失败时提供备用方案
 
+import type { Stripe } from '@stripe/stripe-js';
+
 export const createStripeFallback = () => {
   console.warn('⚠️ Stripe.js加载失败，使用备用方案');
   
@@ -41,7 +43,7 @@ export const createStripeFallback = () => {
   };
 };
 
-export const loadStripeFallback = async (publishableKey: string) => {
+export const loadStripeFallback = async (publishableKey: string): Promise<Stripe | null> => {
   try {
     // 尝试加载真实的Stripe
     const { loadStripe } = await import('@stripe/stripe-js');
@@ -51,12 +53,11 @@ export const loadStripeFallback = async (publishableKey: string) => {
       console.log('✅ Stripe.js加载成功');
       return stripe;
     } else {
-      console.warn('⚠️ Stripe.js返回null，使用备用方案');
-      return createStripeFallback();
+      console.warn('⚠️ Stripe.js返回null');
+      return null;
     }
   } catch (error) {
     console.error('❌ Stripe.js加载失败:', error);
-    console.log('🔧 使用Stripe备用方案');
-    return createStripeFallback();
+    return null;
   }
 };

@@ -34,7 +34,9 @@ app.get('/api/novel/:novelId/volumes', async (req, res) => {
         COUNT(c.id) as actual_chapter_count,
         MAX(c.created_at) as latest_chapter_date
       FROM volume v
-      LEFT JOIN chapter c ON v.volume_id = c.volume_id AND c.novel_id = v.novel_id AND c.review_status = 'approved'
+      LEFT JOIN chapter c ON c.volume_id = v.id
+        AND c.novel_id = v.novel_id
+        AND c.review_status = 'approved'
       WHERE v.novel_id = ?
       GROUP BY v.id, v.volume_id, v.title, v.start_chapter, v.end_chapter, v.chapter_count
       ORDER BY ${orderBy}
@@ -49,7 +51,8 @@ app.get('/api/novel/:novelId/volumes', async (req, res) => {
         c.created_at,
         v.volume_id
       FROM chapter c
-      JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
+      JOIN volume v ON c.volume_id = v.id
+        AND v.novel_id = c.novel_id
       WHERE c.novel_id = ? AND c.review_status = 'approved'
       ORDER BY c.created_at DESC
       LIMIT 1

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
   CardElement,
@@ -8,10 +7,12 @@ import {
 } from '@stripe/react-stripe-js';
 import { useAuth } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
+import { loadStripeFallback } from '../../utils/stripeFallback';
 import styles from './SmartPaymentModal.module.css';
 
-// 加载Stripe
-const stripePromise = loadStripe('pk_test_51SDjOuDYBCezccmeveA9cNQZ4xW1VCJfbGBzFU6xsid1eiuMzK8fQDufYr6FzIURXV4U7eHYoGFrUKGyc209tfVk00yzBXGlC0');
+// 加载Stripe（带错误处理）
+const STRIPE_PUBLISHABLE_KEY = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51SDjOuDYBCezccmeveA9cNQZ4xW1VCJfbGBzFU6xsid1eiuMzK8fQDufYr6FzIURXV4U7eHYoGFrUKGyc209tfVk00yzBXGlC0';
+const stripePromise = loadStripeFallback(STRIPE_PUBLISHABLE_KEY);
 
 interface PaymentMethod {
   id: string;
@@ -29,12 +30,17 @@ interface SmartPaymentModalProps {
   tier: {
     name: string;
     price: number;
+    basePrice?: number; // 原价（如果有促销）
     description: string;
     packageId?: number; // 添加packageId用于Karma购买
   };
   novelId: number;
   onPaymentSuccess: (orderId: string) => void;
   onPaymentError: (error: string) => void;
+  promotion?: {
+    discount_percentage: number;
+    time_remaining_formatted: string;
+  } | null;
 }
 
 // 支付表单组件
@@ -46,7 +52,8 @@ const PaymentForm: React.FC<{
   onClose: () => void;
   existingPaymentMethods: PaymentMethod[];
   onPaymentMethodSaved: () => void;
-}> = ({ tier, novelId, onPaymentSuccess, onPaymentError, onClose, existingPaymentMethods, onPaymentMethodSaved }) => {
+  promotion?: SmartPaymentModalProps['promotion'];
+}> = ({ tier, novelId, onPaymentSuccess, onPaymentError, onClose, existingPaymentMethods, onPaymentMethodSaved, promotion }) => {
   const { user } = useAuth();
   const stripe = useStripe();
   const elements = useElements();
@@ -380,7 +387,7 @@ const PaymentForm: React.FC<{
           className={styles.payButton}
           disabled={!stripe || isProcessing}
         >
-          {isProcessing ? 'Processing...' : `Pay $${(Number(tier.price) || 0).toFixed(2)}`}
+          {isProcessing ? 'Processing...' : `Pay $${(Number(tier.price) || 0).toFixed(2)}${promotion && tier.basePrice ? ` (${promotion.discount_percentage}% OFF)` : ''}`}
         </button>
       </div>
     </form>
@@ -393,15 +400,23 @@ const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
   tier,
   novelId,
   onPaymentSuccess,
-  onPaymentError
+  onPaymentError,
+  promotion
 }) => {
   const [existingPaymentMethods, setExistingPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stripeLoaded, setStripeLoaded] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       fetchPaymentMethods();
+      // 检查 Stripe 是否加载成功
+      stripePromise.then((stripe) => {
+        setStripeLoaded(stripe !== null);
+      }).catch(() => {
+        setStripeLoaded(false);
+      });
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -447,12 +462,44 @@ const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
             <h3 className={styles.tierName}>{tier.name}</h3>
             <p className={styles.tierDescription}>{tier.description}</p>
             <div className={styles.price}>
-              ${(Number(tier.price) || 0).toFixed(2)} / month
+              {promotion && tier.basePrice ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '18px' }}>
+                      ${(Number(tier.basePrice) || 0).toFixed(2)}
+                    </span>
+                    <span style={{ color: '#ff6b6b', fontWeight: 'bold', fontSize: '22px' }}>
+                      ${(Number(tier.price) || 0).toFixed(2)}
+                    </span>
+                    <span style={{ 
+                      background: '#ff6b6b', 
+                      color: '#fff', 
+                      padding: '2px 6px', 
+                      borderRadius: '4px', 
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {promotion.discount_percentage}% OFF
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#ff6b6b', fontWeight: '500' }}>
+                    ⏰ {promotion.time_remaining_formatted} remaining
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#aaa', marginTop: '2px' }}>/ month</div>
+                </div>
+              ) : (
+                <span>${(Number(tier.price) || 0).toFixed(2)} / month</span>
+              )}
             </div>
           </div>
 
           {loading ? (
             <div className={styles.loading}>加载支付方式中...</div>
+          ) : stripeLoaded === false ? (
+            <div className={styles.errorMessage}>
+              <p>Stripe 支付服务暂时不可用，请稍后重试或使用其他支付方式。</p>
+              <button onClick={onClose} className={styles.cancelButton}>关闭</button>
+            </div>
           ) : (
             <Elements stripe={stripePromise}>
               <PaymentForm
@@ -463,6 +510,7 @@ const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
                 onClose={onClose}
                 existingPaymentMethods={existingPaymentMethods}
                 onPaymentMethodSaved={handlePaymentMethodSaved}
+                promotion={promotion}
               />
             </Elements>
           )}

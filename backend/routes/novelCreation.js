@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
+const authorDailyWordCountService = require('../services/authorDailyWordCountService');
 
 // 数据库配置
 const db = mysql.createConnection({
@@ -1424,6 +1425,30 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
         });
       }
 
+      // 如果章节已发布（is_released === 1 且 release_date 不为空），记录字数变更
+      if (isReleased === 1 && releaseDate) {
+        // 获取作者ID
+        db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [novelId], async (authorErr, authorResults) => {
+          if (!authorErr && authorResults && authorResults.length > 0) {
+            const authorId = authorResults[0].user_id;
+            if (authorId) {
+              try {
+                await authorDailyWordCountService.recordChapterReleaseChange({
+                  authorId,
+                  novelId,
+                  chapterId: newChapterId,
+                  wordCount: calculatedWordCount,
+                  releaseDate: releaseDate,
+                });
+              } catch (wordCountErr) {
+                console.error('记录章节字数变更失败:', wordCountErr);
+                // 不影响主流程，继续返回成功
+              }
+            }
+          }
+        });
+      }
+
       res.json({ 
         success: true, 
         message: 'Chapter created successfully',
@@ -1437,7 +1462,7 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
 });
 
 // 更新章节
-router.post('/chapter/update', textFieldsMulter.none(), (req, res) => {
+router.post('/chapter/update', textFieldsMulter.none(), async (req, res) => {
   const chapter_id = req.body.chapter_id;
   const novel_id = req.body.novel_id;
   const chapter_number = req.body.chapter_number;
@@ -1468,6 +1493,25 @@ router.post('/chapter/update', textFieldsMulter.none(), (req, res) => {
 
   if (!chapterTitle || !chapterTitle.trim()) {
     return res.status(400).json({ success: false, message: 'Chapter title is required' });
+  }
+
+  // 在更新之前先查出旧状态
+  let oldChapter = null;
+  try {
+    const [oldRows] = await new Promise((resolve, reject) => {
+      db.query(
+        'SELECT novel_id, is_released, word_count, release_date FROM chapter WHERE id = ? LIMIT 1',
+        [chapterId],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+    oldChapter = oldRows && oldRows.length > 0 ? oldRows[0] : null;
+  } catch (err) {
+    console.error('查询章节旧状态失败:', err);
+    // 继续执行，不影响主流程
   }
 
   // 计算字数（去除空格）
@@ -1705,10 +1749,60 @@ router.post('/chapter/update', textFieldsMulter.none(), (req, res) => {
       });
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Chapter updated successfully'
-    });
+    // 更新完成后，再查一次最新章节状态（保证拿到数据库中的最终值）
+    db.query(
+      'SELECT novel_id, is_released, word_count, release_date FROM chapter WHERE id = ? LIMIT 1',
+      [parseInt(chapterId)],
+      async (queryErr, newRows) => {
+        if (queryErr) {
+          console.error('查询章节新状态失败:', queryErr);
+          return res.json({ 
+            success: true, 
+            message: 'Chapter updated successfully'
+          });
+        }
+
+        const newChapter = newRows && newRows.length > 0 ? newRows[0] : null;
+        
+        if (newChapter) {
+          // 需要记录发布变更的场景：
+          // A. 原来未发布，更新后已发布
+          // B. 原来已发布，这次修改后字数发生变化
+          const shouldRecord = 
+            (!oldChapter || !oldChapter.is_released) && newChapter.is_released == 1 ||
+            (oldChapter && oldChapter.is_released == 1 && newChapter.is_released == 1 && 
+             (oldChapter.word_count || 0) !== (newChapter.word_count || 0));
+
+          if (shouldRecord) {
+            // 获取作者ID
+            db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [newChapter.novel_id], async (authorErr, authorResults) => {
+              if (!authorErr && authorResults && authorResults.length > 0) {
+                const authorId = authorResults[0].user_id;
+                if (authorId) {
+                  try {
+                    await authorDailyWordCountService.recordChapterReleaseChange({
+                      authorId,
+                      novelId: newChapter.novel_id,
+                      chapterId: parseInt(chapterId),
+                      wordCount: newChapter.word_count || 0,
+                      releaseDate: newChapter.release_date || new Date(),
+                    });
+                  } catch (wordCountErr) {
+                    console.error('记录章节字数变更失败:', wordCountErr);
+                    // 不影响主流程
+                  }
+                }
+              }
+            });
+          }
+        }
+
+        res.json({ 
+          success: true, 
+          message: 'Chapter updated successfully'
+        });
+      }
+    );
   });
 });
 
@@ -1718,20 +1812,41 @@ router.get('/chapter/:chapterId', (req, res) => {
 
   const query = `
     SELECT 
-      id,
-      novel_id,
-      volume_id,
-      chapter_number,
-      title,
-      content,
-      translator_note,
-      review_status,
-      word_count,
-      is_released,
-      release_date,
-      created_at
-    FROM chapter
-    WHERE id = ?
+      c.id,
+      c.novel_id,
+      c.volume_id,
+      c.chapter_number,
+      c.title,
+      c.content,
+      c.unlock_price,
+      c.translator_note,
+      c.review_status,
+      c.word_count,
+      c.is_released,
+      c.release_date,
+      c.created_at,
+      n.title as novel_title,
+      n.author,
+      n.translator,
+      v.title as volume_title,
+      (SELECT id
+       FROM chapter
+       WHERE novel_id = c.novel_id
+         AND review_status = 'approved'
+         AND chapter_number < c.chapter_number
+       ORDER BY chapter_number DESC
+       LIMIT 1) AS prev_chapter_id,
+      (SELECT id
+       FROM chapter
+       WHERE novel_id = c.novel_id
+         AND review_status = 'approved'
+         AND chapter_number > c.chapter_number
+       ORDER BY chapter_number ASC
+       LIMIT 1) AS next_chapter_id
+    FROM chapter c
+    JOIN novel n ON c.novel_id = n.id
+    LEFT JOIN volume v ON c.volume_id = v.id AND v.novel_id = c.novel_id
+    WHERE c.id = ?
   `;
 
   db.query(query, [parseInt(chapterId)], (err, results) => {
@@ -1744,7 +1859,41 @@ router.get('/chapter/:chapterId', (req, res) => {
       return res.status(404).json({ success: false, message: 'Chapter not found' });
     }
 
-    res.json({ success: true, data: results[0] });
+    const chapter = results[0];
+    
+    console.log('📖 [novelCreation.js] ========== 章节数据查询结果 ==========');
+    console.log('📖 [novelCreation.js] 章节ID:', chapter.id);
+    console.log('📖 [novelCreation.js] 章节标题:', chapter.title);
+    console.log('📖 [novelCreation.js] unlock_price (数据库原始值):', chapter.unlock_price);
+    console.log('📖 [novelCreation.js] unlock_price (类型):', typeof chapter.unlock_price);
+    console.log('📖 [novelCreation.js] unlock_price === null?:', chapter.unlock_price === null);
+    console.log('📖 [novelCreation.js] unlock_price === undefined?:', chapter.unlock_price === undefined);
+    console.log('📖 [novelCreation.js] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
+    console.log('📖 [novelCreation.js] ======================================');
+    
+    // 处理 prev_chapter_id 和 next_chapter_id
+    const prevId = (chapter.prev_chapter_id !== null && chapter.prev_chapter_id !== undefined) 
+      ? chapter.prev_chapter_id 
+      : null;
+    const nextId = (chapter.next_chapter_id !== null && chapter.next_chapter_id !== undefined) 
+      ? chapter.next_chapter_id 
+      : null;
+    
+    // 构建返回对象，包含导航字段
+    const responseData = {
+      ...chapter,
+      prev_chapter_id: prevId,
+      next_chapter_id: nextId,
+      has_prev: Boolean(prevId),
+      has_next: Boolean(nextId)
+    };
+
+    console.log('📖 [novelCreation.js] ========== 返回给前端的数据 ==========');
+    console.log('📖 [novelCreation.js] responseData.unlock_price:', responseData.unlock_price);
+    console.log('📖 [novelCreation.js] responseData.unlock_price (类型):', typeof responseData.unlock_price);
+    console.log('📖 [novelCreation.js] ======================================');
+
+    res.json({ success: true, data: responseData });
   });
 });
 

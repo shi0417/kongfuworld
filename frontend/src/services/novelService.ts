@@ -123,17 +123,23 @@ class NovelService {
   }
 
   // 获取章节内容（带重试机制）
-  async getChapterContent(chapterId: number, retries: number = 3): Promise<any> {
+  async getChapterContent(chapterId: number, userId?: number | null, retries: number = 3): Promise<any> {
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log(`尝试获取章节内容 (第${attempt}次尝试):`, chapterId);
+        console.log(`尝试获取章节内容 (第${attempt}次尝试):`, chapterId, '用户ID:', userId);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
         
-        const response = await fetch(`${this.baseURL}/chapter/${chapterId}`, {
+        // 构建URL，如果提供了userId则添加到查询参数中
+        let url = `${this.baseURL}/chapter/${chapterId}`;
+        if (userId) {
+          url += `?userId=${userId}`;
+        }
+        
+        const response = await fetch(url, {
           signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
@@ -162,8 +168,51 @@ class NovelService {
           throw new Error('API返回数据为空');
         }
         
-        console.log('章节内容获取成功:', data.data.title);
-        return data.data;
+        const apiData = data.data;
+        
+        console.log('📦 [novelService] ========== API 原始数据 ==========');
+        console.log('📦 [novelService] apiData.unlock_price (原始值):', apiData.unlock_price);
+        console.log('📦 [novelService] apiData.unlock_price (类型):', typeof apiData.unlock_price);
+        console.log('📦 [novelService] apiData.unlock_price === null?:', apiData.unlock_price === null);
+        console.log('📦 [novelService] apiData.unlock_price === undefined?:', apiData.unlock_price === undefined);
+        console.log('📦 [novelService] apiData.unlock_price == 0?:', apiData.unlock_price == 0);
+        console.log('📦 [novelService] apiData.unlock_price > 0?:', (apiData.unlock_price && apiData.unlock_price > 0));
+        console.log('📦 [novelService] ======================================');
+        
+        // 确保 has_prev / has_next 字段存在，如果后端没给也用 prev/next id 推导
+        // 注意：unlock_price 如果是 null 或 undefined，应该保持为 null，而不是转换为 0
+        const chapter = {
+          id: apiData.id,
+          novel_id: apiData.novel_id,
+          volume_id: apiData.volume_id,
+          chapter_number: apiData.chapter_number,
+          title: apiData.title,
+          content: apiData.content,
+          translator_note: apiData.translator_note,
+          unlock_price: apiData.unlock_price ?? null, // 使用 ?? 而不是 ||，避免 0 被误判
+          novel_title: apiData.novel_title,
+          author: apiData.author,
+          translator: apiData.translator,
+          volume_title: apiData.volume_title,
+          prev_chapter_id: apiData.prev_chapter_id ?? null,
+          next_chapter_id: apiData.next_chapter_id ?? null,
+          has_prev: apiData.has_prev ?? Boolean(apiData.prev_chapter_id),
+          has_next: apiData.has_next ?? Boolean(apiData.next_chapter_id)
+        };
+        
+        console.log('📦 [novelService] ========== 章节内容解析结果 ==========');
+        console.log('📦 [novelService] 章节ID:', chapter.id);
+        console.log('📦 [novelService] 章节号:', chapter.chapter_number);
+        console.log('📦 [novelService] unlock_price (处理后):', chapter.unlock_price);
+        console.log('📦 [novelService] unlock_price (类型):', typeof chapter.unlock_price);
+        console.log('📦 [novelService] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
+        console.log('📦 [novelService] has_prev:', chapter.has_prev, '| 类型:', typeof chapter.has_prev);
+        console.log('📦 [novelService] has_next:', chapter.has_next, '| 类型:', typeof chapter.has_next);
+        console.log('📦 [novelService] prev_chapter_id:', chapter.prev_chapter_id);
+        console.log('📦 [novelService] next_chapter_id:', chapter.next_chapter_id);
+        console.log('📦 [novelService] ======================================');
+        
+        return chapter;
         
       } catch (error: any) {
         lastError = error;

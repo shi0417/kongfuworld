@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../contexts/LanguageContext';
 import ApiService from '../../services/ApiService';
 import styles from './IncomeManagement.module.css';
 
@@ -71,6 +72,7 @@ interface ReferralStats {
 
 const IncomeManagement: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'income' | 'referral' | 'settlement' | 'account'>('income');
   
   // 切换Tab时重置分页
@@ -280,9 +282,9 @@ const IncomeManagement: React.FC = () => {
   // 复制到剪贴板
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert('已复制到剪贴板');
+      alert(t('income.common.copySuccess'));
     }).catch(err => {
-      console.error('复制失败:', err);
+      console.error(t('income.common.copyFailed'), err);
     });
   };
 
@@ -352,7 +354,7 @@ const IncomeManagement: React.FC = () => {
   const savePayoutAccount = async () => {
     if (!user) return;
     if (!accountForm.account_label) {
-      alert('请填写账户标签');
+      alert(t('income.common.validation.labelRequired'));
       return;
     }
     
@@ -361,23 +363,23 @@ const IncomeManagement: React.FC = () => {
     switch (accountForm.method) {
       case 'PayPal':
         isValid = !!(accountForm.account_data.email);
-        if (!isValid) alert('请填写PayPal邮箱');
+        if (!isValid) alert(t('income.common.validation.paypalEmailRequired'));
         break;
       case 'Alipay':
         isValid = !!(accountForm.account_data.account);
-        if (!isValid) alert('请填写支付宝账号');
+        if (!isValid) alert(t('income.common.validation.alipayAccountRequired'));
         break;
       case 'WeChat':
         isValid = !!(accountForm.account_data.wechat_id || accountForm.account_data.qrcode_url);
-        if (!isValid) alert('请填写微信号或收款码URL');
+        if (!isValid) alert(t('income.common.validation.wechatRequired'));
         break;
       case 'Bank':
         isValid = !!(accountForm.account_data.bank_name && accountForm.account_data.account_name && accountForm.account_data.card_number);
-        if (!isValid) alert('请填写完整的银行卡信息');
+        if (!isValid) alert(t('income.common.validation.bankInfoRequired'));
         break;
       default:
         isValid = false;
-        alert('请选择支付方式');
+        alert(t('income.common.validation.payMethodRequired'));
     }
     
     if (!isValid) return;
@@ -398,7 +400,7 @@ const IncomeManagement: React.FC = () => {
         method: dbMethod // 使用数据库格式的method值
       });
       if (response && response.success) {
-        alert(editingAccount ? '收款账户已更新' : '收款账户已创建');
+        alert(editingAccount ? t('income.common.accountUpdated') : t('income.common.accountCreated'));
         setShowAccountModal(false);
         setEditingAccount(null);
         setAccountForm({
@@ -410,7 +412,7 @@ const IncomeManagement: React.FC = () => {
         await loadPayoutAccounts();
       }
     } catch (error: any) {
-      alert(error.message || '保存失败');
+      alert(error.message || t('income.common.saveFailed'));
     }
   };
   
@@ -420,11 +422,11 @@ const IncomeManagement: React.FC = () => {
     try {
       const response = await ApiService.post(`/writer/payout-account/${accountId}/set-default`);
       if (response && response.success) {
-        alert('已设置为默认收款账户');
+        alert(t('income.common.setDefaultSuccess'));
         await loadPayoutAccounts();
       }
     } catch (error: any) {
-      alert(error.message || '设置失败');
+      alert(error.message || t('income.common.setDefaultFailed'));
     }
   };
   
@@ -466,13 +468,13 @@ const IncomeManagement: React.FC = () => {
     const methodMap: { [key: string]: string } = {
       'PayPal': 'PayPal',
       'paypal': 'PayPal',
-      'Alipay': '支付宝',
-      'alipay': '支付宝',
-      'WeChat': '微信支付',
-      'wechat': '微信支付',
-      'Bank': '银行卡',
-      'bank_transfer': '银行卡',
-      'bank': '银行卡'
+      'Alipay': t('income.settlement.payMethod.alipay'),
+      'alipay': t('income.settlement.payMethod.alipay'),
+      'WeChat': t('income.settlement.payMethod.wechat'),
+      'wechat': t('income.settlement.payMethod.wechat'),
+      'Bank': t('income.settlement.payMethod.bankTransfer'),
+      'bank_transfer': t('income.settlement.payMethod.bankTransfer'),
+      'bank': t('income.settlement.payMethod.bankTransfer')
     };
     return methodMap[method] || method;
   };
@@ -491,18 +493,18 @@ const IncomeManagement: React.FC = () => {
   
   // 删除收款账户
   const deletePayoutAccount = async (accountId: number) => {
-    if (!window.confirm('确定要删除这个收款账户吗？')) {
+    if (!window.confirm(t('income.common.deleteAccountConfirm'))) {
       return;
     }
     
     try {
       const response = await ApiService.delete(`/writer/payout-account/${accountId}`);
       if (response && response.success) {
-        alert('收款账户已删除');
+        alert(t('income.common.deleteAccountSuccess'));
         await loadPayoutAccounts();
       }
     } catch (error: any) {
-      alert(error.message || '删除失败');
+      alert(error.message || t('income.common.deleteAccountFailed'));
     }
   };
 
@@ -554,25 +556,25 @@ const IncomeManagement: React.FC = () => {
           className={`${styles.tab} ${activeTab === 'income' ? styles.active : ''}`}
           onClick={() => handleTabChange('income')}
         >
-          作者收入
+          {t('income.tab.authorIncome')}
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'referral' ? styles.active : ''}`}
           onClick={() => handleTabChange('referral')}
         >
-          推广链接
+          {t('income.tab.referralLinks')}
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'settlement' ? styles.active : ''}`}
           onClick={() => handleTabChange('settlement')}
         >
-          结算管理
+          {t('income.tab.settlement')}
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'account' ? styles.active : ''}`}
           onClick={() => handleTabChange('account')}
         >
-          收款账户
+          {t('income.tab.paymentAccount')}
         </button>
       </div>
 
@@ -582,7 +584,7 @@ const IncomeManagement: React.FC = () => {
           {/* 筛选区 */}
           <div className={styles.filters}>
             <div className={styles.filterItem}>
-              <label>月份：</label>
+              <label>{t('income.authorIncome.monthLabel')}</label>
               <input
                 type="month"
                 value={incomeMonth}
@@ -591,20 +593,20 @@ const IncomeManagement: React.FC = () => {
               />
             </div>
             <div className={styles.filterItem}>
-              <label>作品：</label>
+              <label>{t('income.authorIncome.workLabel')}</label>
               <select
                 value={selectedNovelId}
                 onChange={(e) => setSelectedNovelId(e.target.value)}
                 style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
               >
-                <option value="all">全部作品</option>
+                <option value="all">{t('income.authorIncome.allWorks')}</option>
                 {userNovels.map(novel => (
                   <option key={novel.id} value={novel.id}>{novel.title}</option>
                 ))}
               </select>
             </div>
             <div className={styles.filterItem}>
-              <label>货币：</label>
+              <label>{t('income.authorIncome.currencyLabel')}</label>
               <span>USD</span>
             </div>
           </div>
@@ -613,19 +615,19 @@ const IncomeManagement: React.FC = () => {
           {incomeSummary && (
             <div className={styles.summaryCards}>
               <div className={styles.summaryCard}>
-                <div className={styles.cardTitle}>本月总收入</div>
+                <div className={styles.cardTitle}>{t('income.authorIncome.totalIncome')}</div>
                 <div className={styles.cardValue}>{formatCurrency(incomeSummary.total_income)}</div>
               </div>
               <div className={styles.summaryCard}>
-                <div className={styles.cardTitle}>基础作者收入</div>
+                <div className={styles.cardTitle}>{t('income.authorIncome.basicIncome')}</div>
                 <div className={styles.cardValue}>{formatCurrency(incomeSummary.author_base_income)}</div>
               </div>
               <div className={styles.summaryCard}>
-                <div className={styles.cardTitle}>读者推广收入</div>
+                <div className={styles.cardTitle}>{t('income.authorIncome.readerPromoIncome')}</div>
                 <div className={styles.cardValue}>{formatCurrency(incomeSummary.reader_referral_income)}</div>
               </div>
               <div className={styles.summaryCard}>
-                <div className={styles.cardTitle}>作者推广收入</div>
+                <div className={styles.cardTitle}>{t('income.authorIncome.authorPromoIncome')}</div>
                 <div className={styles.cardValue}>{formatCurrency(incomeSummary.author_referral_income)}</div>
               </div>
             </div>
@@ -633,20 +635,20 @@ const IncomeManagement: React.FC = () => {
 
           {/* 按作品汇总 */}
           <div className={styles.section}>
-            <h3>按作品汇总</h3>
+            <h3>{t('income.authorIncome.workSummaryTitle')}</h3>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>作品</th>
-                  <th>基础收入</th>
-                  <th>总收入</th>
+                  <th>{t('income.authorIncome.table.column.work')}</th>
+                  <th>{t('income.authorIncome.table.column.basicIncome')}</th>
+                  <th>{t('income.authorIncome.table.column.totalIncome')}</th>
                 </tr>
               </thead>
               <tbody>
                 {novelIncomes.length === 0 ? (
                   <tr>
                     <td colSpan={3} style={{ textAlign: 'center', padding: '20px' }}>
-                      暂无数据
+                      {t('income.authorIncome.noData')}
                     </td>
                   </tr>
                 ) : (
@@ -669,58 +671,58 @@ const IncomeManagement: React.FC = () => {
                 className={`${styles.subTab} ${incomeDetailsTab === 'base' ? styles.active : ''}`}
                 onClick={() => setIncomeDetailsTab('base')}
               >
-                基础收入明细
+                {t('income.authorIncome.basicDetailTab')}
               </button>
               <button
                 className={`${styles.subTab} ${incomeDetailsTab === 'reader' ? styles.active : ''}`}
                 onClick={() => setIncomeDetailsTab('reader')}
               >
-                读者推广明细
+                {t('income.authorIncome.readerPromoDetailTab')}
               </button>
               <button
                 className={`${styles.subTab} ${incomeDetailsTab === 'author' ? styles.active : ''}`}
                 onClick={() => setIncomeDetailsTab('author')}
               >
-                作者推广明细
+                {t('income.authorIncome.authorPromoDetailTab')}
               </button>
             </div>
 
             {incomeLoading ? (
-              <div>加载中...</div>
+              <div>{t('income.authorIncome.loading')}</div>
             ) : (
               <table className={styles.table}>
                 <thead>
                   <tr>
                     {incomeDetailsTab === 'base' && (
                       <>
-                        <th>时间</th>
-                        <th>作品</th>
-                        <th>来源类型</th>
-                        <th>读者</th>
-                        <th>消费金额</th>
-                        <th>作者分成</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.time')}</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.work')}</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.sourceType')}</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.reader')}</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.consumption')}</th>
+                        <th>{t('income.authorIncome.table.basicDetail.column.authorShare')}</th>
                       </>
                     )}
                     {incomeDetailsTab === 'reader' && (
                       <>
-                        <th>时间</th>
-                        <th>下级读者</th>
-                        <th>作品</th>
-                        <th>层级</th>
-                        <th>分成比例</th>
-                        <th>消费金额</th>
-                        <th>推广收入</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.time')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.downlineReader')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.work')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.level')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.percent')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.consumption')}</th>
+                        <th>{t('income.authorIncome.table.readerPromo.column.promoIncome')}</th>
                       </>
                     )}
                     {incomeDetailsTab === 'author' && (
                       <>
-                        <th>时间</th>
-                        <th>下级作者</th>
-                        <th>作品</th>
-                        <th>层级</th>
-                        <th>分成比例</th>
-                        <th>基础收入</th>
-                        <th>推广收入</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.time')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.downlineAuthor')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.work')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.level')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.percent')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.baseIncome')}</th>
+                        <th>{t('income.authorIncome.table.authorPromo.column.promoIncome')}</th>
                       </>
                     )}
                   </tr>
@@ -729,7 +731,7 @@ const IncomeManagement: React.FC = () => {
                   {incomeDetails.length === 0 ? (
                     <tr>
                       <td colSpan={incomeDetailsTab === 'base' ? 6 : 7} style={{ textAlign: 'center', padding: '20px' }}>
-                        暂无数据
+                        {t('income.authorIncome.noData')}
                       </td>
                     </tr>
                   ) : (
@@ -750,7 +752,7 @@ const IncomeManagement: React.FC = () => {
                           <td>{new Date(detail.time).toLocaleString('zh-CN')}</td>
                           <td>{detail.reader_username}</td>
                           <td>{detail.novel_title}</td>
-                          <td>第{detail.level}层</td>
+                          <td>{t('income.common.levelText', { level: detail.level ?? 0 })}</td>
                           <td>{detail.percent}</td>
                           <td>{formatCurrency(detail.base_amount || '0')}</td>
                           <td>{formatCurrency(detail.commission_amount || '0')}</td>
@@ -761,7 +763,7 @@ const IncomeManagement: React.FC = () => {
                           <td>{new Date(detail.time).toLocaleString('zh-CN')}</td>
                           <td>{detail.author_pen_name || detail.author_username}</td>
                           <td>{detail.novel_title}</td>
-                          <td>第{detail.level}层</td>
+                          <td>{t('income.common.levelText', { level: detail.level ?? 0 })}</td>
                           <td>{detail.percent}</td>
                           <td>{formatCurrency(detail.base_amount || '0')}</td>
                           <td>{formatCurrency(detail.commission_amount || '0')}</td>
@@ -792,7 +794,7 @@ const IncomeManagement: React.FC = () => {
                 paddingBottom: '12px',
                 borderBottom: '2px solid #e0e0e0'
               }}>
-                当前推广方案
+                {t('income.referralLinks.currentPlan')}
               </h3>
               
               {/* 读者推广方案 */}
@@ -838,7 +840,7 @@ const IncomeManagement: React.FC = () => {
                         ▶
                       </span>
                       <span>
-                        读者推广方案：
+                        {t('income.referralLinks.readerPlanTitle')}
                         <span style={{ 
                           color: '#007bff', 
                           marginLeft: '8px',
@@ -856,7 +858,7 @@ const IncomeManagement: React.FC = () => {
                             fontSize: '12px',
                             fontWeight: 'normal'
                           }}>
-                            专属方案
+                            {t('income.referralLinks.exclusivePlanTag')}
                           </span>
                         )}
                       </span>
@@ -892,34 +894,34 @@ const IncomeManagement: React.FC = () => {
                         color: '#333',
                         marginBottom: '8px'
                       }}>
-                        推广读者的提成规则：
+                        {t('income.referralLinks.readerRuleTitle')}
                       </div>
-                      {referralPlans.reader_plan.levels.map((l) => (
-                        <div key={l.level} style={{
-                          fontSize: '13px',
-                          color: '#666',
-                          lineHeight: '1.8',
-                          paddingLeft: '12px',
-                          position: 'relative'
-                        }}>
-                          <span style={{
-                            position: 'absolute',
-                            left: '0',
-                            color: '#007bff',
-                            fontWeight: '600'
+                      {referralPlans.reader_plan.levels.map((l) => {
+                        const levelKey = `income.referralLinks.readerRuleLevel${l.level}`;
+                        return (
+                          <div key={l.level} style={{
+                            fontSize: '13px',
+                            color: '#666',
+                            lineHeight: '1.8',
+                            paddingLeft: '12px',
+                            position: 'relative'
                           }}>
-                            •
-                          </span>
-                          {l.level === 1 && '一级读者消费的 '}
-                          {l.level === 2 && '二级读者消费的 '}
-                          {l.level === 3 && '三级读者消费的 '}
-                          {l.level === 4 && '四级读者消费的 '}
-                          <span style={{ fontWeight: '600', color: '#007bff' }}>
-                            {l.percent_display}
-                          </span>
-                          {' 为您的收入'}
-                        </div>
-                      ))}
+                            <span style={{
+                              position: 'absolute',
+                              left: '0',
+                              color: '#007bff',
+                              fontWeight: '600'
+                            }}>
+                              •
+                            </span>
+                            {t(levelKey)}
+                            <span style={{ fontWeight: '600', color: '#007bff' }}>
+                              {l.percent_display}
+                            </span>
+                            {t('income.referralLinks.readerRuleSuffix')}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -968,7 +970,7 @@ const IncomeManagement: React.FC = () => {
                         ▶
                       </span>
                       <span>
-                        作者推广方案：
+                        {t('income.referralLinks.authorPlanTitle')}
                         <span style={{ 
                           color: '#28a745', 
                           marginLeft: '8px',
@@ -986,7 +988,7 @@ const IncomeManagement: React.FC = () => {
                             fontSize: '12px',
                             fontWeight: 'normal'
                           }}>
-                            专属方案
+                            {t('income.referralLinks.exclusivePlanTag')}
                           </span>
                         )}
                       </span>
@@ -1022,34 +1024,34 @@ const IncomeManagement: React.FC = () => {
                         color: '#333',
                         marginBottom: '8px'
                       }}>
-                        推广作者的提成规则：
+                        {t('income.referralLinks.authorRuleTitle')}
                       </div>
-                      {referralPlans.author_plan.levels.map((l) => (
-                        <div key={l.level} style={{
-                          fontSize: '13px',
-                          color: '#666',
-                          lineHeight: '1.8',
-                          paddingLeft: '12px',
-                          position: 'relative'
-                        }}>
-                          <span style={{
-                            position: 'absolute',
-                            left: '0',
-                            color: '#28a745',
-                            fontWeight: '600'
+                      {referralPlans.author_plan.levels.map((l) => {
+                        const levelKey = `income.referralLinks.authorRuleLevel${l.level}`;
+                        return (
+                          <div key={l.level} style={{
+                            fontSize: '13px',
+                            color: '#666',
+                            lineHeight: '1.8',
+                            paddingLeft: '12px',
+                            position: 'relative'
                           }}>
-                            •
-                          </span>
-                          {l.level === 1 && '一级作者基础收入的 '}
-                          {l.level === 2 && '二级作者基础收入的 '}
-                          {l.level === 3 && '三级作者基础收入的 '}
-                          {l.level === 4 && '四级作者基础收入的 '}
-                          <span style={{ fontWeight: '600', color: '#28a745' }}>
-                            {l.percent_display}
-                          </span>
-                          {' 为您的收入'}
-                        </div>
-                      ))}
+                            <span style={{
+                              position: 'absolute',
+                              left: '0',
+                              color: '#28a745',
+                              fontWeight: '600'
+                            }}>
+                              •
+                            </span>
+                            {t(levelKey)}
+                            <span style={{ fontWeight: '600', color: '#28a745' }}>
+                              {l.percent_display}
+                            </span>
+                            {t('income.referralLinks.authorRuleSuffix')}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1063,7 +1065,7 @@ const IncomeManagement: React.FC = () => {
               {promotionLink ? (
                 <>
                   <div className={styles.linkSection}>
-                    <label>推广链接：</label>
+                    <label>{t('income.referralLinks.promoLinkLabel')}</label>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <input
                         type="text"
@@ -1075,13 +1077,13 @@ const IncomeManagement: React.FC = () => {
                         onClick={() => copyToClipboard(promotionLink)}
                         className={styles.copyBtn}
                       >
-                        复制链接
+                        {t('income.referralLinks.copyLink')}
                       </button>
                     </div>
                   </div>
 
                   <div className={styles.linkSection}>
-                    <label>推广码：</label>
+                    <label>{t('income.referralLinks.promoCodeLabel')}</label>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <input
                         type="text"
@@ -1093,14 +1095,14 @@ const IncomeManagement: React.FC = () => {
                         onClick={() => copyToClipboard(promotionCode)}
                         className={styles.copyBtn}
                       >
-                        复制
+                        {t('income.referralLinks.copy')}
                       </button>
                     </div>
                   </div>
 
                   {qrCode && (
                     <div className={styles.qrcodeSection}>
-                      <label>二维码：</label>
+                      <label>{t('income.referralLinks.qrLabel')}</label>
                       <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
                         <img src={qrCode} alt="QR Code" style={{ width: '200px', height: '200px' }} />
                         <div>
@@ -1113,7 +1115,7 @@ const IncomeManagement: React.FC = () => {
                             }}
                             className={styles.downloadBtn}
                           >
-                            下载PNG
+                            {t('income.referralLinks.downloadPng')}
                           </button>
                         </div>
                       </div>
@@ -1122,7 +1124,7 @@ const IncomeManagement: React.FC = () => {
                 </>
               ) : (
                 <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <p>正在加载推广链接...</p>
+                  <p>{t('income.referralLinks.loadingLink')}</p>
                 </div>
               )}
             </div>
@@ -1131,41 +1133,41 @@ const IncomeManagement: React.FC = () => {
           {/* 推广统计 */}
           {referralStats && (
             <div className={styles.section}>
-              <h3>推广统计</h3>
+              <h3>{t('income.referralLinks.statsTitle')}</h3>
               <div className={styles.summaryCards}>
                 <div className={styles.summaryCard}>
-                  <div className={styles.cardTitle}>累计推广注册用户</div>
+                  <div className={styles.cardTitle}>{t('income.referralLinks.totalRegistered')}</div>
                   <div className={styles.cardValue}>{referralStats.total_referred_users}</div>
                 </div>
                 <div className={styles.summaryCard}>
-                  <div className={styles.cardTitle}>累计推广付费用户</div>
+                  <div className={styles.cardTitle}>{t('income.referralLinks.totalPaid')}</div>
                   <div className={styles.cardValue}>{referralStats.total_paying_users}</div>
                 </div>
                 <div className={styles.summaryCard}>
-                  <div className={styles.cardTitle}>累计推广总收入</div>
+                  <div className={styles.cardTitle}>{t('income.referralLinks.totalIncome')}</div>
                   <div className={styles.cardValue}>{formatCurrency(referralStats.total_referral_income)}</div>
                 </div>
               </div>
 
               {/* 下级列表 */}
               <div style={{ marginTop: '20px' }}>
-                <h4>我的下级列表</h4>
+                <h4>{t('income.referralLinks.downlineListTitle')}</h4>
                 <table className={styles.table}>
                   <thead>
                     <tr>
-                      <th>用户ID</th>
-                      <th>用户名</th>
-                      <th>类型</th>
-                      <th>注册时间</th>
-                      <th>累计消费</th>
-                      <th>我已获得的推广收入</th>
+                      <th>{t('income.referralLinks.table.column.userId')}</th>
+                      <th>{t('income.referralLinks.table.column.username')}</th>
+                      <th>{t('income.referralLinks.table.column.type')}</th>
+                      <th>{t('income.referralLinks.table.column.registerTime')}</th>
+                      <th>{t('income.referralLinks.table.column.totalConsumption')}</th>
+                      <th>{t('income.referralLinks.table.column.myIncome')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {subordinates.length === 0 ? (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>
-                          暂无数据
+                          {t('income.referralLinks.noData')}
                         </td>
                       </tr>
                     ) : (
@@ -1199,7 +1201,7 @@ const IncomeManagement: React.FC = () => {
                 loadMonthlyIncomes();
               }}
             >
-              月度收入
+              {t('income.settlement.monthIncomeTab')}
             </button>
             <button
               className={`${styles.subTab} ${settlementSubTab === 'payout' ? styles.active : ''}`}
@@ -1208,7 +1210,7 @@ const IncomeManagement: React.FC = () => {
                 loadPayouts();
               }}
             >
-              支付记录
+              {t('income.settlement.paymentRecordTab')}
             </button>
           </div>
 
@@ -1254,17 +1256,17 @@ const IncomeManagement: React.FC = () => {
                 return (
                   <div className={styles.summaryCards} style={{ marginBottom: '30px' }}>
                     <div className={styles.summaryCard}>
-                      <div className={styles.cardTitle}>本月总收入</div>
+                      <div className={styles.cardTitle}>{t('income.settlement.currentMonthIncome')}</div>
                       <div className={styles.cardValue}>${(displayIncome.total_income_usd || 0).toFixed(2)}</div>
                     </div>
                     <div className={styles.summaryCard}>
-                      <div className={styles.cardTitle}>本月已支付</div>
+                      <div className={styles.cardTitle}>{t('income.settlement.currentMonthPaid')}</div>
                       <div className={styles.cardValue} style={{ color: '#28a745' }}>
                         {formatPaidAmount()}
                       </div>
                     </div>
                     <div className={styles.summaryCard}>
-                      <div className={styles.cardTitle}>本月未支付</div>
+                      <div className={styles.cardTitle}>{t('income.settlement.currentMonthUnpaid')}</div>
                       <div className={styles.cardValue} style={{ color: '#e74c3c' }}>
                         ${(displayIncome.unpaid_amount || 0).toFixed(2)}
                       </div>
@@ -1275,25 +1277,25 @@ const IncomeManagement: React.FC = () => {
 
               {/* 月度收入表 */}
               <div className={styles.section}>
-                <h3>所有月份收入汇总</h3>
+                <h3>{t('income.settlement.allMonthsSummaryTitle')}</h3>
                 {monthlyIncomesLoading ? (
-                  <div style={{ textAlign: 'center', padding: '20px' }}>加载中...</div>
+                  <div style={{ textAlign: 'center', padding: '20px' }}>{t('income.settlement.loading')}</div>
                 ) : (
                   <table className={styles.table}>
                     <thead>
                       <tr>
-                        <th>月份</th>
-                        <th>总收入</th>
-                        <th>已支付</th>
-                        <th>未支付</th>
-                        <th>状态</th>
+                        <th>{t('income.settlement.monthIncomeTable.column.month')}</th>
+                        <th>{t('income.settlement.monthIncomeTable.column.totalIncome')}</th>
+                        <th>{t('income.settlement.monthIncomeTable.column.paid')}</th>
+                        <th>{t('income.settlement.monthIncomeTable.column.unpaid')}</th>
+                        <th>{t('income.settlement.monthIncomeTable.column.status')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {monthlyIncomes.length === 0 ? (
                         <tr>
                           <td colSpan={5} style={{ textAlign: 'center', padding: '20px' }}>
-                            暂无数据
+                            {t('income.settlement.noData')}
                           </td>
                         </tr>
                       ) : (
@@ -1303,7 +1305,11 @@ const IncomeManagement: React.FC = () => {
                               const date = new Date(monthStr);
                               const year = date.getFullYear();
                               const month = date.getMonth() + 1;
-                              return `${year}年${month}月`;
+                              if (language === 'zh') {
+                                return t('income.common.monthFormat', { year, month });
+                              } else {
+                                return `${year}-${String(month).padStart(2, '0')}`;
+                              }
                             } catch (e) {
                               return monthStr;
                             }
@@ -1333,8 +1339,8 @@ const IncomeManagement: React.FC = () => {
                                   income.payout_status === 'partially_paid' ? styles.pending :
                                   styles.pending
                                 }`}>
-                                  {income.payout_status === 'paid' ? '已支付' :
-                                   income.payout_status === 'partially_paid' ? '部分支付' : '未支付'}
+                                  {income.payout_status === 'paid' ? t('income.settlement.status.paid') :
+                                   income.payout_status === 'partially_paid' ? t('income.settlement.status.partial') : t('income.settlement.status.unpaid')}
                                 </span>
                               </td>
                             </tr>
@@ -1351,29 +1357,29 @@ const IncomeManagement: React.FC = () => {
           {settlementSubTab === 'payout' && (
             <div>
               <div className={styles.section}>
-                <h3>支付记录</h3>
+                <h3>{t('income.settlement.paymentRecordsTitle')}</h3>
                 {payoutsLoading ? (
-                  <div style={{ textAlign: 'center', padding: '20px' }}>加载中...</div>
+                  <div style={{ textAlign: 'center', padding: '20px' }}>{t('income.settlement.loading')}</div>
                 ) : (
                   <>
                     <table className={styles.table}>
                       <thead>
                         <tr>
-                          <th>月份</th>
-                          <th>当月收入(USD)</th>
-                          <th>支付币种</th>
-                          <th>支付金额</th>
-                          <th>支付方式</th>
-                          <th>支付时间</th>
-                          <th>收款账号</th>
-                          <th>交易单号</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.month')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.monthIncome')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.currency')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.amount')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.method')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.payTime')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.account')}</th>
+                          <th>{t('income.settlement.paymentRecordsTable.column.txId')}</th>
                         </tr>
                       </thead>
                       <tbody>
                           {payouts.length === 0 ? (
                             <tr>
                               <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>
-                                暂无支付记录
+                                {t('income.settlement.noPaymentRecords')}
                               </td>
                             </tr>
                         ) : (
@@ -1384,7 +1390,7 @@ const IncomeManagement: React.FC = () => {
                                 const date = new Date(monthStr);
                                 const year = date.getFullYear();
                                 const month = date.getMonth() + 1;
-                                return `${year}年${month}月`;
+                                return t('income.common.monthFormat', { year, month });
                               } catch (e) {
                                 return monthStr;
                               }
@@ -1393,13 +1399,13 @@ const IncomeManagement: React.FC = () => {
                             // 格式化支付方式
                             const formatMethod = (method: string) => {
                               const methodMap: { [key: string]: string } = {
-                                'paypal': 'PayPal',
-                                'alipay': '支付宝',
-                                'wechat': '微信',
-                                'bank_transfer': '银行转账',
-                                'manual': '手动支付'
+                                'paypal': t('income.settlement.payMethod.paypal'),
+                                'alipay': t('income.settlement.payMethod.alipay'),
+                                'wechat': t('income.settlement.payMethod.wechat'),
+                                'bank_transfer': t('income.settlement.payMethod.bankTransfer'),
+                                'manual': t('income.settlement.payMethod.manual')
                               };
-                              return methodMap[method?.toLowerCase()] || method || '未知';
+                              return methodMap[method?.toLowerCase()] || method || t('income.settlement.payMethod.unknown');
                             };
                             
                             // 格式化收款账号
@@ -1440,17 +1446,17 @@ const IncomeManagement: React.FC = () => {
                           disabled={payoutPage === 1}
                           style={{ padding: '8px 16px' }}
                         >
-                          上一页
+                          {t('income.settlement.pagination.prev')}
                         </button>
                         <span style={{ padding: '8px' }}>
-                          第 {payoutPage} 页，共 {Math.ceil(payoutTotal / 20)} 页
+                          {t('income.settlement.pagination.pageInfo', { page: payoutPage, total: Math.ceil(payoutTotal / 20) })}
                         </span>
                         <button
                           onClick={() => setPayoutPage(p => p + 1)}
                           disabled={payoutPage >= Math.ceil(payoutTotal / 20)}
                           style={{ padding: '8px 16px' }}
                         >
-                          下一页
+                          {t('income.settlement.pagination.next')}
                         </button>
                       </div>
                     )}
@@ -1488,47 +1494,47 @@ const IncomeManagement: React.FC = () => {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                      <h3>支付记录详情 - #{selectedPayoutDetail.payout.id}</h3>
+                      <h3>{t('income.settlement.detail.title')} - #{selectedPayoutDetail.payout.id}</h3>
                       <button onClick={() => setSelectedPayoutDetail(null)} style={{ fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
                     </div>
                     <div style={{ marginBottom: '15px' }}>
-                      <p><strong>月份:</strong> {selectedPayoutDetail.payout.month ? new Date(selectedPayoutDetail.payout.month).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' }) : '-'}</p>
-                      <p><strong>记账金额(USD):</strong> {formatCurrency(String(selectedPayoutDetail.payout.base_amount_usd || 0))}</p>
-                      <p><strong>实付金额:</strong> {selectedPayoutDetail.payout.payout_currency === 'USD' ? '$' : '¥'}{parseFloat(selectedPayoutDetail.payout.payout_amount || 0).toFixed(2)} {selectedPayoutDetail.payout.payout_currency || 'USD'}</p>
-                      <p><strong>汇率:</strong> {parseFloat(selectedPayoutDetail.payout.fx_rate || 1.0).toFixed(4)}</p>
-                      <p><strong>状态:</strong> {selectedPayoutDetail.payout.status}</p>
-                      <p><strong>收款方式:</strong> {selectedPayoutDetail.payout.method}</p>
-                      <p><strong>申请时间:</strong> {new Date(selectedPayoutDetail.payout.requested_at).toLocaleString('zh-CN')}</p>
+                      <p><strong>{t('income.settlement.detail.fields.month')}</strong> {selectedPayoutDetail.payout.month ? new Date(selectedPayoutDetail.payout.month).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' }) : '-'}</p>
+                      <p><strong>{t('income.settlement.detail.fields.bookedAmount')}</strong> {formatCurrency(String(selectedPayoutDetail.payout.base_amount_usd || 0))}</p>
+                      <p><strong>{t('income.settlement.detail.fields.paidAmount')}</strong> {selectedPayoutDetail.payout.payout_currency === 'USD' ? '$' : '¥'}{parseFloat(selectedPayoutDetail.payout.payout_amount || 0).toFixed(2)} {selectedPayoutDetail.payout.payout_currency || 'USD'}</p>
+                      <p><strong>{t('income.settlement.detail.fields.fxRate')}</strong> {parseFloat(selectedPayoutDetail.payout.fx_rate || 1.0).toFixed(4)}</p>
+                      <p><strong>{t('income.settlement.detail.fields.status')}</strong> {selectedPayoutDetail.payout.status}</p>
+                      <p><strong>{t('income.settlement.detail.fields.method')}</strong> {selectedPayoutDetail.payout.method}</p>
+                      <p><strong>{t('income.settlement.detail.fields.requestTime')}</strong> {new Date(selectedPayoutDetail.payout.requested_at).toLocaleString('zh-CN')}</p>
                       {selectedPayoutDetail.payout.paid_at && (
-                        <p><strong>支付时间:</strong> {new Date(selectedPayoutDetail.payout.paid_at).toLocaleString('zh-CN')}</p>
+                        <p><strong>{t('income.settlement.detail.fields.payTime')}</strong> {new Date(selectedPayoutDetail.payout.paid_at).toLocaleString('zh-CN')}</p>
                       )}
                       {selectedPayoutDetail.payout.note && (
-                        <p><strong>备注:</strong> {selectedPayoutDetail.payout.note}</p>
+                        <p><strong>{t('income.settlement.detail.fields.remark')}</strong> {selectedPayoutDetail.payout.note}</p>
                       )}
                     </div>
                     {selectedPayoutDetail.gateway_transaction && (
                       <div style={{ marginBottom: '15px', marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
-                        <h4>网关交易信息:</h4>
-                        <p><strong>支付网关:</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
-                        <p><strong>第三方交易号:</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id || '-'}</p>
-                        <p><strong>批次号:</strong> {selectedPayoutDetail.gateway_transaction.provider_batch_id || '-'}</p>
-                        <p><strong>状态:</strong> {selectedPayoutDetail.gateway_transaction.status}</p>
+                        <h4>{t('income.settlement.detail.gatewayInfoTitle')}</h4>
+                        <p><strong>{t('income.settlement.detail.gateway.fields.provider')}</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
+                        <p><strong>{t('income.settlement.detail.gateway.fields.txId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id || '-'}</p>
+                        <p><strong>{t('income.settlement.detail.gateway.fields.batchId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_batch_id || '-'}</p>
+                        <p><strong>{t('income.settlement.detail.gateway.fields.status')}</strong> {selectedPayoutDetail.gateway_transaction.status}</p>
                         {selectedPayoutDetail.gateway_transaction.base_amount_usd && (
                           <>
-                            <p><strong>记账金额(USD):</strong> {formatCurrency(String(selectedPayoutDetail.gateway_transaction.base_amount_usd))}</p>
-                            <p><strong>实付金额:</strong> {selectedPayoutDetail.gateway_transaction.payout_currency === 'USD' ? '$' : '¥'}{parseFloat(selectedPayoutDetail.gateway_transaction.payout_amount || 0).toFixed(2)} {selectedPayoutDetail.gateway_transaction.payout_currency || 'USD'}</p>
-                            <p><strong>汇率:</strong> {parseFloat(selectedPayoutDetail.gateway_transaction.fx_rate || 1.0).toFixed(4)}</p>
+                            <p><strong>{t('income.settlement.detail.gateway.fields.bookedAmount')}</strong> {formatCurrency(String(selectedPayoutDetail.gateway_transaction.base_amount_usd))}</p>
+                            <p><strong>{t('income.settlement.detail.gateway.fields.paidAmount')}</strong> {selectedPayoutDetail.gateway_transaction.payout_currency === 'USD' ? '$' : '¥'}{parseFloat(selectedPayoutDetail.gateway_transaction.payout_amount || 0).toFixed(2)} {selectedPayoutDetail.gateway_transaction.payout_currency || 'USD'}</p>
+                            <p><strong>{t('income.settlement.detail.gateway.fields.fxRate')}</strong> {parseFloat(selectedPayoutDetail.gateway_transaction.fx_rate || 1.0).toFixed(4)}</p>
                           </>
                         )}
-                        <p><strong>创建时间:</strong> {selectedPayoutDetail.gateway_transaction.created_at ? new Date(selectedPayoutDetail.gateway_transaction.created_at).toLocaleString('zh-CN') : '-'}</p>
+                        <p><strong>{t('income.settlement.detail.gateway.fields.createTime')}</strong> {selectedPayoutDetail.gateway_transaction.created_at ? new Date(selectedPayoutDetail.gateway_transaction.created_at).toLocaleString('zh-CN') : '-'}</p>
                       </div>
                     )}
                     {selectedPayoutDetail.gateway_transaction && (
                       <div>
-                        <h4>支付流水:</h4>
-                        <p><strong>提供商:</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
-                        <p><strong>交易号:</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id}</p>
-                        <p><strong>状态:</strong> {selectedPayoutDetail.gateway_transaction.status}</p>
+                        <h4>{t('income.settlement.detail.logTitle')}</h4>
+                        <p><strong>{t('income.settlement.detail.log.fields.provider')}</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
+                        <p><strong>{t('income.settlement.detail.log.fields.txId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id}</p>
+                        <p><strong>{t('income.settlement.detail.log.fields.status')}</strong> {selectedPayoutDetail.gateway_transaction.status}</p>
                       </div>
                     )}
                   </div>
@@ -1546,14 +1552,14 @@ const IncomeManagement: React.FC = () => {
             {/* 提示条 */}
             <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f7ff', borderRadius: '8px', border: '1px solid #b3d9ff' }}>
               <p style={{ margin: 0, color: '#0066cc' }}>
-                <strong>提示:</strong> 请提供准确的收款信息，否则无法收到稿费。建议设置一个默认收款账户。
+                <strong>{t('income.paymentAccount.tipLabel')}</strong> {t('income.paymentAccount.tipContent')}
               </p>
             </div>
 
             {/* 账户列表区域 */}
             <div className={styles.section}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0 }}>我的收款账户</h3>
+              <h3 style={{ margin: 0 }}>{t('income.paymentAccount.myAccountsTitle')}</h3>
               <button
                 onClick={openAddAccountModal}
                 style={{
@@ -1567,16 +1573,16 @@ const IncomeManagement: React.FC = () => {
                   fontWeight: 'bold'
                 }}
               >
-                + 新增账户
+                {t('income.paymentAccount.addAccount')}
               </button>
             </div>
 
             {accountsLoading ? (
-              <div style={{ textAlign: 'center', padding: '40px' }}>加载中...</div>
+              <div style={{ textAlign: 'center', padding: '40px' }}>{t('income.paymentAccount.loading')}</div>
             ) : payoutAccounts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
-                <p style={{ fontSize: '16px', marginBottom: '10px' }}>还没有添加收款账户</p>
-                <p style={{ fontSize: '14px' }}>点击右上角【新增账户】开始添加</p>
+                <p style={{ fontSize: '16px', marginBottom: '10px' }}>{t('income.paymentAccount.emptyTitle')}</p>
+                <p style={{ fontSize: '14px' }}>{t('income.paymentAccount.emptyDesc')}</p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
@@ -1618,7 +1624,7 @@ const IncomeManagement: React.FC = () => {
                               fontSize: '12px',
                               fontWeight: 'bold'
                             }}>
-                              默认
+                              {t('income.paymentAccount.defaultTag')}
                             </span>
                           )}
                         </div>
@@ -1629,30 +1635,30 @@ const IncomeManagement: React.FC = () => {
                     <div style={{ flex: 1, marginBottom: '15px', fontSize: '14px', color: '#666' }}>
                       {(account.method === 'PayPal' || account.method === 'paypal') && (
                         <div>
-                          <p style={{ margin: '4px 0' }}><strong>PayPal 邮箱:</strong> {account.account_data?.email || '-'}</p>
+                          <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.paypalEmail')}</strong> {account.account_data?.email || '-'}</p>
                         </div>
                       )}
                       {(account.method === 'Alipay' || account.method === 'alipay') && (
                         <div>
                           {account.account_data?.name && (
-                            <p style={{ margin: '4px 0' }}><strong>姓名:</strong> {account.account_data.name}</p>
+                            <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.name')}</strong> {account.account_data.name}</p>
                           )}
-                          <p style={{ margin: '4px 0' }}><strong>账号:</strong> {account.account_data?.account || '-'}</p>
+                          <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.account')}</strong> {account.account_data?.account || '-'}</p>
                         </div>
                       )}
                       {(account.method === 'WeChat' || account.method === 'wechat') && (
                         <div>
                           {account.account_data?.name && (
-                            <p style={{ margin: '4px 0' }}><strong>姓名:</strong> {account.account_data.name}</p>
+                            <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.name')}</strong> {account.account_data.name}</p>
                           )}
                           {account.account_data?.wechat_id && (
-                            <p style={{ margin: '4px 0' }}><strong>微信号:</strong> {account.account_data.wechat_id}</p>
+                            <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.wechatId')}</strong> {account.account_data.wechat_id}</p>
                           )}
                           {account.account_data?.qrcode_url && (
                             <div style={{ marginTop: '8px' }}>
                               <img
                                 src={account.account_data.qrcode_url}
-                                alt="收款码"
+                                alt={t('income.paymentAccount.fields.qrCodeAlt')}
                                 style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '4px' }}
                               />
                             </div>
@@ -1661,9 +1667,9 @@ const IncomeManagement: React.FC = () => {
                       )}
                       {(account.method === 'Bank' || account.method === 'bank_transfer' || account.method === 'bank') && (
                         <div>
-                          <p style={{ margin: '4px 0' }}><strong>开户行:</strong> {account.account_data?.bank_name || '-'}</p>
-                          <p style={{ margin: '4px 0' }}><strong>户名:</strong> {account.account_data?.account_name || '-'}</p>
-                          <p style={{ margin: '4px 0' }}><strong>卡号:</strong> {formatCardNumber(account.account_data?.card_number || '')}</p>
+                          <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.bankName')}</strong> {account.account_data?.bank_name || '-'}</p>
+                          <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.accountName')}</strong> {account.account_data?.account_name || '-'}</p>
+                          <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.cardNumber')}</strong> {formatCardNumber(account.account_data?.card_number || '')}</p>
                         </div>
                       )}
                     </div>
@@ -1683,7 +1689,7 @@ const IncomeManagement: React.FC = () => {
                             fontSize: '12px'
                           }}
                         >
-                          设为默认
+                          {t('income.paymentAccount.setDefault')}
                         </button>
                       )}
                       <button
@@ -1698,11 +1704,11 @@ const IncomeManagement: React.FC = () => {
                           fontSize: '12px'
                         }}
                       >
-                        编辑
+                        {t('income.paymentAccount.edit')}
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm('确定删除该收款账户？此操作不可恢复。')) {
+                          if (window.confirm(t('income.paymentAccount.deleteConfirm'))) {
                             deletePayoutAccount(account.id);
                           }
                         }}
@@ -1716,7 +1722,7 @@ const IncomeManagement: React.FC = () => {
                           fontSize: '12px'
                         }}
                       >
-                        删除
+                        {t('income.paymentAccount.delete')}
                       </button>
                     </div>
                   </div>
@@ -1764,7 +1770,7 @@ const IncomeManagement: React.FC = () => {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0 }}>{editingAccount ? '编辑收款账户' : '新增收款账户'}</h3>
+                  <h3 style={{ margin: 0 }}>{editingAccount ? t('income.paymentAccount.modal.editTitle') : t('income.paymentAccount.modal.createTitle')}</h3>
                   <button
                     onClick={() => {
                       setShowAccountModal(false);
@@ -1783,26 +1789,26 @@ const IncomeManagement: React.FC = () => {
                 </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '500px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>支付方式:</label>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.payMethod')}</label>
                       <select
                         value={accountForm.method}
                         onChange={(e) => setAccountForm({ ...accountForm, method: e.target.value, account_data: {} })}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                       >
                         <option value="PayPal">PayPal</option>
-                        <option value="Alipay">支付宝</option>
-                        <option value="WeChat">微信支付</option>
-                        <option value="Bank">银行卡</option>
+                        <option value="Alipay">{t('income.settlement.payMethod.alipay')}</option>
+                        <option value="WeChat">{t('income.settlement.payMethod.wechat')}</option>
+                        <option value="Bank">{t('income.settlement.payMethod.bankTransfer')}</option>
                       </select>
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>账户标签:</label>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.label')}</label>
                       <input
                         type="text"
                         value={accountForm.account_label}
                         onChange={(e) => setAccountForm({ ...accountForm, account_label: e.target.value })}
-                        placeholder="例如：我的PayPal账户"
+                        placeholder={t('income.paymentAccount.modal.labelPlaceholder')}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                       />
                     </div>
@@ -1810,7 +1816,7 @@ const IncomeManagement: React.FC = () => {
                     {/* 根据支付方式显示不同的输入字段 */}
                     {accountForm.method === 'PayPal' && (
                       <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>PayPal邮箱:</label>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.paypalEmail')}</label>
                         <input
                           type="email"
                           value={accountForm.account_data.email || ''}
@@ -1818,7 +1824,7 @@ const IncomeManagement: React.FC = () => {
                             ...accountForm,
                             account_data: { ...accountForm.account_data, email: e.target.value }
                           })}
-                          placeholder="your@email.com"
+                          placeholder={t('income.paymentAccount.modal.paypalEmailPlaceholder')}
                           style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                         />
                       </div>
@@ -1827,7 +1833,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'Alipay' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>支付宝账号:</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.alipayAccount')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.account || ''}
@@ -1835,12 +1841,12 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, account: e.target.value }
                             })}
-                            placeholder="手机号或邮箱"
+                            placeholder={t('income.paymentAccount.modal.alipayPlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>真实姓名 (选填):</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.name || ''}
@@ -1848,7 +1854,7 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, name: e.target.value }
                             })}
-                            placeholder="真实姓名"
+                            placeholder={t('income.paymentAccount.modal.realNamePlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
@@ -1858,7 +1864,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'WeChat' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>微信号 (必填):</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.wechatIdRequired')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.wechat_id || ''}
@@ -1866,12 +1872,12 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, wechat_id: e.target.value }
                             })}
-                            placeholder="微信号"
+                            placeholder={t('income.paymentAccount.modal.wechatIdPlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>真实姓名 (选填):</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.name || ''}
@@ -1879,12 +1885,12 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, name: e.target.value }
                             })}
-                            placeholder="真实姓名"
+                            placeholder={t('income.paymentAccount.modal.realNamePlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>收款码图片URL (选填):</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.qrCodeUrlOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.qrcode_url || ''}
@@ -1892,7 +1898,7 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, qrcode_url: e.target.value }
                             })}
-                            placeholder="上传收款码后填入图片URL"
+                            placeholder={t('income.paymentAccount.modal.qrCodeUrlPlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
@@ -1902,7 +1908,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'Bank' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>开户行:</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankName')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.bank_name || ''}
@@ -1910,12 +1916,12 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, bank_name: e.target.value }
                             })}
-                            placeholder="例如：中国工商银行"
+                            placeholder={t('income.paymentAccount.modal.bankNamePlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>账户名:</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankAccountName')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.account_name || ''}
@@ -1923,12 +1929,12 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, account_name: e.target.value }
                             })}
-                            placeholder="账户持有人姓名"
+                            placeholder={t('income.paymentAccount.modal.bankAccountNamePlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>卡号:</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankCardNumber')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.card_number || ''}
@@ -1936,7 +1942,7 @@ const IncomeManagement: React.FC = () => {
                               ...accountForm,
                               account_data: { ...accountForm.account_data, card_number: e.target.value }
                             })}
-                            placeholder="银行卡号"
+                            placeholder={t('income.paymentAccount.modal.bankCardNumberPlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                           />
                         </div>
@@ -1950,7 +1956,7 @@ const IncomeManagement: React.FC = () => {
                           checked={accountForm.is_default}
                           onChange={(e) => setAccountForm({ ...accountForm, is_default: e.target.checked })}
                         />
-                        <span>设为默认收款账户</span>
+                        <span>{t('income.paymentAccount.modal.setAsDefault')}</span>
                       </label>
                     </div>
 
@@ -1966,7 +1972,7 @@ const IncomeManagement: React.FC = () => {
                           cursor: 'pointer'
                         }}
                       >
-                        {editingAccount ? '更新账户' : '保存账户'}
+                        {editingAccount ? t('income.paymentAccount.modal.updateButton') : t('income.paymentAccount.modal.saveButton')}
                       </button>
                       <button
                         onClick={() => {
@@ -1988,7 +1994,7 @@ const IncomeManagement: React.FC = () => {
                           cursor: 'pointer'
                         }}
                       >
-                        取消
+                        {t('income.paymentAccount.modal.cancel')}
                       </button>
                     </div>
                   </div>

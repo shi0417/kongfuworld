@@ -16,6 +16,8 @@ import EditorManagement from './AdminPanel/EditorManagement';
 import AdminUserPage from './AdminPanel/AdminUserPage';
 import NewNovelPool from './AdminPanel/NewNovelPool';
 import AdminPayoutAccounts from './AdminPanel/AdminPayoutAccounts';
+import EditorSettlementPayoutModal from './AdminPanel/EditorSettlementPayoutModal';
+import { incomeEditorMenuGroup, ALL_MENU_KEYS, topStandaloneMenus, bottomStandaloneMenus } from './adminMenuConfig';
 
 interface Novel {
   id: number;
@@ -99,6 +101,8 @@ const AdminPanel: React.FC = () => {
   const [currentAdminRole, setCurrentAdminRole] = useState<string>('');
   // 收益与编辑管理分组菜单的展开/折叠状态
   const [incomeAndEditorMenuExpanded, setIncomeAndEditorMenuExpanded] = useState(false);
+  // 当前管理员可见的菜单 key 列表
+  const [allowedMenuKeys, setAllowedMenuKeys] = useState<string[] | null>(null);
   
   // 小说审批相关状态
   const [novels, setNovels] = useState<Novel[]>([]);
@@ -172,6 +176,13 @@ const AdminPanel: React.FC = () => {
   const [showEditorSettlementDetailModal, setShowEditorSettlementDetailModal] = useState<boolean>(false);
   const [editorExpandedRows, setEditorExpandedRows] = useState<{ [key: number]: any }>({});
   const [editorLoadingRows, setEditorLoadingRows] = useState<{ [key: number]: boolean }>({});
+  
+  // 编辑结算发起支付相关状态
+  const [editorPayoutModalVisible, setEditorPayoutModalVisible] = useState(false);
+  const [selectedEditorSettlement, setSelectedEditorSettlement] = useState<any | null>(null);
+  const [editorPayoutAccounts, setEditorPayoutAccounts] = useState<any[]>([]);
+  const [editorDefaultAccount, setEditorDefaultAccount] = useState<any | null>(null);
+  const [editorPayoutDetailLoading, setEditorPayoutDetailLoading] = useState(false);
   const [selectedUserDetail, setSelectedUserDetail] = useState<any>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
   const [showUserDetailModal, setShowUserDetailModal] = useState<boolean>(false);
@@ -305,6 +316,45 @@ const AdminPanel: React.FC = () => {
     return roleMap[role] || role;
   };
 
+  // 获取当前管理员可见菜单权限
+  useEffect(() => {
+    const fetchMenuPermissions = async () => {
+      if (!adminToken || !isAuthenticated) return;
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/admin/menu-permissions/my', {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          }
+        });
+        const data = await response.json();
+        if (data.success) {
+          setAllowedMenuKeys(data.data.allowedMenuKeys || ALL_MENU_KEYS);
+        } else {
+          console.error('获取菜单权限失败:', data.message);
+          // 失败时降级为全部可见
+          setAllowedMenuKeys(ALL_MENU_KEYS);
+        }
+      } catch (error) {
+        console.error('获取菜单权限异常:', error);
+        setAllowedMenuKeys(ALL_MENU_KEYS);
+      }
+    };
+
+    if (isAuthenticated && adminToken) {
+      fetchMenuPermissions();
+    }
+  }, [adminToken, isAuthenticated]);
+
+  // 判断某个 menuKey 是否可见
+  const hasMenuPermission = (menuKey: string) => {
+    if (!allowedMenuKeys) return true; // 初始状态先不限制
+    // super_admin 兜底逻辑，如果当前角色是 super_admin，就直接放行
+    if (currentAdminRole === 'super_admin') return true;
+    return allowedMenuKeys.includes(menuKey);
+  };
+
   // 检查是否已登录
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -362,7 +412,7 @@ const AdminPanel: React.FC = () => {
         }
       } else if (activeTab === 'settlement-overview') {
         if (settlementSubTab === 'user') {
-          loadSettlementOverview();
+        loadSettlementOverview();
         } else if (settlementSubTab === 'editor') {
           loadEditorSettlementOverview();
         }
@@ -1178,16 +1228,65 @@ const AdminPanel: React.FC = () => {
       const data = await response.json();
       
       if (data.success) {
+        // 刷新编辑结算列表
         await loadEditorSettlementOverview();
-        setError('');
+        setError(''); // 清除错误
         alert(data.message || '同步成功');
       } else {
-        setError(data.message || '同步失败');
+        // 对于400/404错误，直接显示后端返回的错误信息
+        const errorMessage = data.message || '同步失败';
+        setError(errorMessage);
+        alert(errorMessage);
       }
     } catch (err: any) {
-      setError(err.message || '同步失败');
+      console.error('同步编辑PayPal状态失败:', err);
+      const errorMessage = err.message || '同步失败，请稍后重试';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setUserDetailLoading(false);
+    }
+  };
+
+  // 打开编辑结算发起支付弹窗
+  const handleOpenEditorPayout = async (item: any) => {
+    try {
+      if (!item.settlement_id) {
+        setError('该编辑该月的结算记录ID不存在');
+        return;
+      }
+
+      setEditorPayoutDetailLoading(true);
+
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`http://localhost:5000/api/admin/editor-settlements/${item.settlement_id}/detail`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.message || '获取编辑结算详情失败');
+      }
+
+      const detail = json.data || {};
+      // 合并 settlement_monthly 和 editor 信息，方便弹窗使用
+      const settlementMonthly = {
+        ...detail.settlement_monthly,
+        editor: detail.editor
+      };
+      
+      setSelectedEditorSettlement(settlementMonthly);
+      setEditorPayoutAccounts(detail.all_accounts || []);
+      setEditorDefaultAccount(detail.default_account || null);
+
+      setEditorPayoutModalVisible(true);
+    } catch (err: any) {
+      console.error('打开编辑发起支付弹窗失败:', err);
+      setError(err.message || '打开编辑发起支付弹窗失败');
+    } finally {
+      setEditorPayoutDetailLoading(false);
     }
   };
 
@@ -1548,120 +1647,93 @@ const AdminPanel: React.FC = () => {
               )}
             </div>
           )}
-          <button onClick={handleLogout} className={styles.logoutButton}>
-            退出登录
-          </button>
+        <button onClick={handleLogout} className={styles.logoutButton}>
+          退出登录
+        </button>
         </div>
       </header>
 
       <div className={styles.mainLayout}>
         {/* 左侧选项卡导航 */}
         <div className={styles.sidebar}>
-          <div className={styles.navItem} onClick={() => setActiveTab('novel-review')}>
-            <div className={`${styles.navIcon} ${activeTab === 'novel-review' ? styles.active : ''}`}>
-              📚
-            </div>
-            <span className={activeTab === 'novel-review' ? styles.active : ''}>小说审批</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('new-novel-pool')}>
-            <div className={`${styles.navIcon} ${activeTab === 'new-novel-pool' ? styles.active : ''}`}>
-              📖
-            </div>
-            <span className={activeTab === 'new-novel-pool' ? styles.active : ''}>新小说池</span>
-          </div>
-          <div className={styles.navItem} onClick={() => setActiveTab('chapter-approval')}>
-            <div className={`${styles.navIcon} ${activeTab === 'chapter-approval' ? styles.active : ''}`}>
-              ✅
-            </div>
-            <span className={activeTab === 'chapter-approval' ? styles.active : ''}>章节审批</span>
-          </div>
-          {/* 收益与编辑管理分组菜单：将收益相关和编辑管理菜单归类到一个父级菜单下，便于左侧导航分组显示 */}
-          <div className={styles.navGroup}>
-            <div 
-              className={styles.navGroupHeader} 
-              onClick={() => setIncomeAndEditorMenuExpanded(!incomeAndEditorMenuExpanded)}
-            >
-              <div className={styles.navIcon}>
-                💼
+          {/* 顶部独立菜单：小说审批 / 新小说池 / 章节审批 */}
+          {topStandaloneMenus
+            .filter(item => hasMenuPermission(item.key))
+            .map(item => (
+              <div
+                key={item.key}
+                className={`${styles.navItem} ${activeTab === item.tab ? styles.active : ''}`}
+                onClick={() => setActiveTab(item.tab as any)}
+              >
+                <div className={`${styles.navIcon} ${activeTab === item.tab ? styles.active : ''}`}>
+                  {item.icon}
+                </div>
+                <span className={activeTab === item.tab ? styles.active : ''}>
+                  {item.label}
+                </span>
               </div>
-              <span>收益与编辑管理</span>
-              <span className={styles.expandIcon}>
-                {incomeAndEditorMenuExpanded ? '▼' : '▶'}
-              </span>
-            </div>
-            {incomeAndEditorMenuExpanded && (
-              <div className={styles.navSubItems}>
-                <div className={`${styles.navSubItem} ${activeTab === 'payment-stats' ? styles.active : ''}`} onClick={() => setActiveTab('payment-stats')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'payment-stats' ? styles.active : ''}`}>
-                    💰
-                  </div>
-                  <span className={activeTab === 'payment-stats' ? styles.active : ''}>费用统计</span>
+            ))}
+          {/* 收益与编辑管理分组菜单：基于配置和权限过滤渲染 */}
+          {(() => {
+            const group = incomeEditorMenuGroup;
+
+            // 该组下是否至少有一个子菜单有权限
+            const visibleItems = group.items.filter(item => hasMenuPermission(item.key));
+
+            // 如果自己这个组也被完全隐藏（如果将来有对 group 的控制，可同时判断 groupKey）
+            const groupVisible = hasMenuPermission(group.groupKey) && visibleItems.length > 0;
+
+            if (!groupVisible) return null;
+
+            return (
+              <div className={styles.navGroup}>
+                <div
+                  className={styles.navGroupHeader}
+                  onClick={() => setIncomeAndEditorMenuExpanded(!incomeAndEditorMenuExpanded)}
+                >
+                  <div className={styles.navIcon}>{group.icon}</div>
+                  <span>{group.groupLabel}</span>
+                  <span className={styles.expandIcon}>
+                    {incomeAndEditorMenuExpanded ? '▼' : '▶'}
+                  </span>
                 </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'author-income' ? styles.active : ''}`} onClick={() => setActiveTab('author-income')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'author-income' ? styles.active : ''}`}>
-                    ✍️
+                {incomeAndEditorMenuExpanded && (
+                  <div className={styles.navSubItems}>
+                    {visibleItems.map(item => (
+                      <div
+                        key={item.key}
+                        className={`${styles.navSubItem} ${activeTab === item.tab ? styles.active : ''}`}
+                        onClick={() => setActiveTab(item.tab as any)}
+                      >
+                        <div className={`${styles.navIcon} ${activeTab === item.tab ? styles.active : ''}`}>
+                          {item.icon}
+                        </div>
+                        <span className={activeTab === item.tab ? styles.active : ''}>{item.label}</span>
+                      </div>
+                    ))}
                   </div>
-                  <span className={activeTab === 'author-income' ? styles.active : ''}>作者收入统计</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'reader-income' ? styles.active : ''}`} onClick={() => setActiveTab('reader-income')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'reader-income' ? styles.active : ''}`}>
-                    👥
-                  </div>
-                  <span className={activeTab === 'reader-income' ? styles.active : ''}>读者收入统计</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'settlement-overview' ? styles.active : ''}`} onClick={() => setActiveTab('settlement-overview')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'settlement-overview' ? styles.active : ''}`}>
-                    💳
-                  </div>
-                  <span className={activeTab === 'settlement-overview' ? styles.active : ''}>结算总览</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'base-income' ? styles.active : ''}`} onClick={() => setActiveTab('base-income')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'base-income' ? styles.active : ''}`}>
-                    📊
-                  </div>
-                  <span className={activeTab === 'base-income' ? styles.active : ''}>基础收入统计-1</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'author-royalty' ? styles.active : ''}`} onClick={() => setActiveTab('author-royalty')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'author-royalty' ? styles.active : ''}`}>
-                    💵
-                  </div>
-                  <span className={activeTab === 'author-royalty' ? styles.active : ''}>作者基础收入表-2</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'commission-transaction' ? styles.active : ''}`} onClick={() => setActiveTab('commission-transaction')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'commission-transaction' ? styles.active : ''}`}>
-                    💰
-                  </div>
-                  <span className={activeTab === 'commission-transaction' ? styles.active : ''}>推广佣金明细-3</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'editor-base-income' ? styles.active : ''}`} onClick={() => setActiveTab('editor-base-income')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'editor-base-income' ? styles.active : ''}`}>
-                    📝
-                  </div>
-                  <span className={activeTab === 'editor-base-income' ? styles.active : ''}>编辑基础收入-4</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'commission-settings' ? styles.active : ''}`} onClick={() => setActiveTab('commission-settings')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'commission-settings' ? styles.active : ''}`}>
-                    ⚙️
-                  </div>
-                  <span className={activeTab === 'commission-settings' ? styles.active : ''}>提成设置</span>
-                </div>
-                <div className={`${styles.navSubItem} ${activeTab === 'editor-management' ? styles.active : ''}`} onClick={() => setActiveTab('editor-management')}>
-                  <div className={`${styles.navIcon} ${activeTab === 'editor-management' ? styles.active : ''}`}>
-                    👥
-                  </div>
-                  <span className={activeTab === 'editor-management' ? styles.active : ''}>编辑管理</span>
-                </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
           
-          {/* 我的收款账户菜单项 */}
-          <div className={styles.navItem} onClick={() => setActiveTab('admin-payout-account')}>
-            <div className={`${styles.navIcon} ${activeTab === 'admin-payout-account' ? styles.active : ''}`}>
-              💳
-            </div>
-            <span className={activeTab === 'admin-payout-account' ? styles.active : ''}>我的收款账户</span>
-          </div>
+          {/* 底部独立菜单：我的收款账户 */}
+          {bottomStandaloneMenus
+            .filter(item => hasMenuPermission(item.key))
+            .map(item => (
+              <div
+                key={item.key}
+                className={`${styles.navItem} ${activeTab === item.tab ? styles.active : ''}`}
+                onClick={() => setActiveTab(item.tab as any)}
+              >
+                <div className={`${styles.navIcon} ${activeTab === item.tab ? styles.active : ''}`}>
+                  {item.icon}
+                </div>
+                <span className={activeTab === item.tab ? styles.active : ''}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
         </div>
 
         {/* 右侧内容区域 */}
@@ -1759,24 +1831,24 @@ const AdminPanel: React.FC = () => {
                   />
                   {settlementSubTab === 'user' ? (
                     <>
-                      <select
-                        value={settlementStatus}
-                        onChange={(e) => setSettlementStatus(e.target.value)}
-                        style={{ marginLeft: '10px', padding: '5px' }}
-                      >
-                        <option value="all">全部状态</option>
-                        <option value="unpaid">未支付</option>
-                        <option value="paid">已支付</option>
-                      </select>
-                      <select
-                        value={settlementRole}
-                        onChange={(e) => setSettlementRole(e.target.value)}
-                        style={{ marginLeft: '10px', padding: '5px' }}
-                      >
-                        <option value="all">全部用户</option>
-                        <option value="author_only">仅作者</option>
-                        <option value="promoter_only">仅推广者</option>
-                      </select>
+                  <select
+                    value={settlementStatus}
+                    onChange={(e) => setSettlementStatus(e.target.value)}
+                    style={{ marginLeft: '10px', padding: '5px' }}
+                  >
+                    <option value="all">全部状态</option>
+                    <option value="unpaid">未支付</option>
+                    <option value="paid">已支付</option>
+                  </select>
+                  <select
+                    value={settlementRole}
+                    onChange={(e) => setSettlementRole(e.target.value)}
+                    style={{ marginLeft: '10px', padding: '5px' }}
+                  >
+                    <option value="all">全部用户</option>
+                    <option value="author_only">仅作者</option>
+                    <option value="promoter_only">仅推广者</option>
+                  </select>
                     </>
                   ) : (
                     <>
@@ -1802,23 +1874,23 @@ const AdminPanel: React.FC = () => {
                   )}
                   {settlementSubTab === 'user' ? (
                     <>
-                      <input
-                        type="text"
-                        placeholder="用户ID"
-                        value={settlementUserId}
-                        onChange={(e) => setSettlementUserId(e.target.value)}
-                        style={{ marginLeft: '10px', padding: '5px', width: '100px' }}
-                      />
-                      <button onClick={loadSettlementOverview} className={styles.searchButton} disabled={settlementLoading}>
-                        查询
-                      </button>
-                      <button 
-                        onClick={generateMonthlyIncome} 
-                        className={styles.generateButton}
-                        style={{ marginLeft: '10px' }}
-                      >
-                        生成月度汇总
-                      </button>
+                  <input
+                    type="text"
+                    placeholder="用户ID"
+                    value={settlementUserId}
+                    onChange={(e) => setSettlementUserId(e.target.value)}
+                    style={{ marginLeft: '10px', padding: '5px', width: '100px' }}
+                  />
+                  <button onClick={loadSettlementOverview} className={styles.searchButton} disabled={settlementLoading}>
+                    查询
+                  </button>
+                  <button 
+                    onClick={generateMonthlyIncome} 
+                    className={styles.generateButton}
+                    style={{ marginLeft: '10px' }}
+                  >
+                    生成月度汇总
+                  </button>
                     </>
                   ) : (
                     <>
@@ -1847,12 +1919,12 @@ const AdminPanel: React.FC = () => {
               {/* 用户结算Tab */}
               {settlementSubTab === 'user' && (
                 <>
-                  {settlementLoading ? (
-                    <div className={styles.loading}>加载中...</div>
-                  ) : (
-                    <>
-                      <div className={styles.paymentTable}>
-                        <h3>用户结算列表（作者+推广者）(user_income_monthly)</h3>
+              {settlementLoading ? (
+                <div className={styles.loading}>加载中...</div>
+              ) : (
+                <>
+                  <div className={styles.paymentTable}>
+                    <h3>用户结算列表（作者+推广者）(user_income_monthly)</h3>
                     <table>
                       <thead>
                         <tr>
@@ -2078,7 +2150,7 @@ const AdminPanel: React.FC = () => {
                         )}
                       </tbody>
                     </table>
-                      </div>
+                  </div>
                     </>
                   )}
                 </>
@@ -2172,6 +2244,7 @@ const AdminPanel: React.FC = () => {
                                     <td 
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        // 只有PayPal支付方式才能点击同步状态
                                         if (item.payout_method === 'paypal' && item.settlement_id) {
                                           syncEditorPayPalStatus(item.settlement_id);
                                         }
@@ -2182,7 +2255,7 @@ const AdminPanel: React.FC = () => {
                                         color: item.payout_method === 'paypal' && item.settlement_id ? '#007bff' : 'inherit',
                                         userSelect: 'none'
                                       }}
-                                      title={item.payout_method === 'paypal' && item.settlement_id ? '点击同步PayPal状态' : ''}
+                                      title={item.payout_method === 'paypal' && item.settlement_id ? '点击同步PayPal状态（只查询状态，不会重复扣款）' : ''}
                                     >
                                       {item.payout_method ? (item.payout_method === 'paypal' ? 'PayPal' : item.payout_method === 'alipay' ? '支付宝' : item.payout_method === 'wechat' ? '微信' : item.payout_method) : '-'}
                                     </td>
@@ -2196,12 +2269,10 @@ const AdminPanel: React.FC = () => {
                                             return;
                                           }
                                           
-                                          // TODO: 加载编辑收款账户信息并显示支付弹窗
-                                          // 这里需要先实现获取编辑账户信息的接口，或者复用现有的支付弹窗逻辑
-                                          setError('发起支付功能开发中，请稍后');
+                                          handleOpenEditorPayout(item);
                                         }}
                                         className={styles.searchButton}
-                                        disabled={userDetailLoading || item.payout_status === 'paid' || item.payout_status === 'processing'}
+                                        disabled={editorPayoutDetailLoading || item.payout_status === 'paid' || item.payout_status === 'processing'}
                                         style={{ 
                                           opacity: (item.payout_status === 'paid' || item.payout_status === 'processing') ? 0.5 : 1,
                                           cursor: (item.payout_status === 'paid' || item.payout_status === 'processing') ? 'not-allowed' : 'pointer'
@@ -2224,10 +2295,10 @@ const AdminPanel: React.FC = () => {
             </div>
           )}
 
-          {/* 用户详情模态框 */}
-          {selectedUserDetail && (
-            <div className={styles.modal} onClick={() => setSelectedUserDetail(null)}>
-              <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                  {/* 用户详情模态框 */}
+                  {selectedUserDetail && (
+                    <div className={styles.modal} onClick={() => setSelectedUserDetail(null)}>
+                      <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
                           <h3>用户结算详情 - {selectedUserDetail.user.pen_name || selectedUserDetail.user.username}</h3>
                           <button onClick={() => setSelectedUserDetail(null)} className={styles.closeButton}>×</button>
@@ -2504,8 +2575,8 @@ const AdminPanel: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    </div>
-                  )}
+            </div>
+          )}
 
           {/* 结算详情模态框（新版本，显示完整信息） */}
           {showSettlementDetailModal && selectedSettlementDetail && (
@@ -3250,7 +3321,11 @@ const AdminPanel: React.FC = () => {
             <CommissionSettings onError={setError} />
           )}
           {activeTab === 'editor-management' && (
-            <AdminUserPage onError={setError} />
+            <AdminUserPage 
+              onError={setError} 
+              currentAdminRole={currentAdminRole} 
+              adminToken={adminToken} 
+            />
           )}
           
           {/* 我的收款账户选项卡 */}
@@ -3324,6 +3399,23 @@ const AdminPanel: React.FC = () => {
                       </div>
       )}
 
+      {/* 编辑结算发起支付弹窗 */}
+      <EditorSettlementPayoutModal
+        visible={editorPayoutModalVisible}
+        onClose={() => {
+          setEditorPayoutModalVisible(false);
+          setSelectedEditorSettlement(null);
+          setEditorPayoutAccounts([]);
+          setEditorDefaultAccount(null);
+        }}
+        onSuccess={() => {
+          // 支付成功后刷新编辑结算列表
+          loadEditorSettlementOverview();
+        }}
+        settlementMonthly={selectedEditorSettlement}
+        allAccounts={editorPayoutAccounts}
+        defaultAccount={editorDefaultAccount}
+      />
       
       {/* Toast提示 */}
       {toast && (

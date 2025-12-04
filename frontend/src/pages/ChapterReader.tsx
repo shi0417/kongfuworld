@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import NavBar from '../components/NavBar/NavBar';
 import Footer from '../components/Footer/Footer';
 import ParagraphComment from '../components/ParagraphComment/ParagraphComment';
 import ChapterUnlockModal from '../components/ChapterUnlockModal/ChapterUnlockModal';
 import { useAuth, useUser } from '../hooks/useAuth';
+import { useChapterLockStatus } from '../hooks/useChapterLockStatus';
 import ApiService from '../services/ApiService';
 import readingService from '../services/readingService';
 import novelService from '../services/novelService';
 import ChapterCommentSectionNew from '../components/ChapterCommentSection/ChapterCommentSectionNew';
 import FavoriteButton from '../components/FavoriteButton/FavoriteButton';
+import ReaderBottomBar from '../components/ReaderBottomBar/ReaderBottomBar';
 
 const ChapterReader: React.FC = () => {
   const { novelId, chapterId } = useParams<{ novelId: string; chapterId: string }>();
@@ -17,8 +19,27 @@ const ChapterReader: React.FC = () => {
   const { isAuthenticated, user: authUser } = useAuth();
   const { user: userData } = useUser();
   const [showChapterList, setShowChapterList] = useState(false);
-  const [fontSize, setFontSize] = useState(18);
-  const [lineHeight, setLineHeight] = useState(1.8);
+  
+  // 字体和行距范围常量
+  const MIN_FONT_SIZE = 14;
+  const MAX_FONT_SIZE = 48;
+  const MIN_LINE_HEIGHT = 1.4;
+  const MAX_LINE_HEIGHT = 3.0;
+  
+  // 从 localStorage 读取初始值，如果没有则使用默认值
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = localStorage.getItem('readerFontSize');
+    return saved ? parseInt(saved, 10) : 18;
+  });
+  const [lineHeight, setLineHeight] = useState(() => {
+    const saved = localStorage.getItem('readerLineHeight');
+    return saved ? parseFloat(saved) : 1.8;
+  });
+  
+  // 底部控制条显隐状态
+  const [showBottomBar, setShowBottomBar] = useState(true);
+  const lastScrollYRef = useRef(0);
+  const scrollTimeoutRef = useRef<number | null>(null);
   
   // 章节数据状态
   const [chapterData, setChapterData] = useState<any>(null);
@@ -37,22 +58,114 @@ const ChapterReader: React.FC = () => {
   const [paragraphComments, setParagraphComments] = useState<Record<number, number>>({});
   const [commentsLoading, setCommentsLoading] = useState(false);
   
-  // 章节解锁状态
+  // 使用认证Hook，无需手动管理用户状态（使用 useMemo 确保在所有地方都能正确访问）
+  const user = useMemo(() => authUser || userData, [authUser, userData]);
+  
+  // 章节解锁状态 - 使用自定义 Hook
   const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [isChapterLocked, setIsChapterLocked] = useState(false);
+  const [hasAutoOpenedUnlockModal, setHasAutoOpenedUnlockModal] = useState(false);
+  const { isChapterLocked, isCheckingLockStatus, checkLockStatus } = useChapterLockStatus();
 
   // 监听章节锁定状态变化
   useEffect(() => {
-    console.log('🔒 章节锁定状态变化:', isChapterLocked);
+    console.log('🔒 [ChapterReader] ========== 章节锁定状态变化 ==========');
+    console.log('🔒 [ChapterReader] isChapterLocked:', isChapterLocked);
+    console.log('🔒 [ChapterReader] isCheckingLockStatus:', isCheckingLockStatus);
+    console.log('🔒 [ChapterReader] chapterData?.id:', chapterData?.id);
+    console.log('🔒 [ChapterReader] chapterData?.unlock_price:', chapterData?.unlock_price);
     if (isChapterLocked) {
-      console.log('🔒 章节被锁定，将显示锁定界面');
+      console.log('🔒 [ChapterReader] 章节被锁定，将显示锁定界面');
     } else {
-      console.log('🔓 章节已解锁，将显示章节内容');
+      console.log('🔓 [ChapterReader] 章节已解锁，将显示章节内容');
     }
-  }, [isChapterLocked]);
+    console.log('🔒 [ChapterReader] ======================================');
+  }, [isChapterLocked, isCheckingLockStatus, chapterData]);
 
-  // 使用认证Hook，无需手动管理用户状态
-  const user = authUser || userData;
+  // 自动打开解锁弹窗（当检测到章节锁定且检查完成时）
+  useEffect(() => {
+    if (
+      isChapterLocked &&
+      !isCheckingLockStatus &&
+      user &&
+      chapterId &&
+      !showUnlockModal &&
+      !hasAutoOpenedUnlockModal
+    ) {
+      console.log('🔓 [ChapterReader] 自动打开解锁弹窗');
+      // 1. 启动时间解锁逻辑
+      const startUnlock = async () => {
+        try {
+          console.log('⏰ 启动时间解锁:', { chapterId, userId: user.id });
+          const response = await ApiService.request(`/chapter-unlock/start-time-unlock/${chapterId}/${user.id}`, {
+            method: 'POST'
+          });
+          console.log('⏰ 时间解锁启动结果:', response.data);
+        } catch (error) {
+          console.error('❌ 启动时间解锁失败:', error);
+        }
+      };
+      startUnlock();
+      // 2. 打开弹窗
+      setShowUnlockModal(true);
+      setHasAutoOpenedUnlockModal(true);
+    }
+  }, [isChapterLocked, isCheckingLockStatus, user, chapterId, showUnlockModal, hasAutoOpenedUnlockModal]);
+
+  // 使用 useMemo 缓存预览段落数量的计算结果
+  const previewParagraphs = useMemo(() => {
+    console.log('📊 [ChapterReader] ========== useMemo 计算 previewParagraphs ==========');
+    console.log('📊 [ChapterReader] chapterData?.content 存在?:', !!chapterData?.content);
+    console.log('📊 [ChapterReader] isChapterLocked:', isChapterLocked);
+    
+    if (!chapterData?.content) {
+      console.log('📊 [ChapterReader] 章节内容不存在，返回 0');
+      return 0;
+    }
+    
+    const paragraphs = chapterData.content.split('\n');
+    console.log('📊 [ChapterReader] 总段落数（包含空段落）:', paragraphs.length);
+    
+    // 过滤空段落（与渲染逻辑保持一致）
+    const nonEmptyParagraphs = paragraphs.filter((p: string) => p.trim());
+    console.log('📊 [ChapterReader] 非空段落数:', nonEmptyParagraphs.length);
+    
+    let result: number;
+    if (isChapterLocked) {
+      // 如果章节锁定，显示前1-2段，字数控制在100字左右
+      let totalChars = 0;
+      let previewCount = 0;
+      const targetChars = 100; // 目标字数
+      
+      for (let i = 0; i < nonEmptyParagraphs.length; i++) {
+        const paragraph = nonEmptyParagraphs[i];
+        const paragraphChars = paragraph.trim().length;
+        
+        // 如果加上这段会超过100字，且已经有至少1段，就停止
+        if (totalChars + paragraphChars > targetChars && previewCount >= 1) {
+          break;
+        }
+        
+        totalChars += paragraphChars;
+        previewCount++;
+        
+        // 最多显示2段
+        if (previewCount >= 2) {
+          break;
+        }
+      }
+      
+      result = Math.max(1, previewCount); // 至少显示1段
+      console.log('📊 [ChapterReader] 章节锁定，计算预览段落数:', previewCount, '->', result, `(字数: ${totalChars}字, 目标: ${targetChars}字)`);
+    } else {
+      // 如果章节未锁定，显示全部段落
+      result = nonEmptyParagraphs.length;
+      console.log('📊 [ChapterReader] 章节未锁定，显示全部段落:', result);
+    }
+    
+    console.log('📊 [ChapterReader] 最终 previewParagraphs:', result);
+    console.log('📊 [ChapterReader] ====================================================');
+    return result;
+  }, [chapterData?.content, isChapterLocked]);
 
   // 页面离开时记录离开时间
   useEffect(() => {
@@ -136,38 +249,31 @@ const ChapterReader: React.FC = () => {
         setLoading(true);
         setError(null);
         console.log('📖 开始加载章节内容:', chapterId);
-        const chapter = await novelService.getChapterContent(parseInt(chapterId));
+        const chapter = await novelService.getChapterContent(parseInt(chapterId), user?.id);
         console.log('📖 章节内容加载成功:', chapter.title);
+        console.log('📖 [ChapterReader] ========== 章节数据详情 ==========');
+        console.log('📖 [ChapterReader] 章节ID:', chapter.id);
+        console.log('📖 [ChapterReader] 章节标题:', chapter.title);
+        console.log('📖 [ChapterReader] 章节完整数据对象:', chapter);
+        console.log('📖 [ChapterReader] unlock_price (原始值):', chapter.unlock_price);
+        console.log('📖 [ChapterReader] unlock_price (类型):', typeof chapter.unlock_price);
+        console.log('📖 [ChapterReader] unlock_price === null?:', chapter.unlock_price === null);
+        console.log('📖 [ChapterReader] unlock_price === undefined?:', chapter.unlock_price === undefined);
+        console.log('📖 [ChapterReader] unlock_price == 0?:', chapter.unlock_price == 0);
+        console.log('📖 [ChapterReader] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
+        console.log('📖 [ChapterReader] !!chapter.unlock_price:', !!chapter.unlock_price);
+        console.log('📖 [ChapterReader] Number(chapter.unlock_price):', Number(chapter.unlock_price));
+        console.log('📖 [ChapterReader] 章节内容长度:', chapter.content?.length || 0);
+        console.log('📖 [ChapterReader] 章节数据的所有键:', Object.keys(chapter));
+        console.log('📖 [ChapterReader] ======================================');
         setChapterData(chapter);
         
-        // 检查章节是否被锁定
-        console.log('🔍 章节锁定检查开始:');
-        console.log('📖 章节信息:', {
-          id: chapter.id,
-          title: chapter.title,
-          unlock_price: chapter.unlock_price || 0,
-          novel_id: chapter.novel_id
-        });
-        console.log('👤 用户信息:', {
-          id: user?.id,
-          username: user?.username,
-          isLoggedIn: !!user
-        });
-        
-        if (chapter.unlock_price && chapter.unlock_price > 0) {
-          console.log('🔒 章节被锁定，需要检查用户权限');
-          // 如果章节被锁定，需要进一步检查用户权限
-          if (user) {
-            console.log('✅ 用户已登录，调用权限检查API');
-            await checkUserChapterAccess(chapter, user);
-          } else {
-            console.log('❌ 用户未登录，直接显示锁定');
-            setIsChapterLocked(true);
-          }
-        } else {
-          console.log('🔓 章节未锁定，直接显示内容');
-          setIsChapterLocked(false);
-        }
+        // 使用自定义 Hook 检查章节锁定状态
+        console.log('🔍 [ChapterReader] 准备调用 checkLockStatus...');
+        console.log('🔍 [ChapterReader] 当前 isChapterLocked 状态:', isChapterLocked);
+        await checkLockStatus(chapter, user);
+        console.log('🔍 [ChapterReader] checkLockStatus 调用完成');
+        console.log('🔍 [ChapterReader] 调用后 isChapterLocked 状态:', isChapterLocked);
       } catch (err: any) {
         console.error('加载章节内容失败:', err);
         const errorMessage = err.message || '加载章节内容失败，请稍后重试';
@@ -179,6 +285,32 @@ const ChapterReader: React.FC = () => {
 
     loadChapterContent();
   }, [chapterId, user, novelId, navigate]); // 添加 user, novelId 和 navigate 依赖
+
+  // 调试日志：检查章节导航数据
+  useEffect(() => {
+    if (chapterData) {
+      console.log('📊 [ChapterReader] ========== 章节导航数据检查 ==========');
+      console.log('📊 [ChapterReader] 章节ID:', chapterData.id);
+      console.log('📊 [ChapterReader] 章节号:', chapterData.chapter_number);
+      console.log('📊 [ChapterReader] has_prev (原始值):', chapterData.has_prev, '| 类型:', typeof chapterData.has_prev);
+      console.log('📊 [ChapterReader] has_next (原始值):', chapterData.has_next, '| 类型:', typeof chapterData.has_next);
+      console.log('📊 [ChapterReader] prev_chapter_id:', chapterData.prev_chapter_id, '| 是否为null:', chapterData.prev_chapter_id === null, '| 是否为undefined:', chapterData.prev_chapter_id === undefined);
+      console.log('📊 [ChapterReader] next_chapter_id:', chapterData.next_chapter_id, '| 是否为null:', chapterData.next_chapter_id === null, '| 是否为undefined:', chapterData.next_chapter_id === undefined);
+      console.log('📊 [ChapterReader] !!has_prev:', !!chapterData.has_prev);
+      console.log('📊 [ChapterReader] !!has_next:', !!chapterData.has_next);
+      
+      // 计算按钮应该的状态
+      const prevButtonShouldBeEnabled = !!(chapterData.has_prev && chapterData.prev_chapter_id);
+      const nextButtonShouldBeEnabled = !!(chapterData.has_next && chapterData.next_chapter_id);
+      
+      console.log('📊 [ChapterReader] ========== 按钮状态预期 ==========');
+      console.log('📊 [ChapterReader] Prev 按钮应该启用:', prevButtonShouldBeEnabled);
+      console.log('📊 [ChapterReader] Next 按钮应该启用:', nextButtonShouldBeEnabled);
+      console.log('📊 [ChapterReader] Prev 按钮应该禁用:', !prevButtonShouldBeEnabled);
+      console.log('📊 [ChapterReader] Next 按钮应该禁用:', !nextButtonShouldBeEnabled);
+      console.log('📊 [ChapterReader] ======================================');
+    }
+  }, [chapterData]);
 
   // 加载段落评论
   useEffect(() => {
@@ -275,16 +407,126 @@ const ChapterReader: React.FC = () => {
   };
 
   const handlePrevChapter = () => {
-    if (chapterData && chapterData.has_prev) {
-      navigate(`/novel/${novelId}/chapter/${chapterData.prev_chapter_id}`);
+    console.log('🔵 [handlePrevChapter] 函数被调用');
+    console.log('🔵 [handlePrevChapter] chapterData:', chapterData);
+    console.log('🔵 [handlePrevChapter] chapterData?.has_prev:', chapterData?.has_prev);
+    console.log('🔵 [handlePrevChapter] chapterData?.prev_chapter_id:', chapterData?.prev_chapter_id);
+    console.log('🔵 [handlePrevChapter] novelId:', novelId);
+    
+    if (chapterData?.has_prev && chapterData.prev_chapter_id) {
+      const targetUrl = `/novel/${novelId}/chapter/${chapterData.prev_chapter_id}`;
+      console.log('🔵 [handlePrevChapter] ✅ 条件满足，准备跳转到:', targetUrl);
+      navigate(targetUrl);
+    } else {
+      console.log('🔵 [handlePrevChapter] ❌ 条件不满足，无法跳转');
+      console.log('🔵 [handlePrevChapter] - has_prev:', chapterData?.has_prev);
+      console.log('🔵 [handlePrevChapter] - prev_chapter_id:', chapterData?.prev_chapter_id);
     }
   };
 
   const handleNextChapter = () => {
-    if (chapterData && chapterData.has_next) {
-      navigate(`/novel/${novelId}/chapter/${chapterData.next_chapter_id}`);
+    console.log('🟢 [handleNextChapter] 函数被调用');
+    console.log('🟢 [handleNextChapter] chapterData:', chapterData);
+    console.log('🟢 [handleNextChapter] chapterData?.has_next:', chapterData?.has_next);
+    console.log('🟢 [handleNextChapter] chapterData?.next_chapter_id:', chapterData?.next_chapter_id);
+    console.log('🟢 [handleNextChapter] novelId:', novelId);
+    
+    if (chapterData?.has_next && chapterData.next_chapter_id) {
+      const targetUrl = `/novel/${novelId}/chapter/${chapterData.next_chapter_id}`;
+      console.log('🟢 [handleNextChapter] ✅ 条件满足，准备跳转到:', targetUrl);
+      navigate(targetUrl);
+    } else {
+      console.log('🟢 [handleNextChapter] ❌ 条件不满足，无法跳转');
+      console.log('🟢 [handleNextChapter] - has_next:', chapterData?.has_next);
+      console.log('🟢 [handleNextChapter] - next_chapter_id:', chapterData?.next_chapter_id);
     }
   };
+
+  // 字体大小和行距的封装函数
+  // 修复：统一范围控制，避免子组件重复 clamp
+  // TODO：后续可以在阅读设置中新增字体家族、主题等选项
+  const handleChangeFontSize = (size: number) => {
+    const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
+    setFontSize(clamped);
+    localStorage.setItem('readerFontSize', String(clamped));
+  };
+
+  const handleChangeLineHeight = (lh: number) => {
+    const clamped = Math.min(MAX_LINE_HEIGHT, Math.max(MIN_LINE_HEIGHT, lh));
+    setLineHeight(clamped);
+    localStorage.setItem('readerLineHeight', String(clamped));
+  };
+
+  // 切换章节列表
+  const handleToggleChapters = () => {
+    setShowChapterList((prev) => !prev);
+  };
+
+  // 监听窗口滚动，判断向上/向下
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY || window.pageYOffset;
+
+      // 小范围波动忽略
+      const delta = currentY - lastScrollYRef.current;
+
+      // 向下滚动，且超过一定阈值 => 隐藏
+      if (delta > 10 && currentY > 100) {
+        if (showBottomBar) setShowBottomBar(false);
+      }
+      // 向上滚动 => 显示
+      else if (delta < -10) {
+        if (!showBottomBar) setShowBottomBar(true);
+      }
+
+      lastScrollYRef.current = currentY;
+
+      // 可选：滑动停止后自动显示一次（增强可发现性）
+      if (scrollTimeoutRef.current) {
+        window.clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        setShowBottomBar(true);
+      }, 800);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        window.clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [showBottomBar]);
+
+  // 键盘快捷键：左右方向键切换章节
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 避免在输入框中触发
+      if ((e.target as HTMLElement).tagName === 'INPUT' || 
+          (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (chapterData?.has_prev && chapterData.prev_chapter_id) {
+          navigate(`/novel/${novelId}/chapter/${chapterData.prev_chapter_id}`);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (chapterData?.has_next && chapterData.next_chapter_id) {
+          navigate(`/novel/${novelId}/chapter/${chapterData.next_chapter_id}`);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [chapterData, novelId, navigate]);
 
   // 加载段落评论统计
   const loadParagraphComments = async () => {
@@ -312,53 +554,15 @@ const ChapterReader: React.FC = () => {
   // 处理章节解锁
   const handleUnlockSuccess = () => {
     setShowUnlockModal(false);
-    setIsChapterLocked(false);
+    setHasAutoOpenedUnlockModal(false); // 重置自动打开标志，允许下次解锁时再次自动打开
+    // 重新加载章节内容以更新锁定状态
+    if (chapterData && user) {
+      checkLockStatus(chapterData, user);
+    }
     // 重新加载章节内容
     window.location.reload();
   };
 
-  // 检查用户章节访问权限
-  const checkUserChapterAccess = async (chapter: any, user: any) => {
-    try {
-      console.log('🔍 开始检查用户章节访问权限:');
-      console.log('📖 章节ID:', chapter.id);
-      console.log('👤 用户ID:', user.id);
-      console.log('🌐 API URL:', `http://localhost:5000/api/chapter-unlock/status/${chapter.id}/${user.id}`);
-      
-      // 调用后端API检查用户权限
-      console.log('📡 发送API请求...');
-      const response = await ApiService.request(`/chapter-unlock/status/${chapter.id}/${user.id}`);
-      console.log('📡 API响应状态:', response.success);
-      
-      console.log('📊 API响应数据:', response.data);
-      
-      if (response.success) {
-        const unlockData = response.data;
-        console.log('🔓 解锁状态:', unlockData);
-        console.log('🔓 isUnlocked:', unlockData.isUnlocked);
-        console.log('🔓 typeof isUnlocked:', typeof unlockData.isUnlocked);
-        
-        // 如果用户已解锁，不显示锁定
-        if (unlockData.isUnlocked) {
-          console.log('✅ 用户有访问权限，不显示锁定');
-          console.log('✅ 设置: setIsChapterLocked(false)');
-          setIsChapterLocked(false);
-        } else {
-          console.log('❌ 用户无访问权限，显示锁定');
-          console.log('❌ 设置: setIsChapterLocked(true)');
-          setIsChapterLocked(true);
-        }
-      } else {
-        console.log('❌ API调用失败，默认显示锁定');
-        console.log('❌ 设置: setIsChapterLocked(true)');
-        setIsChapterLocked(true);
-      }
-    } catch (error) {
-      console.error('❌ 检查用户权限失败:', error);
-      console.log('❌ 设置: setIsChapterLocked(true)');
-      setIsChapterLocked(true);
-    }
-  };
 
   // 启动时间解锁
   const startTimeUnlock = async (chapterId: number, userId: number) => {
@@ -383,14 +587,13 @@ const ChapterReader: React.FC = () => {
     }
   };
 
-  // 检查章节访问权限
+  // 检查章节访问权限（已改为自动打开弹窗，此函数保留用于其他可能的调用）
   const checkChapterAccess = async () => {
     if (isChapterLocked && user && chapterId) {
       console.log('🔒 章节被锁定，启动时间解锁流程');
       // 启动时间解锁
-      await startTimeUnlock(parseInt(chapterId), user.id);
-      // 显示解锁模态框
-      setShowUnlockModal(true);
+      await startTimeUnlock(parseInt(chapterId, 10), user.id);
+      // 不再手动设置 showUnlockModal，由 useEffect 自动处理
       return false;
     }
     return true;
@@ -421,7 +624,7 @@ const ChapterReader: React.FC = () => {
       setLoading(true);
       setError(null);
       console.log('重试加载章节内容:', chapterId);
-      const chapter = await novelService.getChapterContent(parseInt(chapterId));
+      const chapter = await novelService.getChapterContent(parseInt(chapterId), user?.id);
       console.log('重试成功，章节内容加载:', chapter.title);
       setChapterData(chapter);
     } catch (err: any) {
@@ -526,7 +729,7 @@ const ChapterReader: React.FC = () => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <button 
-              onClick={() => setFontSize(Math.max(14, fontSize - 2))}
+              onClick={() => handleChangeFontSize(fontSize - 2)}
               style={{ 
                 background: '#333', 
                 border: 'none', 
@@ -539,7 +742,7 @@ const ChapterReader: React.FC = () => {
               A-
             </button>
             <button 
-              onClick={() => setFontSize(Math.min(24, fontSize + 2))}
+              onClick={() => handleChangeFontSize(fontSize + 2)}
               style={{ 
                 background: '#333', 
                 border: 'none', 
@@ -649,7 +852,7 @@ const ChapterReader: React.FC = () => {
       <div style={{ 
         maxWidth: 800, 
         margin: '0 auto', 
-        padding: '40px 24px',
+        padding: '40px 24px 96px', // 底部预留 96px 避免被底部控制条遮挡
         lineHeight: lineHeight,
         fontSize: fontSize
       }}>
@@ -681,95 +884,121 @@ const ChapterReader: React.FC = () => {
           textAlign: 'justify',
           marginBottom: 60
         }}>
-          {chapterData.content ? (
+          {/* 权限检查加载提示 */}
+          {isCheckingLockStatus && (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 20px',
+              color: '#ccc',
+              fontSize: '16px'
+            }}>
+              <div style={{ marginBottom: '16px' }}>⏳ 正在检查章节访问权限...</div>
+            </div>
+          )}
+
+          {chapterData.content && !isCheckingLockStatus ? (
             // 章节内容渲染
             (() => {
+              console.log('📝 [ChapterReader] ========== 开始渲染章节内容 ==========');
+              console.log('📝 [ChapterReader] isChapterLocked:', isChapterLocked);
+              console.log('📝 [ChapterReader] previewParagraphs (useMemo 缓存值):', previewParagraphs);
+              console.log('📝 [ChapterReader] isCheckingLockStatus:', isCheckingLockStatus);
+              
               const paragraphs = chapterData.content.split('\n');
-              const previewParagraphs = isChapterLocked ? Math.max(3, Math.floor(paragraphs.length * 0.3)) : paragraphs.length;
+              console.log('📝 [ChapterReader] 总段落数（包含空段落）:', paragraphs.length);
+              
+              // 使用 useMemo 缓存的预览段落数量
+              // 跟踪已渲染的非空段落数量
+              let renderedNonEmptyCount = 0;
+              let totalRendered = 0;
+              let previewRendered = 0;
               
               return paragraphs.map((paragraph: string, index: number) => {
                 // 过滤空段落和只有空格的段落
                 const trimmedParagraph = paragraph.trim();
                 if (!trimmedParagraph) return null;
                 
-                const commentCount = paragraphComments[index] || 0;
-                const isPreview = index < previewParagraphs;
+                totalRendered++;
                 
+                // 判断当前段落是否在预览范围内（使用缓存的 previewParagraphs）
+                const isPreview = renderedNonEmptyCount < previewParagraphs;
+                if (isPreview) {
+                  previewRendered++;
+                }
+                renderedNonEmptyCount++;
+                
+                // 如果不在预览范围内，且章节被锁定，则不显示该段落
+                if (isChapterLocked && !isPreview) {
+                  return null;
+                }
+                
+                const commentCount = paragraphComments[index] || 0;
+                
+                if (index < 5 || !isPreview) { // 只记录前5段或非预览段落
+                  console.log(`📝 [ChapterReader] 段落 ${index} (非空索引 ${renderedNonEmptyCount - 1}):`, {
+                    trimmedParagraph: trimmedParagraph.substring(0, 20) + '...',
+                    commentCount,
+                    isPreview,
+                    paragraphLength: trimmedParagraph.length,
+                    renderedNonEmptyCount,
+                    previewParagraphs
+                  });
+                }
+                
+                // 在最后一个预览段落时记录总结
+                if (renderedNonEmptyCount === previewParagraphs && isPreview) {
+                  console.log('📝 [ChapterReader] ========== 预览段落渲染总结 ==========');
+                  console.log('📝 [ChapterReader] 总段落数:', paragraphs.length);
+                  console.log('📝 [ChapterReader] 非空段落数:', renderedNonEmptyCount);
+                  console.log('📝 [ChapterReader] 预览段落数:', previewParagraphs);
+                  console.log('📝 [ChapterReader] 实际渲染的预览段落数:', previewRendered);
+                  console.log('📝 [ChapterReader] isChapterLocked:', isChapterLocked);
+                  console.log('📝 [ChapterReader] ======================================');
+                }
+
                 return (
-                  <div key={index}>
-                    <div style={{ 
-                      margin: '0 0 24px 0',
-                      position: 'relative',
-                      opacity: isPreview ? 1 : 0.3,
-                      filter: isPreview ? 'none' : 'blur(2px)'
-                    }}>
-                      <p style={{ 
-                        textIndent: '2em', // 首行缩进
-                        lineHeight: lineHeight,
-                        margin: '0 0 0 0',
+                  <React.Fragment key={index}>
+                    <div style={{ display: 'block', width: '100%' }}>
+                      <div style={{ 
+                        margin: '0 0 24px 0',
+                        position: 'relative',
+                        opacity: 1,
+                        filter: 'none',
+                        display: 'block',
+                        width: '100%',
                       }}>
-                        {trimmedParagraph}
-                      </p>
-                      {isPreview && (
-                        <ParagraphComment
-                          chapterId={parseInt(chapterId!)}
-                          paragraphIndex={index}
-                          commentCount={commentCount}
-                          user={user}
-                          onCommentAdded={handleCommentAdded}
-                        />
-                      )}
-                    </div>
-                    
-                    {/* 锁定提示 - 在预览内容结束后显示 */}
-                    {isChapterLocked && index === previewParagraphs - 1 && (
-                      <div style={{
-                        textAlign: 'center',
-                        padding: '40px 20px',
-                        background: 'rgba(26, 26, 26, 0.9)',
-                        borderRadius: '12px',
-                        border: '1px solid #404040',
-                        margin: '40px 0',
-                        position: 'relative'
-                      }}>
-                        <div style={{ 
-                          position: 'absolute',
-                          top: '-20px',
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          background: '#2a2a2a',
-                          padding: '8px 16px',
-                          borderRadius: '20px',
-                          border: '1px solid #404040',
-                          fontSize: '14px',
-                          color: '#fff'
+                        <p style={{ 
+                          textIndent: '2em', // 首行缩进
+                          lineHeight: lineHeight,
+                          fontSize: fontSize, // 修复：显式使用 fontSize 控制段落字体，避免只改行距
+                          margin: '0 0 0 0',
+                          display: 'block',
+                          width: '100%',
                         }}>
-                          🔒 章节已锁定
-                        </div>
-                        <p style={{ color: '#ccc', marginBottom: '24px', fontSize: '16px' }}>
-                          继续阅读需要解锁此章节
+                          {trimmedParagraph}
+                          {isPreview && (
+                            <ParagraphComment
+                              chapterId={parseInt(chapterId!)}
+                              paragraphIndex={index}
+                              commentCount={commentCount}
+                              user={user}
+                              onCommentAdded={handleCommentAdded}
+                            />
+                          )}
                         </p>
-                        <button
-                          onClick={checkChapterAccess}
-                          style={{
-                            background: '#007bff',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '12px 24px',
-                            borderRadius: '6px',
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'background 0.3s ease'
-                          }}
-                          onMouseOver={(e) => e.currentTarget.style.background = '#0056b3'}
-                          onMouseOut={(e) => e.currentTarget.style.background = '#007bff'}
-                        >
-                          解锁章节
-                        </button>
                       </div>
+                    </div>
+                    {/* 在最后一个预览段落后显示解锁窗口 */}
+                    {isChapterLocked && renderedNonEmptyCount === previewParagraphs && isPreview && showUnlockModal && user && chapterId && (
+                      <ChapterUnlockModal
+                        isOpen={showUnlockModal}
+                        onClose={() => {}} // 不允许关闭
+                        chapterId={parseInt(chapterId)}
+                        userId={user.id}
+                        onUnlockSuccess={handleUnlockSuccess}
+                      />
                     )}
-                  </div>
+                  </React.Fragment>
                 );
               });
             })()
@@ -809,7 +1038,19 @@ const ChapterReader: React.FC = () => {
           paddingTop: 30
         }}>
           <button 
-            onClick={handlePrevChapter}
+            onClick={(e) => {
+              console.log('🖱️ [内容区 Prev 按钮] 点击事件触发');
+              console.log('🖱️ [内容区 Prev 按钮] event:', e);
+              console.log('🖱️ [内容区 Prev 按钮] button disabled:', !chapterData.has_prev);
+              console.log('🖱️ [内容区 Prev 按钮] chapterData.has_prev:', chapterData.has_prev);
+              if (!chapterData.has_prev) {
+                console.log('🖱️ [内容区 Prev 按钮] ⚠️ 按钮被禁用，点击无效');
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              handlePrevChapter();
+            }}
             disabled={!chapterData.has_prev}
             style={{ 
               background: chapterData.has_prev ? '#1976d2' : '#333',
@@ -819,7 +1060,8 @@ const ChapterReader: React.FC = () => {
               borderRadius: 6,
               cursor: chapterData.has_prev ? 'pointer' : 'not-allowed',
               fontWeight: 600,
-              fontSize: 16
+              fontSize: 16,
+              pointerEvents: chapterData.has_prev ? 'auto' : 'none',
             }}
           >
             ← Previous Chapter
@@ -830,7 +1072,19 @@ const ChapterReader: React.FC = () => {
           </div>
           
           <button 
-            onClick={handleNextChapter}
+            onClick={(e) => {
+              console.log('🖱️ [内容区 Next 按钮] 点击事件触发');
+              console.log('🖱️ [内容区 Next 按钮] event:', e);
+              console.log('🖱️ [内容区 Next 按钮] button disabled:', !chapterData.has_next);
+              console.log('🖱️ [内容区 Next 按钮] chapterData.has_next:', chapterData.has_next);
+              if (!chapterData.has_next) {
+                console.log('🖱️ [内容区 Next 按钮] ⚠️ 按钮被禁用，点击无效');
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              handleNextChapter();
+            }}
             disabled={!chapterData.has_next}
             style={{ 
               background: chapterData.has_next ? '#1976d2' : '#333',
@@ -840,7 +1094,8 @@ const ChapterReader: React.FC = () => {
               borderRadius: 6,
               cursor: chapterData.has_next ? 'pointer' : 'not-allowed',
               fontWeight: 600,
-              fontSize: 16
+              fontSize: 16,
+              pointerEvents: chapterData.has_next ? 'auto' : 'none',
             }}
           >
             Next Chapter →
@@ -904,16 +1159,40 @@ const ChapterReader: React.FC = () => {
         </div>
       </div>
       
-      {/* 章节解锁模态框 */}
-      {showUnlockModal && user && chapterId && (
-        <ChapterUnlockModal
-          isOpen={showUnlockModal}
-          onClose={() => setShowUnlockModal(false)}
-          chapterId={parseInt(chapterId)}
-          userId={user.id}
-          onUnlockSuccess={handleUnlockSuccess}
-        />
-      )}
+      
+      {/* 底部阅读控制条 */}
+      {chapterData && (() => {
+        const hasPrevValue = !!chapterData.has_prev;
+        const hasNextValue = !!chapterData.has_next;
+        
+        console.log('📤 [ChapterReader] ========== 传递给 ReaderBottomBar 的 props ==========');
+        console.log('📤 [ChapterReader] visible:', showBottomBar);
+        console.log('📤 [ChapterReader] hasPrev (转换后):', hasPrevValue);
+        console.log('📤 [ChapterReader] hasNext (转换后):', hasNextValue);
+        console.log('📤 [ChapterReader] chapterData.has_prev (原始值):', chapterData.has_prev);
+        console.log('📤 [ChapterReader] chapterData.has_next (原始值):', chapterData.has_next);
+        console.log('📤 [ChapterReader] onPrev 函数类型:', typeof handlePrevChapter);
+        console.log('📤 [ChapterReader] onNext 函数类型:', typeof handleNextChapter);
+        console.log('📤 [ChapterReader] ====================================================');
+        
+        return (
+          <ReaderBottomBar
+            visible={showBottomBar}
+            novelTitle={chapterData.novel_title || ''}
+            chapterTitle={chapterData.title || ''}
+            chapterNumber={chapterData.chapter_number}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+            onFontSizeChange={handleChangeFontSize}
+            onLineHeightChange={handleChangeLineHeight}
+            hasPrev={hasPrevValue}
+            hasNext={hasNextValue}
+            onPrev={handlePrevChapter}
+            onNext={handleNextChapter}
+            onToggleChapters={handleToggleChapters}
+          />
+        );
+      })()}
       
       <Footer />
     </div>

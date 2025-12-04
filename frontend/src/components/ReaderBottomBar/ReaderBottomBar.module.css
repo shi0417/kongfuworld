@@ -1,0 +1,266 @@
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 250; /* 比章节侧栏的 200 再大一点 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: #23272f;
+  border-top: 1px solid #333;
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 显示/隐藏动画：向下滑出屏幕 */
+.bottomBar[data-visible='false'] {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bottomBar[data-visible='true'] {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* 左侧区域：汉堡菜单 + 标题 */
+.leftArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0; /* 允许文本截断 */
+}
+
+.iconButton {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.iconButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.iconButton:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 汉堡菜单图标 */
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 20px;
+  height: 16px;
+}
+
+.hamburger span {
+  width: 100%;
+  height: 2px;
+  background-color: #fff;
+  border-radius: 1px;
+  transition: all 0.2s;
+}
+
+/* 标题区域 */
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.novelTitle {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chapterTitle {
+  font-size: 14px;
+  color: #e0e0e0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 中间区域：阅读设置 */
+.centerArea {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settingsIcon {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* 设置面板 */
+.settingsPanel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background-color: #23272f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 300;
+}
+
+.settingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.settingsLabel {
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.settingsRow:last-child {
+  margin-bottom: 0;
+}
+
+.settingsControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsBtn {
+  background: #333;
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.settingsBtn:hover {
+  background-color: #444;
+}
+
+.settingsBtn:active {
+  background-color: #555;
+}
+
+.settingsValue {
+  min-width: 50px;
+  text-align: center;
+  font-size: 14px;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* 右侧区域：导航按钮 */
+.rightArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.navButton {
+  background: #1976d2;
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.navButton:hover:not(:disabled) {
+  background-color: #1565c0;
+}
+
+.navButton:active:not(:disabled) {
+  background-color: #0d47a1;
+}
+
+.navButton:disabled {
+  background-color: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .bottomBar {
+    padding: 6px 12px;
+  }
+
+  .titleArea {
+    display: none; /* 移动端隐藏标题，节省空间 */
+  }
+
+  .novelTitle,
+  .chapterTitle {
+    font-size: 12px;
+  }
+
+  .navButton {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .settingsPanel {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .leftArea {
+    gap: 8px;
+  }
+
+  .rightArea {
+    gap: 4px;
+  }
+
+  .navButton {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+}
+

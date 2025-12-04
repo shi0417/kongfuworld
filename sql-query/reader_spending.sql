@@ -1,1 +1,1 @@
-select * from reader_spending;
+select * from reader_spending order by id desc;

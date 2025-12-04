@@ -1028,10 +1028,45 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     );
   };
 
+  // 调试日志：记录组件渲染和样式
+  React.useEffect(() => {
+    console.log(`[ParagraphComment] 组件渲染 - 段落 ${paragraphIndex}:`, {
+      chapterId,
+      paragraphIndex,
+      commentCount,
+      hasUser: !!user,
+    });
+  }, [chapterId, paragraphIndex, commentCount, user]);
+
+  // 调试日志：记录按钮的实际样式
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (buttonRef.current) {
+      const computedStyle = window.getComputedStyle(buttonRef.current);
+      const containerStyle = window.getComputedStyle(buttonRef.current.parentElement!);
+      console.log(`[ParagraphComment] 段落 ${paragraphIndex} - 按钮样式:`);
+      console.log('  按钮 display:', computedStyle.display);
+      console.log('  按钮 position:', computedStyle.position);
+      console.log('  按钮 float:', computedStyle.float);
+      console.log('  按钮 marginLeft:', computedStyle.marginLeft);
+      console.log('  按钮 verticalAlign:', computedStyle.verticalAlign);
+      console.log('  容器 display:', containerStyle.display);
+      console.log('  容器 width:', containerStyle.width);
+      console.log('  容器 marginTop:', containerStyle.marginTop);
+      console.log('  容器 marginLeft:', containerStyle.marginLeft);
+      console.log('  容器 clear:', containerStyle.clear);
+      console.log('  按钮元素标签:', buttonRef.current.tagName);
+      console.log('  容器元素标签:', buttonRef.current.parentElement?.tagName);
+      console.log('  容器的父元素:', buttonRef.current.parentElement?.parentElement?.tagName);
+      console.log('  容器的前一个兄弟元素:', buttonRef.current.parentElement?.previousElementSibling?.tagName);
+    }
+  }, [paragraphIndex]);
+
   return (
     <div className={styles.paragraphComment}>
       {/* 评论数量按钮 */}
       <button
+        ref={buttonRef}
         className={`${styles.commentButton} ${commentCount > 0 ? styles.hasComments : ''}`}
         onClick={() => setShowComments(!showComments)}
         title={commentCount > 0 ? `${commentCount} 条评论` : '点击添加评论'}

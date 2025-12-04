@@ -11,6 +11,7 @@ const AdminUserController = require('../controllers/adminUserController');
 const EditorContractService = require('../services/editorContractService');
 const EditorApplicationService = require('../services/editorApplicationService');
 const NovelContractApprovalService = require('../services/novelContractApprovalService');
+const AdminMenuPermissionService = require('../services/adminMenuPermissionService');
 // 导入权限中间件：小说审批权限基于 novel_editor_contract，有效合同才能审核，与章节审批保持一致
 const { getNovelPermissionFilter, checkNovelPermission, computeChapterCanReview } = require('../middleware/permissionMiddleware');
 const router = express.Router();
@@ -6384,6 +6385,15 @@ router.post('/editor-settlements/:settlementMonthlyId/pay', authenticateAdmin, a
            WHERE id = ?`,
           [finalAdminId, payoutId]
         );
+        
+        // 更新 editor_settlement_monthly 的 payout_id（不更新 payout_status，保持 'unpaid'，直到支付完成）
+        await db.execute(
+          `UPDATE editor_settlement_monthly
+           SET payout_id = ?,
+               updated_at = NOW()
+           WHERE id = ?`,
+          [payoutId, settlementMonthlyId]
+        );
       } else {
         // 创建新的支付单
         const editorAdminId = settlementMonthly.editor_admin_id || null;
@@ -6416,7 +6426,7 @@ router.post('/editor-settlements/:settlementMonthlyId/pay', authenticateAdmin, a
         
         payoutId = result.insertId;
         
-        // 更新 editor_settlement_monthly 的 payout_id
+        // 更新 editor_settlement_monthly 的 payout_id（不更新 payout_status，保持 'unpaid'，直到支付完成）
         await db.execute(
           `UPDATE editor_settlement_monthly
            SET payout_id = ?,
@@ -6811,26 +6821,58 @@ router.post('/editor-settlements/:settlementMonthlyId/sync-paypal', authenticate
     
     const gatewayTx = gatewayRows[0];
     
-    // 6. 调用PayPal API查询状态
+    // 6. 从 response_payload 或 request_payload 提取 batch_id
+    let batchId = null;
+    
+    // 尝试从 response_payload 中提取
+    if (gatewayTx.response_payload) {
+      try {
+        const responsePayload = typeof gatewayTx.response_payload === 'string'
+          ? JSON.parse(gatewayTx.response_payload)
+          : gatewayTx.response_payload;
+        batchId = responsePayload.batch_id || responsePayload.batch_header?.payout_batch_id || 
+                  responsePayload.batch_header?.batch_id || null;
+      } catch (e) {
+        console.warn('[editor-settlement] 解析 response_payload 失败:', e.message);
+      }
+    }
+    
+    // 如果还是没有，尝试从 request_payload 中提取
+    if (!batchId && gatewayTx.request_payload) {
+      try {
+        const requestPayload = typeof gatewayTx.request_payload === 'string'
+          ? JSON.parse(gatewayTx.request_payload)
+          : gatewayTx.request_payload;
+        batchId = requestPayload.batch_id || requestPayload.sender_batch_id || null;
+      } catch (e) {
+        console.warn('[editor-settlement] 解析 request_payload 失败:', e.message);
+      }
+    }
+    
+    // 如果还是没有，尝试使用 provider_tx_id（可能是 batch_id）
+    if (!batchId) {
+      batchId = gatewayTx.provider_tx_id;
+    }
+    
+    if (!batchId) {
+      return res.status(400).json({
+        success: false,
+        message: '当前交易记录缺少 PayPal 批次ID，无法同步状态。请尝试重新发起支付。'
+      });
+    }
+    
+    // 7. 调用PayPal API查询状态
     let paypalStatus = null;
     try {
-      if (gatewayTx.provider_batch_id) {
-        const batchStatus = await paypalService.getBatchStatus(gatewayTx.provider_batch_id);
-        paypalStatus = batchStatus;
-        console.log('[editor-settlement] PayPal批次状态查询结果:', JSON.stringify(batchStatus, null, 2));
-      } else if (gatewayTx.provider_tx_id) {
-        // 如果有单个交易ID，也可以查询
-        // 这里简化处理，只查询批次状态
-        return res.status(400).json({
-          success: false,
-          message: '请使用批次ID查询状态'
-        });
+      // 使用 getBatchStatus 或 getPayoutStatus（根据实际情况选择）
+      if (batchId && batchId.startsWith('PAYOUT_')) {
+        // 如果是批次ID格式，使用 getBatchStatus
+        paypalStatus = await paypalService.getBatchStatus(batchId);
       } else {
-        return res.status(400).json({
-          success: false,
-          message: '网关交易记录缺少批次ID'
-        });
+        // 否则使用 getPayoutStatus
+        paypalStatus = await paypalService.getPayoutStatus(batchId);
       }
+      console.log('[editor-settlement] PayPal批次状态查询结果:', JSON.stringify(paypalStatus, null, 2));
     } catch (paypalError) {
       console.error('[editor-settlement] PayPal状态查询错误:', paypalError);
       return res.status(500).json({
@@ -6839,76 +6881,119 @@ router.post('/editor-settlements/:settlementMonthlyId/sync-paypal', authenticate
       });
     }
     
-    // 7. 根据PayPal返回的状态更新数据库
+    // 8. 根据PayPal返回的状态更新数据库
+    const batchStatus = paypalStatus?.batch_header?.batch_status || paypalStatus?.batch_status || 'UNKNOWN';
+    
+    let dbStatus = 'processing';
+    if (batchStatus === 'SUCCESS') {
+      dbStatus = 'succeeded';
+    } else if (batchStatus === 'DENIED' || batchStatus === 'FAILED') {
+      dbStatus = 'failed';
+    }
+    
     await db.beginTransaction();
     
     try {
-      let gatewayStatus = gatewayTx.status;
-      let payoutStatus = payout.status;
-      let settlementPayoutStatus = settlementMonthly.payout_status;
+      // 更新 gateway_transaction
+      await db.execute(
+        `UPDATE payout_gateway_transaction
+         SET status = ?,
+             response_payload = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [
+          dbStatus,
+          JSON.stringify({
+            ...paypalStatus,
+            synced_at: new Date().toISOString(),
+            batch_status: batchStatus
+          }),
+          gatewayTx.id
+        ]
+      );
       
-      if (paypalStatus && paypalStatus.batch_status) {
-        const batchStatus = paypalStatus.batch_status;
-        
-        if (batchStatus === 'SUCCESS') {
-          gatewayStatus = 'succeeded';
-          payoutStatus = 'paid';
-          settlementPayoutStatus = 'paid';
-        } else if (batchStatus === 'DENIED' || batchStatus === 'FAILED') {
-          gatewayStatus = 'failed';
-          payoutStatus = 'failed';
-          // settlement_payout_status 保持 'unpaid'
-        } else if (batchStatus === 'PENDING' || batchStatus === 'PROCESSING') {
-          gatewayStatus = 'processing';
-          payoutStatus = 'processing';
-          // settlement_payout_status 保持 'unpaid'
-        }
-        
-        // 更新 gateway_transaction
-        await db.execute(
-          `UPDATE payout_gateway_transaction
-           SET status = ?,
-               response_payload = ?,
-               updated_at = NOW()
-           WHERE id = ?`,
-          [
-            gatewayStatus,
-            JSON.stringify(paypalStatus),
-            gatewayTx.id
-          ]
-        );
-        
-        // 更新 editor_payout
+      // 如果PayPal状态为SUCCESS，更新editor_payout和editor_settlement_monthly
+      if (batchStatus === 'SUCCESS') {
         await db.execute(
           `UPDATE editor_payout
-           SET status = ?,
-               ${payoutStatus === 'paid' ? 'paid_at = NOW(),' : ''}
+           SET status = 'paid',
+               paid_at = NOW(),
                updated_at = NOW()
            WHERE id = ?`,
-          payoutStatus === 'paid' ? [payoutStatus, payout.id] : [payoutStatus, payout.id]
+          [payout.id]
         );
         
-        // 更新 editor_settlement_monthly
-        if (settlementPayoutStatus === 'paid') {
-          await db.execute(
-            `UPDATE editor_settlement_monthly
-             SET payout_status = ?,
-                 updated_at = NOW()
-             WHERE id = ?`,
-            [settlementPayoutStatus, settlementMonthlyId]
-          );
-        }
+        await db.execute(
+          `UPDATE editor_settlement_monthly
+           SET payout_status = 'paid',
+               updated_at = NOW()
+           WHERE id = ?`,
+          [settlementMonthlyId]
+        );
+      } else if (batchStatus === 'DENIED' || batchStatus === 'FAILED') {
+        // 如果失败，更新editor_payout状态
+        await db.execute(
+          `UPDATE editor_payout
+           SET status = 'failed',
+               updated_at = NOW()
+           WHERE id = ?`,
+          [payout.id]
+        );
+        
+        // editor_settlement_monthly.payout_status 保持 'unpaid'（支付失败意味着还是未支付状态）
       }
       
       await db.commit();
       
+      // 重新查询更新后的数据
+      const [updatedSettlementRows] = await db.execute(
+        'SELECT * FROM editor_settlement_monthly WHERE id = ?',
+        [settlementMonthlyId]
+      );
+      
+      const [updatedPayoutRows] = await db.execute(
+        'SELECT * FROM editor_payout WHERE id = ?',
+        [payout.id]
+      );
+      
+      const [updatedGatewayRows] = await db.execute(
+        'SELECT * FROM payout_gateway_transaction WHERE id = ?',
+        [gatewayTx.id]
+      );
+      
+      const updatedSettlement = updatedSettlementRows[0];
+      const updatedPayout = updatedPayoutRows[0];
+      const updatedGatewayTx = updatedGatewayRows[0];
+      
       res.json({
         success: true,
-        message: 'PayPal状态同步成功',
+        message: `同步成功，当前状态: ${batchStatus === 'SUCCESS' ? '已支付' : batchStatus === 'DENIED' || batchStatus === 'FAILED' ? '支付失败' : '处理中'}`,
         data: {
-          gateway_status: gatewayStatus,
-          payout_status: payoutStatus,
-          settlement_payout_status: settlementPayoutStatus
+          settlement_monthly: {
+            id: updatedSettlement.id,
+            editor_admin_id: updatedSettlement.editor_admin_id,
+            role: updatedSettlement.role,
+            month: updatedSettlement.month,
+            total_income_usd: parseFloat(updatedSettlement.total_income_usd || 0),
+            payout_status: updatedSettlement.payout_status,
+            payout_id: updatedSettlement.payout_id || null
+          },
+          payout: {
+            id: updatedPayout.id,
+            status: updatedPayout.status,
+            method: updatedPayout.method,
+            payout_currency: updatedPayout.payout_currency,
+            payout_amount: parseFloat(updatedPayout.payout_amount || 0)
+          },
+          gateway_tx: {
+            id: updatedGatewayTx.id,
+            status: updatedGatewayTx.status,
+            provider_tx_id: updatedGatewayTx.provider_tx_id,
+            response_payload: updatedGatewayTx.response_payload ? 
+              (typeof updatedGatewayTx.response_payload === 'string' ? 
+                JSON.parse(updatedGatewayTx.response_payload) : 
+                updatedGatewayTx.response_payload) : null
+          }
         }
       });
     } catch (error) {
@@ -7001,13 +7086,34 @@ router.get('/editor-settlements/:settlementMonthlyId/detail', authenticateAdmin,
       }
     }
     
+    // 5. 查询编辑收款账户（admin_payout_account）
+    const [accountRows] = await db.execute(
+      'SELECT * FROM admin_payout_account WHERE admin_id = ? AND status = ? ORDER BY is_default DESC, id ASC',
+      [settlementMonthly.editor_admin_id, 'active']
+    );
+    
+    const allAccounts = accountRows || [];
+    let defaultAccount = null;
+    if (allAccounts.length > 0) {
+      // 优先取 is_default = 1 的账户
+      defaultAccount = allAccounts.find(acc => acc.is_default === 1) || allAccounts[0];
+    }
+    
+    // 兼容旧接口：如果有 payouts，取第一个作为 payout
+    const payout = payouts.length > 0 ? payouts[0] : null;
+    const gateway_transaction = payout?.gateway_transaction || null;
+    
     res.json({
       success: true,
       data: {
         settlement_monthly: settlementMonthly,
         editor: editor,
+        payout: payout,
+        gateway_transaction: gateway_transaction,
         payouts: payouts,
-        gateway_transactions: payouts.map(p => p.gateway_transaction).filter(t => t !== null)
+        gateway_transactions: payouts.map(p => p.gateway_transaction).filter(t => t !== null),
+        all_accounts: allAccounts,
+        default_account: defaultAccount
       }
     });
   } catch (error) {
@@ -12031,6 +12137,856 @@ router.put('/payout-account/:accountId/set-default', authenticateAdmin, async (r
     res.status(500).json({
       success: false,
       message: '设置失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ========== 编辑收入相关接口（管理员查看自己的收入） ==========
+
+// 工具函数：解析月份格式
+function parseMonthForEditor(month) {
+  if (!month) return null;
+  if (month.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return month;
+  }
+  if (month.match(/^\d{4}-\d{2}$/)) {
+    return `${month}-01`;
+  }
+  return month;
+}
+
+// 获取编辑参与的作品列表
+router.get('/editor-income/novels', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    db = await mysql.createConnection(dbConfig);
+    
+    // 查询该编辑参与的所有作品（从editor_income_monthly或chapter表）
+    const [novels] = await db.execute(
+      `SELECT DISTINCT n.id, n.title
+       FROM novel n
+       INNER JOIN chapter c ON c.novel_id = n.id
+       WHERE (c.editor_admin_id = ? OR c.chief_editor_admin_id = ?)
+       ORDER BY n.title`,
+      [adminId, adminId]
+    );
+    
+    res.json({
+      success: true,
+      data: novels
+    });
+  } catch (error) {
+    console.error('获取编辑作品列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取编辑收入汇总
+router.get('/editor-income/summary', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { month, novel_id, role } = req.query;
+    
+    if (!month) {
+      return res.status(400).json({
+        success: false,
+        message: '请指定月份（格式：2025-10-01）'
+      });
+    }
+    
+    const monthStart = parseMonthForEditor(month);
+    if (!monthStart) {
+      return res.status(400).json({
+        success: false,
+        message: '月份格式错误'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 构建查询条件
+    let whereClause = 'editor_admin_id = ? AND month = ?';
+    const params = [adminId, monthStart];
+    
+    if (novel_id && novel_id !== 'all') {
+      whereClause += ' AND novel_id = ?';
+      params.push(parseInt(novel_id));
+    }
+    
+    if (role && role !== 'all') {
+      whereClause += ' AND role = ?';
+      params.push(role);
+    }
+    
+    // 查询总收入
+    const [totalResult] = await db.execute(
+      `SELECT 
+        COALESCE(SUM(editor_income_usd), 0) as total_income_usd,
+        COALESCE(SUM(CASE WHEN role = 'chief_editor' THEN editor_income_usd ELSE 0 END), 0) as chief_editor_income_usd,
+        COALESCE(SUM(CASE WHEN role = 'editor' THEN editor_income_usd ELSE 0 END), 0) as editor_income_usd,
+        COUNT(DISTINCT novel_id) as novel_count
+       FROM editor_income_monthly
+       WHERE ${whereClause}`,
+      params
+    );
+    
+    const result = totalResult[0];
+    
+    res.json({
+      success: true,
+      data: {
+        total_income_usd: parseFloat(result.total_income_usd || 0),
+        chief_editor_income_usd: parseFloat(result.chief_editor_income_usd || 0),
+        editor_income_usd: parseFloat(result.editor_income_usd || 0),
+        novel_count: parseInt(result.novel_count || 0)
+      }
+    });
+  } catch (error) {
+    console.error('获取编辑收入汇总错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 按作品汇总编辑收入
+router.get('/editor-income/by-novel', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { month, role } = req.query;
+    
+    if (!month) {
+      return res.status(400).json({
+        success: false,
+        message: '请指定月份'
+      });
+    }
+    
+    const monthStart = parseMonthForEditor(month);
+    if (!monthStart) {
+      return res.status(400).json({
+        success: false,
+        message: '月份格式错误'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 构建查询条件
+    let whereClause = 'eim.editor_admin_id = ? AND eim.month = ?';
+    const params = [adminId, monthStart];
+    
+    if (role && role !== 'all') {
+      whereClause += ' AND eim.role = ?';
+      params.push(role);
+    }
+    
+    // 查询按作品汇总的收入，并关联结算状态
+    const [results] = await db.execute(
+      `SELECT 
+        eim.novel_id,
+        n.title as novel_title,
+        eim.role,
+        SUM(eim.editor_income_usd) as income_usd,
+        COALESCE(esm.payout_status, 'unpaid') as payout_status
+       FROM editor_income_monthly eim
+       LEFT JOIN novel n ON eim.novel_id = n.id
+       LEFT JOIN editor_settlement_monthly esm ON 
+         esm.editor_admin_id = eim.editor_admin_id 
+         AND esm.role = eim.role 
+         AND esm.month = eim.month
+       WHERE ${whereClause}
+       GROUP BY eim.novel_id, eim.role, n.title, esm.payout_status
+       ORDER BY n.title, eim.role`,
+      params
+    );
+    
+    res.json({
+      success: true,
+      data: results.map(row => ({
+        novel_id: row.novel_id,
+        novel_title: row.novel_title,
+        role: row.role,
+        income_usd: parseFloat(row.income_usd || 0),
+        payout_status: row.payout_status
+      }))
+    });
+  } catch (error) {
+    console.error('获取按作品汇总收入错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取编辑收入明细
+router.get('/editor-income/details', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { month, novel_id, role, page = 1, pageSize = 20 } = req.query;
+    
+    if (!month) {
+      return res.status(400).json({
+        success: false,
+        message: '请指定月份'
+      });
+    }
+    
+    const monthStart = parseMonthForEditor(month);
+    if (!monthStart) {
+      return res.status(400).json({
+        success: false,
+        message: '月份格式错误'
+      });
+    }
+    
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const pageSizeNum = Math.max(1, Math.min(100, parseInt(pageSize) || 20));
+    const offset = (pageNum - 1) * pageSizeNum;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 构建查询条件
+    let whereClause = 'eim.editor_admin_id = ? AND eim.month = ?';
+    const params = [adminId, monthStart];
+    
+    if (novel_id && novel_id !== 'all') {
+      whereClause += ' AND eim.novel_id = ?';
+      params.push(parseInt(novel_id));
+    }
+    
+    if (role && role !== 'all') {
+      whereClause += ' AND eim.role = ?';
+      params.push(role);
+    }
+    
+    // 查询明细
+    const [details] = await db.query(
+      `SELECT 
+        eim.id,
+        eim.created_at as time,
+        n.title as novel_title,
+        eim.role,
+        eim.source_type,
+        eim.editor_income_usd as income_usd
+       FROM editor_income_monthly eim
+       LEFT JOIN novel n ON eim.novel_id = n.id
+       WHERE ${whereClause}
+       ORDER BY eim.created_at DESC
+       LIMIT ${pageSizeNum} OFFSET ${offset}`,
+      params
+    );
+    
+    // 查询总数
+    const [countResult] = await db.execute(
+      `SELECT COUNT(*) as total
+       FROM editor_income_monthly eim
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countResult[0].total;
+    
+    res.json({
+      success: true,
+      data: details.map(row => ({
+        id: row.id,
+        time: row.time,
+        novel_title: row.novel_title,
+        role: row.role,
+        source_type: row.source_type,
+        income_usd: parseFloat(row.income_usd || 0)
+      })),
+      pagination: {
+        page: pageNum,
+        pageSize: pageSizeNum,
+        total: total,
+        totalPages: Math.ceil(total / pageSizeNum)
+      }
+    });
+  } catch (error) {
+    console.error('获取编辑收入明细错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取编辑月度结算列表（管理员查看自己的）
+router.get('/editor-settlement/monthly', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { limit = 12 } = req.query;
+    
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 12));
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    const [rows] = await db.query(
+      `SELECT 
+        esm.month,
+        esm.novel_count,
+        esm.record_count,
+        esm.total_income_usd,
+        esm.payout_status,
+        esm.payout_id,
+        ep.payout_currency,
+        ep.payout_amount,
+        CASE 
+          WHEN esm.payout_status = 'paid' THEN 0
+          ELSE esm.total_income_usd
+        END as unpaid_amount
+       FROM editor_settlement_monthly esm
+       LEFT JOIN editor_payout ep ON esm.payout_id = ep.id
+       WHERE esm.editor_admin_id = ?
+       ORDER BY esm.month DESC
+       LIMIT ${limitNum}`,
+      [adminId]
+    );
+    
+    res.json({
+      success: true,
+      data: rows.map(row => ({
+        month: row.month,
+        novel_count: parseInt(row.novel_count || 0),
+        record_count: parseInt(row.record_count || 0),
+        total_income_usd: parseFloat(row.total_income_usd || 0),
+        paid_amount_usd: parseFloat(row.total_income_usd || 0) - parseFloat(row.unpaid_amount || 0),
+        unpaid_amount: parseFloat(row.unpaid_amount || 0),
+        payout_status: row.payout_status,
+        payout_currency: row.payout_currency || null,
+        payout_amount: row.payout_amount ? parseFloat(row.payout_amount) : null
+      }))
+    });
+  } catch (error) {
+    console.error('获取编辑月度结算列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取编辑支付记录列表（管理员查看自己的）
+router.get('/editor-payout/list', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { page = 1, pageSize = 20 } = req.query;
+    
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const pageSizeNum = Math.max(1, Math.min(100, parseInt(pageSize) || 20));
+    const offset = (pageNum - 1) * pageSizeNum;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    const [payouts] = await db.query(
+      `SELECT 
+        ep.*,
+        esm.total_income_usd,
+        pgt.provider_tx_id,
+        pgt.provider as gateway_provider
+       FROM editor_payout ep
+       LEFT JOIN editor_settlement_monthly esm ON ep.settlement_monthly_id = esm.id
+       LEFT JOIN payout_gateway_transaction pgt ON ep.gateway_tx_id = pgt.id
+       WHERE ep.editor_admin_id = ?
+       ORDER BY ep.month DESC, ep.created_at DESC
+       LIMIT ${pageSizeNum} OFFSET ${offset}`,
+      [adminId]
+    );
+    
+    const [countResult] = await db.execute(
+      'SELECT COUNT(*) as total FROM editor_payout WHERE editor_admin_id = ?',
+      [adminId]
+    );
+    const total = countResult[0].total;
+    
+    res.json({
+      success: true,
+      data: payouts.map(row => {
+        // 解析 account_info JSON
+        let accountInfo = null;
+        try {
+          accountInfo = typeof row.account_info === 'string' 
+            ? JSON.parse(row.account_info) 
+            : row.account_info;
+        } catch (e) {
+          accountInfo = null;
+        }
+        
+        // 提取收款账号信息
+        let accountLabel = '';
+        let accountData = '';
+        if (accountInfo) {
+          accountLabel = accountInfo.account_label || '';
+          if (accountInfo.account_data) {
+            const accountDataObj = typeof accountInfo.account_data === 'string'
+              ? JSON.parse(accountInfo.account_data)
+              : accountInfo.account_data;
+            if (accountDataObj.email) {
+              accountData = accountDataObj.email;
+            } else if (accountDataObj.account) {
+              accountData = accountDataObj.account;
+            } else if (accountDataObj.login_id) {
+              accountData = accountDataObj.login_id;
+            }
+          }
+        }
+        
+        return {
+          id: row.id,
+          month: row.month,
+          total_income_usd: parseFloat(row.total_income_usd || 0),
+          base_amount_usd: parseFloat(row.base_amount_usd || 0),
+          payout_currency: row.payout_currency || 'USD',
+          payout_amount: parseFloat(row.payout_amount || 0),
+          method: row.method,
+          account_label: accountLabel,
+          account_data: accountData,
+          provider_tx_id: row.provider_tx_id || null,
+          gateway_provider: row.gateway_provider || null,
+          status: row.status,
+          requested_at: row.requested_at,
+          paid_at: row.paid_at,
+          created_at: row.created_at,
+          fx_rate: parseFloat(row.fx_rate || 1.0),
+          note: row.note
+        };
+      }),
+      pagination: {
+        page: pageNum,
+        pageSize: pageSizeNum,
+        total: total,
+        totalPages: Math.ceil(total / pageSizeNum)
+      }
+    });
+  } catch (error) {
+    console.error('获取编辑支付记录列表错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取编辑支付记录详情（管理员查看自己的）
+router.get('/editor-payout/detail/:payoutId', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const payoutId = parseInt(req.params.payoutId);
+    
+    if (isNaN(payoutId)) {
+      return res.status(400).json({
+        success: false,
+        message: '支付单ID无效'
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 获取支付单基本信息
+    const [payouts] = await db.execute(
+      'SELECT * FROM editor_payout WHERE id = ? AND editor_admin_id = ?',
+      [payoutId, adminId]
+    );
+    
+    if (payouts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '支付单不存在'
+      });
+    }
+    
+    const payout = payouts[0];
+    
+    // 获取网关交易信息
+    let gatewayTx = null;
+    if (payout.gateway_tx_id) {
+      const [gatewayRows] = await db.execute(
+        'SELECT * FROM payout_gateway_transaction WHERE id = ?',
+        [payout.gateway_tx_id]
+      );
+      if (gatewayRows.length > 0) {
+        gatewayTx = gatewayRows[0];
+      }
+    }
+    
+    // 安全解析 JSON 的辅助函数（处理字符串和对象两种情况）
+    const safeParseJSON = (value, defaultValue = null) => {
+      if (!value) return defaultValue;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          console.warn('[WARN] JSON解析失败，使用默认值:', e.message);
+          return defaultValue;
+        }
+      }
+      // 如果已经是对象，直接返回
+      if (typeof value === 'object') {
+        return value;
+      }
+      return defaultValue;
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        payout: {
+          id: payout.id,
+          month: payout.month,
+          settlement_monthly_id: payout.settlement_monthly_id,
+          base_amount_usd: parseFloat(payout.base_amount_usd || 0),
+          payout_currency: payout.payout_currency || 'USD',
+          payout_amount: parseFloat(payout.payout_amount || 0),
+          fx_rate: parseFloat(payout.fx_rate || 1.0),
+          status: payout.status,
+          method: payout.method,
+          account_info: safeParseJSON(payout.account_info, null),
+          requested_at: payout.requested_at,
+          paid_at: payout.paid_at,
+          note: payout.note
+        },
+        gateway_transaction: gatewayTx ? {
+          provider: gatewayTx.provider,
+          provider_tx_id: gatewayTx.provider_tx_id,
+          status: gatewayTx.status,
+          base_amount_usd: parseFloat(gatewayTx.base_amount_usd || 0),
+          payout_currency: gatewayTx.payout_currency || 'USD',
+          payout_amount: parseFloat(gatewayTx.payout_amount || 0),
+          fx_rate: parseFloat(gatewayTx.fx_rate || 1.0),
+          request_payload: safeParseJSON(gatewayTx.request_payload, null),
+          response_payload: safeParseJSON(gatewayTx.response_payload, null),
+          error_code: gatewayTx.error_code,
+          error_message: gatewayTx.error_message,
+          created_at: gatewayTx.created_at,
+          updated_at: gatewayTx.updated_at
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('获取编辑支付记录详情错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 我的合同管理 ====================
+
+// 获取当前登录编辑的合同统计
+router.get('/my-contracts/summary', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    db = await mysql.createConnection(dbConfig);
+    
+    const [stats] = await db.execute(
+      `SELECT 
+        COUNT(*) as total_count,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_count,
+        SUM(CASE WHEN status = 'ended' THEN 1 ELSE 0 END) as ended_count,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count,
+        COUNT(DISTINCT novel_id) as novel_count
+       FROM novel_editor_contract
+       WHERE editor_admin_id = ?`,
+      [adminId]
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        total_count: parseInt(stats[0].total_count) || 0,
+        active_count: parseInt(stats[0].active_count) || 0,
+        ended_count: parseInt(stats[0].ended_count) || 0,
+        cancelled_count: parseInt(stats[0].cancelled_count) || 0,
+        novel_count: parseInt(stats[0].novel_count) || 0
+      }
+    });
+  } catch (error) {
+    console.error('获取合同统计失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取合同统计失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取当前登录编辑的合同列表（分页 + 筛选 + 排序）
+router.get('/my-contracts', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const adminId = req.admin.adminId;
+    const { 
+      page = 1, 
+      pageSize = 20,
+      novel_id,
+      role,
+      status,
+      sortField = 'created_at',
+      sortOrder = 'DESC'
+    } = req.query;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 构建WHERE条件
+    const whereConditions = ['c.editor_admin_id = ?'];
+    const queryParams = [adminId];
+    
+    if (novel_id) {
+      whereConditions.push('c.novel_id = ?');
+      queryParams.push(novel_id);
+    }
+    
+    if (role) {
+      whereConditions.push('c.role = ?');
+      queryParams.push(role);
+    }
+    
+    if (status) {
+      whereConditions.push('c.status = ?');
+      queryParams.push(status);
+    }
+    
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+    
+    // 验证排序字段（防止SQL注入）
+    const allowedSortFields = ['created_at', 'start_date', 'status', 'share_percent'];
+    const safeSortField = allowedSortFields.includes(sortField) ? sortField : 'created_at';
+    const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    
+    // 获取总数
+    const [countResult] = await db.execute(
+      `SELECT COUNT(*) as total 
+       FROM novel_editor_contract c
+       ${whereClause}`,
+      queryParams
+    );
+    const total = parseInt(countResult[0].total) || 0;
+    
+    // 获取列表数据
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const pageSizeNum = Math.max(1, Math.min(100, parseInt(pageSize) || 20));
+    const offset = (pageNum - 1) * pageSizeNum;
+    
+    // LIMIT 和 OFFSET 不能使用参数占位符，需要直接拼接（已通过 parseInt 和 Math.max/Math.min 验证，安全）
+    const [rows] = await db.execute(
+      `SELECT 
+        c.id,
+        c.novel_id,
+        n.title AS novel_title,
+        c.editor_admin_id,
+        c.role,
+        c.share_type,
+        c.share_percent,
+        c.start_chapter_id,
+        c.end_chapter_id,
+        c.start_date,
+        c.end_date,
+        c.status,
+        c.created_at,
+        c.updated_at
+       FROM novel_editor_contract c
+       LEFT JOIN novel n ON c.novel_id = n.id
+       ${whereClause}
+       ORDER BY c.${safeSortField} ${safeSortOrder}
+       LIMIT ${pageSizeNum} OFFSET ${offset}`,
+      queryParams
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        list: rows,
+        total,
+        page: pageNum,
+        pageSize: pageSizeNum
+      }
+    });
+  } catch (error) {
+    console.error('获取合同列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取合同列表失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 菜单权限管理相关接口 ====================
+
+// 定义所有受权限控制的菜单 key（前后端需保持一致）
+const ALL_MENU_KEYS = [
+  // group keys
+  'group:income-editor',
+  // income & editor group items
+  'payment-stats',
+  'author-income',
+  'reader-income',
+  'settlement-overview',
+  'base-income',
+  'author-royalty',
+  'commission-transaction',
+  'editor-base-income',
+  'commission-settings',
+  'editor-management',
+  // 顶部独立菜单
+  'novel-review',
+  'new-novel-pool',
+  'chapter-approval',
+  // 底部独立菜单
+  'admin-payout-account',
+];
+
+// 获取当前登录管理员可见菜单 key 列表
+router.get('/menu-permissions/my', authenticateAdmin, async (req, res) => {
+  let db;
+  try {
+    const role = req.admin.role;
+    
+    db = await mysql.createConnection(dbConfig);
+    const adminMenuPermissionService = new AdminMenuPermissionService(dbConfig);
+    
+    const allowedKeys = await adminMenuPermissionService.getAdminAllowedMenuKeys(db, role, ALL_MENU_KEYS);
+    
+    res.json({
+      success: true,
+      data: {
+        role,
+        allowedMenuKeys: allowedKeys
+      }
+    });
+  } catch (error) {
+    console.error('获取当前管理员菜单权限失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '获取菜单权限失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 获取某个角色的菜单权限配置（用于「账号权限管理」页面）
+// 只有 super_admin 可以查看和配置
+router.get('/menu-permissions/role/:role', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  let db;
+  try {
+    const { role } = req.params;
+    const validRoles = ['chief_editor', 'editor', 'finance', 'operator'];
+    
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '不支持的角色类型' 
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    const adminMenuPermissionService = new AdminMenuPermissionService(dbConfig);
+    
+    const rolePermissions = await adminMenuPermissionService.getRoleMenuPermissions(db, role);
+    
+    res.json({
+      success: true,
+      data: {
+        role,
+        allMenuKeys: ALL_MENU_KEYS,
+        permissions: rolePermissions
+      }
+    });
+  } catch (error) {
+    console.error('获取角色菜单权限失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '获取角色菜单权限失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 保存某个角色的菜单权限配置
+// body: { permissions: { [menuKey: string]: boolean } }
+router.post('/menu-permissions/role/:role', authenticateAdmin, requireRole('super_admin'), async (req, res) => {
+  let db;
+  try {
+    const { role } = req.params;
+    const { permissions } = req.body || {};
+    
+    const validRoles = ['chief_editor', 'editor', 'finance', 'operator'];
+    
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '不支持的角色类型' 
+      });
+    }
+    
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'permissions 数据格式错误' 
+      });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    const adminMenuPermissionService = new AdminMenuPermissionService(dbConfig);
+    
+    await adminMenuPermissionService.saveRoleMenuPermissions(db, role, permissions);
+    
+    res.json({ 
+      success: true, 
+      message: '菜单权限保存成功' 
+    });
+  } catch (error) {
+    console.error('保存角色菜单权限失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '保存菜单权限失败',
       error: error.message
     });
   } finally {

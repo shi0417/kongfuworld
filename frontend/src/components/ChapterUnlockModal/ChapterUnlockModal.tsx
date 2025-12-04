@@ -20,6 +20,7 @@ interface UnlockStatus {
   isPremium: boolean;
   keyCost: number;
   unlockPrice: number;
+  final_unlock_price?: number; // 最终价格（包含促销折扣）
   isUnlocked: boolean;
   unlockMethod: string | null;
   userKeyBalance: number;
@@ -40,6 +41,18 @@ interface UnlockStatus {
       is_expired: boolean;
     };
   };
+  promotion?: {
+    id: number;
+    promotion_type: string;
+    discount_value: number;
+    discount_percentage: number; // 折扣百分比，如70表示70% off
+    base_price: number;
+    discounted_price: number;
+    start_at: string;
+    end_at: string;
+    time_remaining: number;
+    time_remaining_formatted: string;
+  } | null;
 }
 
 const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
@@ -59,12 +72,47 @@ const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [timeUntilFree, setTimeUntilFree] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false); // Prevent duplicate refresh
+  const [promotionTimeRemaining, setPromotionTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && chapterId && userId) {
       fetchUnlockStatus();
     }
   }, [isOpen, chapterId, userId]);
+
+  // 更新促销倒计时
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isOpen && unlockStatus?.promotion) {
+      const updatePromotionTime = () => {
+        const now = new Date();
+        const endAt = new Date(unlockStatus.promotion!.end_at);
+        const timeRemaining = endAt.getTime() - now.getTime();
+        
+        if (timeRemaining > 0) {
+          const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+          const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+          setPromotionTimeRemaining(`${hours}h:${minutes.toString().padStart(2, '0')}m:${seconds.toString().padStart(2, '0')}s`);
+        } else {
+          setPromotionTimeRemaining('00h:00m:00s');
+          // 促销已过期，刷新状态
+          fetchUnlockStatus();
+        }
+      };
+      
+      // 立即执行一次
+      updatePromotionTime();
+      
+      // 每秒更新一次
+      interval = setInterval(updatePromotionTime, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOpen, unlockStatus?.promotion]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -260,8 +308,8 @@ const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.unlockWindowContainer}>
+      <div className={styles.unlockWindowContent}>
         {loading ? (
           <div className={styles.loading}>
             <div className={styles.spinner}></div>
@@ -317,7 +365,28 @@ const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
               <div className={styles.buttonIcon}>💎</div>
               <div className={styles.buttonText}>
                 <span className={styles.buttonTitle}>Karma Unlock</span>
-                <span className={styles.buttonCost}>{unlockStatus?.unlockPrice || 10} Karma per chapter</span>
+                <div className={styles.buttonCost}>
+                  {unlockStatus?.promotion ? (
+                    <div className={styles.promotionPrice}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <span className={styles.originalPrice}>
+                          {unlockStatus.promotion.base_price} Karma
+                        </span>
+                        <span className={styles.discountedPrice}>
+                          {unlockStatus.promotion.discounted_price} Karma
+                        </span>
+                        <span className={styles.discountBadge}>
+                          {unlockStatus.promotion.discount_percentage}% OFF
+                        </span>
+                      </div>
+                      <div className={styles.promotionTime}>
+                        ⏰ {promotionTimeRemaining || unlockStatus.promotion.time_remaining_formatted} remaining
+                      </div>
+                    </div>
+                  ) : (
+                    <span>{unlockStatus?.final_unlock_price || unlockStatus?.unlockPrice || 10} Karma per chapter</span>
+                  )}
+                </div>
               </div>
               <div className={styles.buttonAction}>
                 {actionLoading === 'karma' ? 'Purchasing...' : 'Permanent Purchase'}

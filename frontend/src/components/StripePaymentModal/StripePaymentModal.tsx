@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
   CardElement,
@@ -7,10 +6,12 @@ import {
   useElements
 } from '@stripe/react-stripe-js';
 import ApiService from '../../services/ApiService';
+import { loadStripeFallback } from '../../utils/stripeFallback';
 import styles from './StripePaymentModal.module.css';
 
-// 加载Stripe
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key');
+// 加载Stripe（带错误处理）
+const STRIPE_PUBLISHABLE_KEY = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key';
+const stripePromise = loadStripeFallback(STRIPE_PUBLISHABLE_KEY);
 
 interface StripePaymentModalProps {
   isOpen: boolean;
@@ -195,9 +196,17 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   onPaymentSuccess,
   onPaymentError
 }) => {
+  const [stripeLoaded, setStripeLoaded] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      // 检查 Stripe 是否加载成功
+      stripePromise.then((stripe) => {
+        setStripeLoaded(stripe !== null);
+      }).catch(() => {
+        setStripeLoaded(false);
+      });
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -228,15 +237,22 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
             </div>
           </div>
 
-          <Elements stripe={stripePromise}>
-            <PaymentForm
-              tier={tier}
-              novelId={novelId}
-              onPaymentSuccess={onPaymentSuccess}
-              onPaymentError={onPaymentError}
-              onClose={onClose}
-            />
-          </Elements>
+          {stripeLoaded === false ? (
+            <div className={styles.errorMessage}>
+              <p>Stripe 支付服务暂时不可用，请稍后重试或使用其他支付方式。</p>
+              <button onClick={onClose} className={styles.cancelButton}>关闭</button>
+            </div>
+          ) : (
+            <Elements stripe={stripePromise}>
+              <PaymentForm
+                tier={tier}
+                novelId={novelId}
+                onPaymentSuccess={onPaymentSuccess}
+                onPaymentError={onPaymentError}
+                onClose={onClose}
+              />
+            </Elements>
+          )}
 
           <div className={styles.securityText}>
             By providing your bank card information, you agree to allow KongFuWorld Limited to charge your bank card for future payments according to their terms.

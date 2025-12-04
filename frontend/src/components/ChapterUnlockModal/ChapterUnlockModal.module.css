@@ -1,25 +1,20 @@
-/* 章节解锁模态框样式 - 完全匹配WuxiaWorld设计 */
-.modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+/* 章节解锁窗口样式 - 内联显示，作为页面内容的一部分 */
+.unlockWindowContainer {
+  width: 100%;
+  margin: 40px 0;
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 1000;
+  align-items: center;
 }
 
-.modalContent {
+.unlockWindowContent {
   background: #1a1a1a;
   border-radius: 12px;
   padding: 0;
-  width: 420px;
-  max-height: 80vh;
+  width: 100%;
+  max-width: 500px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   position: relative;
   border: 1px solid #333;
 }
@@ -169,6 +164,44 @@
   color: #4A90E2;
   font-weight: 500;
   white-space: nowrap;
+}
+
+/* 促销价格显示 */
+.promotionPrice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+}
+
+.originalPrice {
+  text-decoration: line-through;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.discountedPrice {
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.discountBadge {
+  display: inline-block;
+  background: #ff6b6b;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.promotionTime {
+  font-size: 0.75rem;
+  color: #ff6b6b;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 /* Champion订阅 */

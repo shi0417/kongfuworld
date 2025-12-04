@@ -12,13 +12,28 @@ import ApiService from '../services/ApiService';
 import styles from './WritersZone.module.css';
 
 // Calendar Component
-const CalendarComponent: React.FC = () => {
+interface CalendarDayData {
+  date: string; // YYYY-MM-DD
+  word_count: number;
+  change_count: number;
+}
+
+interface CalendarComponentProps {
+  year: number;
+  month: number; // 0-11
+  calendarData: CalendarDayData[];
+}
+
+const CalendarComponent: React.FC<CalendarComponentProps> = ({ year, month, calendarData }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
-  const [currentDate, setCurrentDate] = useState(new Date());
   
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  // 将日历数据转换为按日期索引的 Map
+  const statsByDay = new Map<number, CalendarDayData>();
+  calendarData.forEach(day => {
+    const dayNum = parseInt(day.date.split('-')[2], 10);
+    statsByDay.set(dayNum, day);
+  });
   
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
@@ -50,6 +65,13 @@ const CalendarComponent: React.FC = () => {
     days.push(day);
   }
   
+  const formatWordCount = (count: number) => {
+    if (count >= 10000) {
+      return `${(count / 10000).toFixed(1)}万`;
+    }
+    return count.toString();
+  };
+  
   return (
     <div className={styles.calendarGrid}>
       <div className={styles.calendarWeekDays}>
@@ -63,14 +85,22 @@ const CalendarComponent: React.FC = () => {
             return <div key={index} className={styles.calendarDayEmpty}></div>;
           }
           const todayClass = isToday(day) ? styles.calendarDayToday : '';
+          const dayData = statsByDay.get(day);
+          const wordCount = dayData?.word_count || 0;
+          const hasUpdate = wordCount > 0;
+          
           return (
-            <div key={index} className={`${styles.calendarDay} ${todayClass}`}>
+            <div key={index} className={`${styles.calendarDay} ${todayClass} ${hasUpdate ? styles.calendarDayUpdated : ''}`}>
               <div className={styles.calendarDayNumber}>{day}</div>
-              {isToday(day) && (
+              {hasUpdate ? (
+                <div className={styles.calendarDayLabel}>
+                  {formatWordCount(wordCount)} {language === 'zh' ? '字' : 'words'}
+                </div>
+              ) : isToday(day) ? (
                 <div className={styles.calendarDayLabel}>
                   {t('calendar.today')} {t('calendar.notUpdated')}
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}
@@ -123,6 +153,9 @@ const WritersZone: React.FC = () => {
   const [novelsLoading, setNovelsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [calendarData, setCalendarData] = useState<Array<{ date: string; word_count: number; change_count: number }>>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
   // 加载用户小说列表
   const loadUserNovels = async () => {
@@ -238,6 +271,30 @@ const WritersZone: React.FC = () => {
       }
     } catch (error) {
       console.error('加载统计数据失败:', error);
+    }
+  };
+
+  // 加载日历数据
+  const loadCalendarData = async (year: number, month: number) => {
+    if (!user) return;
+    
+    setCalendarLoading(true);
+    try {
+      const monthParam = month + 1; // API 使用 1-12，前端使用 0-11
+      const response = await ApiService.get(
+        `/writer/calendar?year=${year}&month=${monthParam}&userId=${user.id}`
+      ) as any; // 后端直接返回 { success, year, month, days }，不在 data 字段中
+      
+      if (response && response.success && response.days) {
+        setCalendarData(response.days);
+      } else {
+        setCalendarData([]);
+      }
+    } catch (error) {
+      console.error('加载日历数据失败:', error);
+      setCalendarData([]);
+    } finally {
+      setCalendarLoading(false);
     }
   };
 
@@ -768,10 +825,18 @@ const WritersZone: React.FC = () => {
             </div>
             <div className={styles.calendarInfo}>
               {language === 'zh' 
-                ? `2025年11月已更新${stats.cumulativeWordCount}字`
-                : `${stats.cumulativeWordCount} words updated in November 2025`}
+                ? `${currentCalendarDate.getFullYear()}年${currentCalendarDate.getMonth() + 1}月已更新${calendarData.reduce((sum, day) => sum + day.word_count, 0)}字`
+                : `${calendarData.reduce((sum, day) => sum + day.word_count, 0)} words updated in ${new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth()).toLocaleString('en-US', { year: 'numeric', month: 'long' })}`}
             </div>
-            <CalendarComponent />
+            {calendarLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>加载中...</div>
+            ) : (
+              <CalendarComponent 
+                year={currentCalendarDate.getFullYear()} 
+                month={currentCalendarDate.getMonth()} 
+                calendarData={calendarData}
+              />
+            )}
           </div>
 
           {/* Official Announcements */}

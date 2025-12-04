@@ -46,6 +46,9 @@ const karmaPaymentRoutes = require('./routes/karmaPayment');
 // 导入用户路由
 const userRoutes = require('./routes/user');
 
+// 导入点赞/点踩服务
+const LikeDislikeService = require('./services/likeDislikeService');
+
 // 导入新的任务管理系统
 const missionV2Routes = require('./routes/mission_v2');
 const readingWithMissionRoutes = require('./routes/reading_with_mission');
@@ -62,6 +65,31 @@ app.use(cors());
 // 增加body-parser的大小限制，支持文件上传
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // 支持FormData
+
+// 全局中间件：记录所有 /api/chapter 相关的请求
+app.use('/api/chapter', (req, res, next) => {
+  console.log('[全局中间件] ============================================');
+  console.log('[全局中间件] 检测到 /api/chapter 请求');
+  console.log('[全局中间件] 请求URL:', req.url);
+  console.log('[全局中间件] 请求路径:', req.path);
+  console.log('[全局中间件] 请求方法:', req.method);
+  console.log('[全局中间件] 请求参数:', req.params);
+  console.log('[全局中间件] 原始URL:', req.originalUrl);
+  console.log('[全局中间件] 调用 next() 继续传递请求...');
+  console.log('[全局中间件] 检查路由是否匹配 /api/chapter/:chapterId');
+  console.log('[全局中间件] 当前路径是否匹配模式:', req.path.match(/^\/\d+$/));
+  console.log('[全局中间件] ============================================');
+  next();
+  
+  // 在 next() 之后添加日志，看看是否有响应被发送
+  setTimeout(() => {
+    if (!res.headersSent) {
+      console.log('[全局中间件] ⚠️ 警告：next() 后 100ms，响应仍未发送，可能路由未匹配');
+    } else {
+      console.log('[全局中间件] ✅ 响应已发送，状态码:', res.statusCode);
+    }
+  }, 100);
+});
 
 // JWT验证中间件
 const authenticateToken = (req, res, next) => {
@@ -175,6 +203,9 @@ const db = mysql.createPool({
   connectionLimit: 10,
   charset: 'utf8mb4'
 });
+
+// 初始化点赞/点踩服务
+const likeDislikeService = new LikeDislikeService(db);
 
 // 测试数据库连接
 db.getConnection((err, connection) => {
@@ -1732,6 +1763,7 @@ app.put('/api/novels/:novelId/chapters/volume-id', (req, res) => {
 // ==================== 首页相关API ====================
 
 // 1. 获取首页推荐小说
+// Featured novels: only link to published novels
 app.get('/api/homepage/featured-novels/:section', (req, res) => {
   const { section } = req.params;
   const { limit = 6 } = req.query;
@@ -1746,6 +1778,7 @@ app.get('/api/homepage/featured-novels/:section', (req, res) => {
       AND hfn.is_active = 1 
       AND (hfn.start_date IS NULL OR hfn.start_date <= NOW())
       AND (hfn.end_date IS NULL OR hfn.end_date >= NOW())
+      AND n.review_status = 'published'
     ORDER BY hfn.display_order ASC, n.rating DESC
     LIMIT ?
   `;
@@ -1761,6 +1794,7 @@ app.get('/api/homepage/featured-novels/:section', (req, res) => {
 });
 
 // 2. 获取首页轮播图
+// Only show banners whose linked novel is published (or no novel linked)
 app.get('/api/homepage/banners', (req, res) => {
   const query = `
     SELECT 
@@ -1771,6 +1805,7 @@ app.get('/api/homepage/banners', (req, res) => {
     WHERE hb.is_active = 1 
       AND (hb.start_date IS NULL OR hb.start_date <= NOW())
       AND (hb.end_date IS NULL OR hb.end_date >= NOW())
+      AND (hb.novel_id IS NULL OR n.review_status = 'published')
     ORDER BY hb.display_order ASC
   `;
   
@@ -1785,6 +1820,7 @@ app.get('/api/homepage/banners', (req, res) => {
 });
 
 // 3. 获取本周热门小说（基于统计数据）
+// Homepage popular this week: only include novels with review_status = 'published'
 app.get('/api/homepage/popular-this-week', (req, res) => {
   const { limit = 6 } = req.query;
   
@@ -1796,6 +1832,7 @@ app.get('/api/homepage/popular-this-week', (req, res) => {
     FROM novel n
     LEFT JOIN novel_statistics ns ON n.id = ns.novel_id 
       AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    WHERE n.review_status = 'published'
     GROUP BY n.id
     HAVING weekly_views > 0
     ORDER BY weekly_views DESC, weekly_reads DESC
@@ -1813,6 +1850,7 @@ app.get('/api/homepage/popular-this-week', (req, res) => {
 });
 
 // 4. 获取最新发布的小说
+// Homepage new releases: only ongoing & published novels
 app.get('/api/homepage/new-releases', (req, res) => {
   const { limit = 6 } = req.query;
   
@@ -1823,6 +1861,7 @@ app.get('/api/homepage/new-releases', (req, res) => {
     FROM novel n
     LEFT JOIN chapter c ON n.id = c.novel_id
     WHERE n.status = 'Ongoing'
+      AND n.review_status = 'published'
     GROUP BY n.id
     ORDER BY latest_chapter_date DESC, n.id DESC
     LIMIT ?
@@ -1839,6 +1878,7 @@ app.get('/api/homepage/new-releases', (req, res) => {
 });
 
 // 5. 获取评分最高的小说
+// Homepage top series: only published novels with rating & reviews
 app.get('/api/homepage/top-series', (req, res) => {
   const { limit = 6 } = req.query;
   
@@ -1847,7 +1887,9 @@ app.get('/api/homepage/top-series', (req, res) => {
       n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
       n.chapters
     FROM novel n
-    WHERE n.rating > 0 AND n.reviews > 0
+    WHERE n.rating > 0
+      AND n.reviews > 0
+      AND n.review_status = 'published'
     ORDER BY n.rating DESC, n.reviews DESC
     LIMIT ?
   `;
@@ -1928,6 +1970,7 @@ app.post('/api/admin/homepage/featured-novels', (req, res) => {
 });
 
 // 9. 获取所有首页数据（组合接口）
+// Combined homepage data endpoint: all novel lists only include published novels
 app.get('/api/homepage/all', async (req, res) => {
   try {
     const { limit = 6 } = req.query;
@@ -1944,6 +1987,7 @@ app.get('/api/homepage/all', async (req, res) => {
           WHERE hb.is_active = 1 
             AND (hb.start_date IS NULL OR hb.start_date <= NOW())
             AND (hb.end_date IS NULL OR hb.end_date >= NOW())
+            AND (hb.novel_id IS NULL OR n.review_status = 'published')
           ORDER BY hb.display_order ASC
         `, (err, results) => {
           if (err) reject(err);
@@ -1959,6 +2003,7 @@ app.get('/api/homepage/all', async (req, res) => {
           FROM novel n
           LEFT JOIN novel_statistics ns ON n.id = ns.novel_id 
             AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+          WHERE n.review_status = 'published'
           GROUP BY n.id
           HAVING weekly_views > 0
           ORDER BY weekly_views DESC, weekly_reads DESC
@@ -1976,6 +2021,7 @@ app.get('/api/homepage/all', async (req, res) => {
           FROM novel n
           LEFT JOIN chapter c ON n.id = c.novel_id
           WHERE n.status = 'Ongoing'
+            AND n.review_status = 'published'
           GROUP BY n.id
           ORDER BY latest_chapter_date DESC, n.id DESC
           LIMIT ?
@@ -1990,7 +2036,9 @@ app.get('/api/homepage/all', async (req, res) => {
             n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
             n.chapters
           FROM novel n
-          WHERE n.rating > 0 AND n.reviews > 0
+          WHERE n.rating > 0
+            AND n.reviews > 0
+            AND n.review_status = 'published'
           ORDER BY n.rating DESC, n.reviews DESC
           LIMIT ?
         `, [parseInt(limit)], (err, results) => {
@@ -2332,67 +2380,189 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
 });
 
 // 获取章节内容
-app.get('/api/chapter/:chapterId', (req, res) => {
-  const { chapterId } = req.params;
-  
-  const query = `
-    SELECT 
-      c.id,
-      c.novel_id,
-      c.volume_id,
-      c.chapter_number,
-      c.title,
-      c.content,
-      c.unlock_price,
-      c.translator_note,
-      n.title as novel_title,
-      n.author,
-      n.translator,
-      v.title as volume_title,
-      v.volume_id,
-      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number - 1 AND review_status = 'approved' LIMIT 1) as prev_chapter_id,
-      (SELECT id FROM chapter WHERE novel_id = c.novel_id AND chapter_number = c.chapter_number + 1 AND review_status = 'approved' LIMIT 1) as next_chapter_id
-    FROM chapter c
-    JOIN novel n ON c.novel_id = n.id
-    LEFT JOIN volume v ON c.volume_id = v.volume_id
-    WHERE c.id = ? AND c.review_status = 'approved'
-  `;
-  
-  db.query(query, [chapterId], (err, results) => {
-    if (err) {
-      console.error('Failed to get chapter content:', err);
-      return res.status(500).json({ message: 'Failed to get chapter content' });
-    }
+// Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
+console.log('[Chapter API] ⚠️ 路由定义被加载，路由路径: /api/chapter/:chapterId');
+app.get('/api/chapter/:chapterId', async (req, res) => {
+  let db;
+  try {
+    console.log('');
+    console.log('========================================================');
+    console.log('[Chapter API] 🚀🚀🚀 路由处理函数被调用！🚀🚀🚀');
+    console.log('[Chapter API] ============================================');
+    console.log('[Chapter API] 请求URL:', req.url);
+    console.log('[Chapter API] 请求路径:', req.path);
+    console.log('[Chapter API] 请求方法:', req.method);
+    console.log('[Chapter API] 请求参数:', req.params);
+    console.log('[Chapter API] 查询参数:', req.query);
+    
+    const { chapterId } = req.params;
+    const userId = req.query.userId ? parseInt(req.query.userId) : null;
+    
+    console.log('[Chapter API] 🚀 路由被调用');
+    console.log('[Chapter API] 请求章节ID:', chapterId, '| 类型:', typeof chapterId);
+    console.log('[Chapter API] 用户ID:', userId, '| 类型:', typeof userId);
+    console.log('[Chapter API] 请求时间:', new Date().toISOString());
+    
+    // 使用mysql2/promise进行异步查询
+    const mysql = require('mysql2/promise');
+    db = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '123456',
+      database: process.env.DB_NAME || 'kongfuworld',
+      charset: 'utf8mb4'
+    });
+    
+    const query = `
+      SELECT 
+        c.id,
+        c.novel_id,
+        c.volume_id,
+        c.chapter_number,
+        c.title,
+        c.content,
+        c.unlock_price,
+        c.translator_note,
+        n.title as novel_title,
+        n.author,
+        n.translator,
+        v.title as volume_title,
+        v.volume_id,
+        (SELECT id
+         FROM chapter
+         WHERE novel_id = c.novel_id
+           AND review_status = 'approved'
+           AND chapter_number < c.chapter_number
+         ORDER BY chapter_number DESC
+         LIMIT 1) AS prev_chapter_id,
+        (SELECT id
+         FROM chapter
+         WHERE novel_id = c.novel_id
+           AND review_status = 'approved'
+           AND chapter_number > c.chapter_number
+         ORDER BY chapter_number ASC
+         LIMIT 1) AS next_chapter_id
+      FROM chapter c
+      JOIN novel n ON c.novel_id = n.id
+      LEFT JOIN volume v ON c.volume_id = v.id
+        AND v.novel_id = c.novel_id
+      WHERE c.id = ? AND c.review_status = 'approved'
+    `;
+    
+    console.log('[Chapter API] 📝 SQL 查询准备执行');
+    console.log('[Chapter API] SQL 参数:', [chapterId]);
+    
+    const [results] = await db.execute(query, [chapterId]);
+    
+    console.log('[Chapter API] 📊 SQL 查询执行完成');
+    console.log('[Chapter API] 查询结果数量:', results.length);
     
     if (results.length === 0) {
+      console.log('[Chapter API] ⚠️ 未找到章节，返回 404');
       return res.status(404).json({ message: 'Chapter not found or hidden' });
     }
     
     const chapter = results[0];
     
-    res.json({
-      success: true,
-      data: {
-        id: chapter.id,
-        novel_id: chapter.novel_id,
-        volume_id: chapter.volume_id,
-        chapter_number: chapter.chapter_number,
-        title: chapter.title,
-        content: chapter.content,
-        unlock_price: chapter.unlock_price || 0,
-        translator_note: chapter.translator_note,
-        novel_title: chapter.novel_title,
-        author: chapter.author,
-        translator: chapter.translator,
-        volume_title: chapter.volume_title,
-        volume_id: chapter.volume_id,
-        has_prev: !!chapter.prev_chapter_id,
-        has_next: !!chapter.next_chapter_id,
-        prev_chapter_id: chapter.prev_chapter_id,
-        next_chapter_id: chapter.next_chapter_id
+    console.log('[Chapter API] ========== 原始查询结果 ==========');
+    console.log('[Chapter API] 章节ID:', chapter.id);
+    console.log('[Chapter API] 小说ID:', chapter.novel_id);
+    console.log('[Chapter API] 章节号:', chapter.chapter_number);
+    console.log('[Chapter API] 章节标题:', chapter.title);
+    console.log('[Chapter API] unlock_price:', chapter.unlock_price);
+    
+    // 修复：使用更安全的 null 检查，避免 0 被误判为 falsy
+    const prevId = (chapter.prev_chapter_id !== null && chapter.prev_chapter_id !== undefined) 
+      ? chapter.prev_chapter_id 
+      : null;
+    const nextId = (chapter.next_chapter_id !== null && chapter.next_chapter_id !== undefined) 
+      ? chapter.next_chapter_id 
+      : null;
+    
+    // 🔒 安全修复：检查用户权限
+    let fullContent = chapter.content;
+    let isLocked = false;
+    
+    // 如果章节有解锁价格，需要检查用户权限
+    if (chapter.unlock_price && chapter.unlock_price > 0) {
+      if (!userId) {
+        console.log('[Chapter API] 🔒 章节需要解锁，但用户未登录，返回预览内容');
+        isLocked = true;
+      } else {
+        // 获取用户信息
+        const [users] = await db.execute('SELECT * FROM user WHERE id = ?', [userId]);
+        if (users.length === 0) {
+          console.log('[Chapter API] 🔒 用户不存在，返回预览内容');
+          isLocked = true;
+        } else {
+          const user = users[0];
+          // 检查解锁状态
+          const unlockStatus = await checkChapterUnlockStatus(db, userId, chapterId, chapter, user);
+          console.log('[Chapter API] 🔒 解锁状态检查结果:', unlockStatus);
+          
+          if (!unlockStatus.isUnlocked) {
+            console.log('[Chapter API] 🔒 章节未解锁，返回预览内容');
+            isLocked = true;
+          } else {
+            console.log('[Chapter API] ✅ 章节已解锁，返回完整内容');
+          }
+        }
       }
+    }
+    
+    // 如果章节被锁定，只返回预览内容（前6个段落）
+    if (isLocked) {
+      const paragraphs = fullContent.split('\n').filter(p => p.trim().length > 0);
+      const previewParagraphs = paragraphs.slice(0, 6);
+      fullContent = previewParagraphs.join('\n');
+      console.log('[Chapter API] 📝 返回预览内容，段落数:', previewParagraphs.length, '/', paragraphs.length);
+    }
+    
+    // 构建返回对象
+    const responseData = {
+      id: chapter.id,
+      novel_id: chapter.novel_id,
+      volume_id: chapter.volume_id,
+      chapter_number: chapter.chapter_number,
+      title: chapter.title,
+      content: fullContent,
+      unlock_price: chapter.unlock_price || 0,
+      translator_note: chapter.translator_note,
+      novel_title: chapter.novel_title,
+      author: chapter.author,
+      translator: chapter.translator,
+      volume_title: chapter.volume_title,
+      volume_id: chapter.volume_id,
+      prev_chapter_id: prevId,
+      next_chapter_id: nextId,
+      has_prev: Boolean(prevId),
+      has_next: Boolean(nextId),
+      is_locked: isLocked
+    };
+    
+    console.log('[Chapter API] ========== 返回 JSON 对象 ==========');
+    console.log('[Chapter API] responseData.is_locked:', responseData.is_locked);
+    console.log('[Chapter API] =================================');
+    
+    const finalResponse = {
+      success: true,
+      data: responseData
+    };
+    
+    console.log('[Chapter API] ✅ 准备发送响应');
+    console.log('[Chapter API] ============================================');
+    
+    res.json(finalResponse);
+  } catch (error) {
+    console.error('[Chapter API] ❌ 错误:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to get chapter content',
+      error: error.message 
     });
-  });
+  } finally {
+    if (db) await db.end();
+  }
 });
 
 // 记录用户阅读章节（修正版 - 使用正确的新章节判断逻辑）
@@ -2517,9 +2687,20 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     
   } catch (error) {
     console.error('Failed to record reading log:', error);
-    res.status(500).json({ message: 'Failed to record reading log', error: error.message });
+    // 不要因为记录阅读日志失败而返回错误，只记录日志
+    // 这样可以避免影响用户体验
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to record reading log', error: error.message });
+    }
   } finally {
-    if (db) await db.end();
+    // 确保数据库连接被正确关闭
+    if (db) {
+      try {
+        await db.end();
+      } catch (closeError) {
+        console.error('Failed to close database connection:', closeError);
+      }
+    }
   }
 });
 
@@ -3139,207 +3320,56 @@ app.post('/api/novel/:novelId/review', authenticateToken, (req, res) => {
 });
 
 // 点赞评论 - 简化版本
-app.post('/api/review/:reviewId/like', authenticateToken, (req, res) => {
+// 点赞评价 - 重构版本（使用单表 + is_like）
+app.post('/api/review/:reviewId/like', authenticateToken, async (req, res) => {
   const { reviewId } = req.params;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: 'Please login first' });
+    return res.status(401).json({ success: false, message: 'Please login first' });
   }
 
-  // 检查是否已经点赞
-  db.query('SELECT id FROM review_like WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err, existingLike) => {
-    if (err) {
-      console.error('检查点赞状态失败:', err);
-      return res.status(500).json({ message: '检查点赞状态失败' });
-    }
-
-    // 如果已经点赞，查询当前数据并返回
-    if (existingLike.length > 0) {
-      db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err, result) => {
-        if (err) {
-          console.error('查询数据失败:', err);
-      return res.json({
-        success: true,
-        message: '已经点赞过了',
-        action: 'already_liked'
-      });
-        }
-        return res.json({
-          success: true,
-          message: '已经点赞过了',
-          action: 'already_liked',
-          data: {
-            likes: result[0].likes,
-            dislikes: result[0].dislikes
-          }
-        });
-      });
-      return;
-    }
-
-    // 检查是否有点踩记录（互斥逻辑）
-    db.query('SELECT id FROM review_dislike WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err2, existingDislike) => {
-      if (err2) {
-        console.error('检查点踩状态失败:', err2);
-        return res.status(500).json({ message: '检查点踩状态失败' });
+  try {
+    const result = await likeDislikeService.updateReviewLikeStatus(parseInt(reviewId, 10), userId, 1);
+    return res.json({
+      success: true,
+      message: '点赞成功',
+      action: 'liked',
+      data: {
+        likes: result.likes,
+        dislikes: result.dislikes
       }
-
-      // 如果有点踩记录，先删除
-      if (existingDislike.length > 0) {
-        db.query('DELETE FROM review_dislike WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err3) => {
-          if (err3) {
-            console.error('删除点踩记录失败:', err3);
-            return res.status(500).json({ message: '删除点踩记录失败' });
-          }
-
-          // 更新点踩数
-          db.query('UPDATE review SET dislikes = dislikes - 1 WHERE id = ?', [reviewId], (err4) => {
-            if (err4) {
-              console.error('更新点踩数失败:', err4);
-            }
-            // 继续执行，不中断流程
-          });
-        });
-      }
-
-      // 添加点赞记录
-      db.query('INSERT INTO review_like (review_id, user_id, created_at) VALUES (?, ?, NOW())', [reviewId, userId], (err5) => {
-        if (err5) {
-          console.error('点赞失败:', err5);
-          return res.status(500).json({ message: '点赞失败' });
-        }
-
-        // 更新评论的点赞数
-        db.query('UPDATE review SET likes = likes + 1 WHERE id = ?', [reviewId], (err6) => {
-          if (err6) {
-            console.error('更新点赞数失败:', err6);
-            return res.status(500).json({ message: '更新点赞数失败' });
-          }
-
-          // 查询更新后的最新数据
-          db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err7, result) => {
-            if (err7) {
-              console.error('查询更新后的数据失败:', err7);
-              return res.status(500).json({ message: '查询更新后的数据失败' });
-            }
-
-        res.json({
-          success: true,
-          message: '点赞成功',
-              action: 'liked',
-              data: {
-                likes: result[0].likes,
-                dislikes: result[0].dislikes
-              }
-            });
-          });
-        });
-      });
     });
-  });
+  } catch (err) {
+    console.error('点赞评价失败:', err);
+    return res.status(500).json({ success: false, message: '点赞失败' });
+  }
 });
 
-// 不喜欢评价 - 简化版本
-app.post('/api/review/:reviewId/dislike', authenticateToken, (req, res) => {
+// 点踩评价 - 重构版本（使用单表 + is_like）
+app.post('/api/review/:reviewId/dislike', authenticateToken, async (req, res) => {
   const { reviewId } = req.params;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: 'Please login first' });
+    return res.status(401).json({ success: false, message: 'Please login first' });
   }
 
-  // 检查是否已经点踩
-  db.query('SELECT id FROM review_dislike WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err, existingDislike) => {
-    if (err) {
-      console.error('检查点踩状态失败:', err);
-      return res.status(500).json({ message: '检查点踩状态失败' });
-    }
-
-    // 如果已经点踩，查询当前数据并返回
-    if (existingDislike.length > 0) {
-      db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err, result) => {
-        if (err) {
-          console.error('查询数据失败:', err);
-      return res.json({
-        success: true,
-        message: '已经点踩过了',
-        action: 'already_disliked'
-      });
-        }
-        return res.json({
-          success: true,
-          message: '已经点踩过了',
-          action: 'already_disliked',
-          data: {
-            likes: result[0].likes,
-            dislikes: result[0].dislikes
-          }
-        });
-      });
-      return;
-    }
-
-    // 检查是否有点赞记录（互斥逻辑）
-    db.query('SELECT id FROM review_like WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err2, existingLike) => {
-      if (err2) {
-        console.error('检查点赞状态失败:', err2);
-        return res.status(500).json({ message: '检查点赞状态失败' });
+  try {
+    const result = await likeDislikeService.updateReviewLikeStatus(parseInt(reviewId, 10), userId, 0);
+    return res.json({
+      success: true,
+      message: '点踩成功',
+      action: 'disliked',
+      data: {
+        likes: result.likes,
+        dislikes: result.dislikes
       }
-
-      // 如果有点赞记录，先删除
-      if (existingLike.length > 0) {
-        db.query('DELETE FROM review_like WHERE review_id = ? AND user_id = ?', [reviewId, userId], (err3) => {
-          if (err3) {
-            console.error('删除点赞记录失败:', err3);
-            return res.status(500).json({ message: '删除点赞记录失败' });
-          }
-
-          // 更新点赞数
-          db.query('UPDATE review SET likes = likes - 1 WHERE id = ?', [reviewId], (err4) => {
-            if (err4) {
-              console.error('更新点赞数失败:', err4);
-            }
-            // 继续执行，不中断流程
-          });
-        });
-      }
-
-      // 添加点踩记录
-      db.query('INSERT INTO review_dislike (review_id, user_id, created_at) VALUES (?, ?, NOW())', [reviewId, userId], (err5) => {
-        if (err5) {
-          console.error('点踩失败:', err5);
-          return res.status(500).json({ message: '点踩失败' });
-        }
-
-        // 更新评价点踩数
-        db.query('UPDATE review SET dislikes = dislikes + 1 WHERE id = ?', [reviewId], (err6) => {
-          if (err6) {
-            console.error('更新点踩数失败:', err6);
-            return res.status(500).json({ message: '更新点踩数失败' });
-          }
-
-          // 查询更新后的最新数据
-          db.query('SELECT likes, dislikes FROM review WHERE id = ?', [reviewId], (err7, result) => {
-            if (err7) {
-              console.error('查询更新后的数据失败:', err7);
-              return res.status(500).json({ message: '查询更新后的数据失败' });
-            }
-
-        res.json({
-          success: true,
-          message: '点踩成功',
-              action: 'disliked',
-              data: {
-                likes: result[0].likes,
-                dislikes: result[0].dislikes
-              }
-            });
-          });
-        });
-      });
     });
-  });
+  } catch (err) {
+    console.error('点踩评价失败:', err);
+    return res.status(500).json({ success: false, message: '点踩失败' });
+  }
 });
 
 // 获取评论的回复
@@ -3609,104 +3639,30 @@ app.post('/api/chapter/:chapterId/comment', authenticateToken, (req, res) => {
 });
 
 // 点赞章节评论 - 简化版本
-app.post('/api/comment/:commentId/like', authenticateToken, (req, res) => {
+// 点赞章节评论 - 重构版本（使用单表 + is_like）
+app.post('/api/comment/:commentId/like', authenticateToken, async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: 'Please login first' });
+    return res.status(401).json({ success: false, message: 'Please login first' });
   }
 
-  // 检查是否已经点赞
-  db.query('SELECT id FROM comment_like WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err, existingLike) => {
-    if (err) {
-      console.error('检查点赞状态失败:', err);
-      return res.status(500).json({ message: '检查点赞状态失败' });
-    }
-
-    // 如果已经点赞，查询当前数据并返回
-    if (existingLike.length > 0) {
-      db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err, result) => {
-        if (err) {
-          console.error('查询数据失败:', err);
-      return res.json({
-        success: true,
-        message: '已经点赞过了',
-        action: 'already_liked'
-      });
-        }
-        return res.json({
-          success: true,
-          message: '已经点赞过了',
-          action: 'already_liked',
-          data: {
-            likes: result[0].likes,
-            dislikes: result[0].dislikes || 0
-          }
-        });
-      });
-      return;
-    }
-
-    // 检查是否有点踩记录（互斥逻辑）
-    db.query('SELECT id FROM comment_dislike WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err2, existingDislike) => {
-      if (err2) {
-        console.error('检查点踩状态失败:', err2);
-        return res.status(500).json({ message: '检查点踩状态失败' });
+  try {
+    const result = await likeDislikeService.updateCommentLikeStatus(parseInt(commentId, 10), userId, 1);
+    return res.json({
+      success: true,
+      message: '点赞成功',
+      action: 'liked',
+      data: {
+        likes: result.likes,
+        dislikes: result.dislikes
       }
-
-      // 如果有点踩记录，先删除
-      if (existingDislike.length > 0) {
-        db.query('DELETE FROM comment_dislike WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err3) => {
-          if (err3) {
-            console.error('删除点踩记录失败:', err3);
-            return res.status(500).json({ message: '删除点踩记录失败' });
-          }
-
-          // 更新点踩数
-          db.query('UPDATE comment SET dislikes = dislikes - 1 WHERE id = ?', [commentId], (err4) => {
-            if (err4) {
-              console.error('更新点踩数失败:', err4);
-            }
-          });
-        });
-      }
-
-      // 添加点赞记录
-      db.query('INSERT INTO comment_like (comment_id, user_id, created_at) VALUES (?, ?, NOW())', [commentId, userId], (err5) => {
-        if (err5) {
-          console.error('点赞失败:', err5);
-          return res.status(500).json({ message: '点赞失败' });
-        }
-
-        // 更新评论点赞数
-        db.query('UPDATE comment SET likes = likes + 1 WHERE id = ?', [commentId], (err6) => {
-          if (err6) {
-            console.error('更新点赞数失败:', err6);
-            return res.status(500).json({ message: '更新点赞数失败' });
-          }
-
-          // 查询更新后的最新数据
-          db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err7, result) => {
-            if (err7) {
-              console.error('查询更新后的数据失败:', err7);
-              return res.status(500).json({ message: '查询更新后的数据失败' });
-            }
-
-        res.json({
-          success: true,
-          message: '点赞成功',
-              action: 'liked',
-              data: {
-                likes: result[0].likes,
-                dislikes: result[0].dislikes || 0
-              }
-            });
-          });
-        });
-      });
     });
-  });
+  } catch (err) {
+    console.error('点赞章节评论失败:', err);
+    return res.status(500).json({ success: false, message: '点赞失败' });
+  }
 });
 
 // 回复章节评论
@@ -3940,104 +3896,30 @@ app.put('/api/comment/:commentId', authenticateToken, (req, res) => {
 });
 
 // 不喜欢章节评论 - 简化版本
-app.post('/api/comment/:commentId/dislike', authenticateToken, (req, res) => {
+// 点踩章节评论 - 重构版本（使用单表 + is_like）
+app.post('/api/comment/:commentId/dislike', authenticateToken, async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({ message: 'Please login first' });
+    return res.status(401).json({ success: false, message: 'Please login first' });
   }
 
-  // 检查是否已经点踩
-  db.query('SELECT id FROM comment_dislike WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err, existingDislike) => {
-    if (err) {
-      console.error('检查点踩状态失败:', err);
-      return res.status(500).json({ message: '检查点踩状态失败' });
-    }
-
-    // 如果已经点踩，查询当前数据并返回
-    if (existingDislike.length > 0) {
-      db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err, result) => {
-        if (err) {
-          console.error('查询数据失败:', err);
-      return res.json({
-        success: true,
-        message: '已经点踩过了',
-        action: 'already_disliked'
-      });
-        }
-        return res.json({
-          success: true,
-          message: '已经点踩过了',
-          action: 'already_disliked',
-          data: {
-            likes: result[0].likes,
-            dislikes: result[0].dislikes || 0
-          }
-        });
-      });
-      return;
-    }
-
-    // 检查是否有点赞记录（互斥逻辑）
-    db.query('SELECT id FROM comment_like WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err2, existingLike) => {
-      if (err2) {
-        console.error('检查点赞状态失败:', err2);
-        return res.status(500).json({ message: '检查点赞状态失败' });
+  try {
+    const result = await likeDislikeService.updateCommentLikeStatus(parseInt(commentId, 10), userId, 0);
+    return res.json({
+      success: true,
+      message: '点踩成功',
+      action: 'disliked',
+      data: {
+        likes: result.likes,
+        dislikes: result.dislikes
       }
-
-      // 如果有点赞记录，先删除
-      if (existingLike.length > 0) {
-        db.query('DELETE FROM comment_like WHERE comment_id = ? AND user_id = ?', [commentId, userId], (err3) => {
-          if (err3) {
-            console.error('删除点赞记录失败:', err3);
-            return res.status(500).json({ message: '删除点赞记录失败' });
-          }
-
-          // 更新点赞数
-          db.query('UPDATE comment SET likes = likes - 1 WHERE id = ?', [commentId], (err4) => {
-            if (err4) {
-              console.error('更新点赞数失败:', err4);
-            }
-          });
-        });
-      }
-
-      // 添加点踩记录
-      db.query('INSERT INTO comment_dislike (comment_id, user_id, created_at) VALUES (?, ?, NOW())', [commentId, userId], (err5) => {
-        if (err5) {
-          console.error('点踩失败:', err5);
-          return res.status(500).json({ message: '点踩失败' });
-        }
-
-        // 更新评论点踩数
-        db.query('UPDATE comment SET dislikes = dislikes + 1 WHERE id = ?', [commentId], (err6) => {
-          if (err6) {
-            console.error('更新点踩数失败:', err6);
-            return res.status(500).json({ message: '更新点踩数失败' });
-          }
-
-          // 查询更新后的最新数据
-          db.query('SELECT likes, dislikes FROM comment WHERE id = ?', [commentId], (err7, result) => {
-            if (err7) {
-              console.error('查询更新后的数据失败:', err7);
-              return res.status(500).json({ message: '查询更新后的数据失败' });
-            }
-
-        res.json({
-          success: true,
-          message: '点踩成功',
-              action: 'disliked',
-              data: {
-                likes: result[0].likes,
-                dislikes: result[0].dislikes || 0
-              }
-            });
-          });
-        });
-      });
     });
-  });
+  } catch (err) {
+    console.error('点踩章节评论失败:', err);
+    return res.status(500).json({ success: false, message: '点踩失败' });
+  }
 });
 
 // ==================== 段落评论API ====================
@@ -4562,6 +4444,11 @@ app.post('/api/report', authenticateToken, (req, res) => {
 
 // ==================== 章节展示API ====================
 
+// Volume-Chapter mapping refactor (2025-12-02):
+// - All JOINs now use c.volume_id = v.id AND v.novel_id = c.novel_id
+// - Affected endpoints: /api/novel/:novelId/volumes, /api/volume/:volumeId/chapters, /api/chapter/:chapterId
+// - Mapping rule: chapter.volume_id = volume.id (same novel_id)
+
 // 获取小说的卷和章节信息
 app.get('/api/novel/:novelId/volumes', (req, res) => {
   const { novelId } = req.params;
@@ -4574,6 +4461,7 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
     orderBy = 'v.volume_id DESC';
   }
 
+  // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
   const volumesQuery = `
     SELECT 
       v.id,
@@ -4585,7 +4473,9 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
       COUNT(c.id) as actual_chapter_count,
       MAX(c.created_at) as latest_chapter_date
     FROM volume v
-    LEFT JOIN chapter c ON v.volume_id = c.volume_id AND c.novel_id = v.novel_id AND c.review_status = 'approved'
+    LEFT JOIN chapter c ON c.volume_id = v.id
+      AND c.novel_id = v.novel_id
+      AND c.review_status = 'approved'
     WHERE v.novel_id = ?
     GROUP BY v.id, v.volume_id, v.title, v.start_chapter, v.end_chapter, v.chapter_count
     ORDER BY ${orderBy}
@@ -4598,6 +4488,7 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
     }
 
     // 获取最新章节信息
+    // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
     const latestChapterQuery = `
       SELECT 
         c.id,
@@ -4606,7 +4497,8 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
         c.created_at,
         v.volume_id
       FROM chapter c
-      JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
+      JOIN volume v ON c.volume_id = v.id
+        AND v.novel_id = c.novel_id
       WHERE c.novel_id = ? AND c.review_status = 'approved'
       ORDER BY c.created_at DESC
       LIMIT 1
@@ -4664,6 +4556,7 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
       orderBy = 'c.created_at ASC';
     }
 
+    // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
     const chaptersQuery = `
       SELECT 
         c.id,
@@ -4678,7 +4571,8 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
           ELSE 'free'
         END as access_status
       FROM chapter c
-      JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
+      JOIN volume v ON c.volume_id = v.id
+        AND v.novel_id = c.novel_id
       WHERE v.id = ? AND c.review_status = 'approved'
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
@@ -4691,10 +4585,12 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
       }
 
       // 获取章节总数
+      // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
       const totalQuery = `
         SELECT COUNT(*) as total
         FROM chapter c
-        JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
+        JOIN volume v ON c.volume_id = v.id
+          AND v.novel_id = c.novel_id
         WHERE v.id = ? AND c.review_status = 'approved'
       `;
 

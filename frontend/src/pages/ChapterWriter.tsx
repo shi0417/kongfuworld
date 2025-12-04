@@ -1846,7 +1846,9 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      let response;
+      let response: Response;
+      let result: { success?: boolean; message?: string; chapter_id?: number; [key: string]: any };
+      
       if (chapterInfo.id || chapterId) {
         // 编辑章节
         formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
@@ -1865,6 +1867,7 @@ const ChapterWriter: React.FC = () => {
           headers,
           body: formData
         });
+        result = await response.json();
       } else {
         // 新建章节
         formData.append('is_draft', '0');
@@ -1876,16 +1879,12 @@ const ChapterWriter: React.FC = () => {
           headers,
           body: formData
         });
+        result = await response.json();
         
-        if (response.ok) {
-          const result = await response.json();
-          if (result.chapter_id) {
-            setChapterInfo(prev => ({ ...prev, id: result.chapter_id }));
-          }
+        if (response.ok && result.chapter_id) {
+          setChapterInfo(prev => ({ ...prev, id: result.chapter_id ?? null }));
         }
       }
-
-      const result = await response.json();
       
       if (!response.ok) {
         throw new Error(result.message || '发布失败');

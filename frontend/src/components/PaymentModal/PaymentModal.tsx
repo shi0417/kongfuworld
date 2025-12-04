@@ -8,11 +8,16 @@ interface PaymentModalProps {
     level: number;
     name: string;
     price: number;
+    basePrice?: number; // 原价（如果有促销）
     advanceChapters: number;
     description: string;
   };
   novelTitle: string;
   onConfirm: (paymentMethod: string) => void;
+  promotion?: {
+    discount_percentage: number;
+    time_remaining_formatted: string;
+  } | null;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -20,7 +25,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   tier,
   novelTitle,
-  onConfirm
+  onConfirm,
+  promotion
 }) => {
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -50,7 +56,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             You have selected the plan <strong>{tier.name}</strong>.
           </p>
           <p className={styles.billingText}>
-            You will be charged ${(Number(tier.price) || 0).toFixed(2)} USD monthly until cancellation.
+            {promotion && tier.basePrice ? (
+              <div>
+                <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '8px' }}>
+                  ${(Number(tier.basePrice) || 0).toFixed(2)}
+                </span>
+                <span style={{ color: '#ff6b6b', fontWeight: 'bold' }}>
+                  ${(Number(tier.price) || 0).toFixed(2)}
+                </span>
+                <span style={{ 
+                  background: '#ff6b6b', 
+                  color: '#fff', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px', 
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  marginLeft: '8px'
+                }}>
+                  {promotion.discount_percentage}% OFF
+                </span>
+                <div style={{ fontSize: '0.75rem', color: '#ff6b6b', marginTop: '4px' }}>
+                  ⏰ {promotion.time_remaining_formatted} remaining
+                </div>
+                <div style={{ marginTop: '4px' }}>
+                  You will be charged <strong>${(Number(tier.price) || 0).toFixed(2)}</strong> USD monthly until cancellation.
+                </div>
+              </div>
+            ) : (
+              `You will be charged ${(Number(tier.price) || 0).toFixed(2)} USD monthly until cancellation.`
+            )}
           </p>
           <label className={styles.termsLabel}>
             <input
@@ -69,13 +103,46 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           <h3 className={styles.summaryTitle}>{novelTitle}</h3>
           <div className={styles.summaryItem}>
             <span className={styles.itemText}>
-              1 × {novelTitle} (at ${(Number(tier.price) || 0).toFixed(2)} / month)
+              1 × {novelTitle} {promotion && tier.basePrice ? (
+                <span>
+                  (at <span style={{ textDecoration: 'line-through', color: '#999' }}>${(Number(tier.basePrice) || 0).toFixed(2)}</span>{' '}
+                  <span style={{ color: '#ff6b6b', fontWeight: 'bold' }}>${(Number(tier.price) || 0).toFixed(2)}</span> / month)
+                </span>
+              ) : (
+                `(at ${(Number(tier.price) || 0).toFixed(2)} / month)`
+              )}
             </span>
-            <span className={styles.itemPrice}>${(Number(tier.price) || 0).toFixed(2)}</span>
+            <span className={styles.itemPrice}>
+              {promotion && tier.basePrice ? (
+                <div>
+                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem', marginRight: '8px' }}>
+                    ${(Number(tier.basePrice) || 0).toFixed(2)}
+                  </span>
+                  <span style={{ color: '#ff6b6b', fontWeight: 'bold' }}>
+                    ${(Number(tier.price) || 0).toFixed(2)}
+                  </span>
+                </div>
+              ) : (
+                `$${(Number(tier.price) || 0).toFixed(2)}`
+              )}
+            </span>
           </div>
           <div className={styles.totalRow}>
             <span className={styles.totalLabel}>Total</span>
-            <span className={styles.totalPrice}>${(Number(tier.price) || 0).toFixed(2)}</span>
+            <span className={styles.totalPrice}>
+              {promotion && tier.basePrice ? (
+                <div>
+                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem', marginRight: '8px' }}>
+                    ${(Number(tier.basePrice) || 0).toFixed(2)}
+                  </span>
+                  <span style={{ color: '#ff6b6b', fontWeight: 'bold' }}>
+                    ${(Number(tier.price) || 0).toFixed(2)}
+                  </span>
+                </div>
+              ) : (
+                `$${(Number(tier.price) || 0).toFixed(2)}`
+              )}
+            </span>
           </div>
         </div>
 

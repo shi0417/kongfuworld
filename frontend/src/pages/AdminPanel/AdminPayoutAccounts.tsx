@@ -3,12 +3,17 @@
  * 用于编辑/管理员管理自己的收款账户
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import AdminEditorIncomeTab from './AdminEditorIncomeTab';
+import AdminEditorSettlementTab from './AdminEditorSettlementTab';
+import AdminMyContractsTab from './AdminMyContractsTab';
+import styles from './AdminEditorIncome.module.css';
 
 interface AdminPayoutAccountsProps {
   onError?: (error: string) => void;
 }
 
 const AdminPayoutAccounts: React.FC<AdminPayoutAccountsProps> = ({ onError }) => {
+  const [editorTab, setEditorTab] = useState<'account' | 'editorIncome' | 'editorSettlement' | 'myContracts'>('account');
   const [payoutAccounts, setPayoutAccounts] = useState<any[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -246,6 +251,37 @@ const AdminPayoutAccounts: React.FC<AdminPayoutAccountsProps> = ({ onError }) =>
         </p>
       </div>
 
+      {/* 子Tab导航 */}
+      <div className={styles.tabs}>
+        <button
+          className={`${styles.tab} ${editorTab === 'account' ? styles.active : ''}`}
+          onClick={() => setEditorTab('account')}
+        >
+          收款账户
+        </button>
+        <button
+          className={`${styles.tab} ${editorTab === 'editorIncome' ? styles.active : ''}`}
+          onClick={() => setEditorTab('editorIncome')}
+        >
+          编辑收入
+        </button>
+        <button
+          className={`${styles.tab} ${editorTab === 'editorSettlement' ? styles.active : ''}`}
+          onClick={() => setEditorTab('editorSettlement')}
+        >
+          编辑结算管理
+        </button>
+        <button
+          className={`${styles.tab} ${editorTab === 'myContracts' ? styles.active : ''}`}
+          onClick={() => setEditorTab('myContracts')}
+        >
+          我的合同
+        </button>
+      </div>
+
+      {/* Tab内容 */}
+      {editorTab === 'account' && (
+        <>
       {/* 账户列表区域 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3 style={{ margin: 0 }}>我的收款账户</h3>
@@ -684,6 +720,17 @@ const AdminPayoutAccounts: React.FC<AdminPayoutAccountsProps> = ({ onError }) =>
             </div>
           </div>
         </div>
+      )}
+        </>
+      )}
+      {editorTab === 'editorIncome' && (
+        <AdminEditorIncomeTab onError={onError} />
+      )}
+      {editorTab === 'editorSettlement' && (
+        <AdminEditorSettlementTab onError={onError} />
+      )}
+      {editorTab === 'myContracts' && (
+        <AdminMyContractsTab onError={onError} />
       )}
     </div>
   );
