@@ -45,8 +45,14 @@ const ScheduleReleaseModal: React.FC<ScheduleReleaseModalProps> = ({
       } else {
         // 否则，默认设置为下一个整点
         const now = new Date();
-        const nextHour = new Date(now);
+        let nextHour = new Date(now);
         nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+        
+        // 如果上一章节有发布时间，确保不早于上一章节的发布时间
+        if (minReleaseDate && nextHour < minReleaseDate) {
+          nextHour = new Date(minReleaseDate);
+          nextHour.setMinutes(0, 0, 0);
+        }
         
         // 如果下一个整点还是今天，设置为明天
         if (nextHour <= now) {
@@ -62,7 +68,7 @@ const ScheduleReleaseModal: React.FC<ScheduleReleaseModalProps> = ({
         setSelectedHour(nextHour.getHours());
       }
     }
-  }, [isOpen, initialDate]);
+  }, [isOpen, initialDate, minReleaseDate]);
 
   if (!isOpen) return null;
 
@@ -111,9 +117,25 @@ const ScheduleReleaseModal: React.FC<ScheduleReleaseModalProps> = ({
     }
   };
 
+  // 计算最小小时数（如果选择的日期等于上一章节的发布日期，则最小小时为上一章节的小时；否则为0）
+  const getMinHour = () => {
+    if (!minReleaseDate || !selectedDate) return 0;
+    
+    const selectedDateStr = selectedDate;
+    const minReleaseDateStr = `${minReleaseDate.getFullYear()}-${String(minReleaseDate.getMonth() + 1).padStart(2, '0')}-${String(minReleaseDate.getDate()).padStart(2, '0')}`;
+    
+    // 如果选择的日期等于上一章节的发布日期，则最小小时为上一章节的小时
+    if (selectedDateStr === minReleaseDateStr) {
+      return minReleaseDate.getHours();
+    }
+    
+    return 0;
+  };
+
   const renderHours = () => {
+    const minHour = getMinHour();
     const hours = [];
-    for (let i = 0; i < 24; i++) {
+    for (let i = minHour; i < 24; i++) {
       hours.push(
         <option key={i} value={i}>
           {String(i).padStart(2, '0')}
@@ -206,7 +228,19 @@ const ScheduleReleaseModal: React.FC<ScheduleReleaseModalProps> = ({
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setSelectedDate(newDate);
+                  
+                  // 如果选择的日期等于上一章节的发布日期，且当前小时早于上一章节的小时，则自动调整为上一章节的小时
+                  if (minReleaseDate && newDate) {
+                    const newDateStr = newDate;
+                    const minReleaseDateStr = `${minReleaseDate.getFullYear()}-${String(minReleaseDate.getMonth() + 1).padStart(2, '0')}-${String(minReleaseDate.getDate()).padStart(2, '0')}`;
+                    if (newDateStr === minReleaseDateStr && selectedHour < minReleaseDate.getHours()) {
+                      setSelectedHour(minReleaseDate.getHours());
+                    }
+                  }
+                }}
                 min={minDateStr}
                 className={styles.dateInput}
                 disabled={isLoading}

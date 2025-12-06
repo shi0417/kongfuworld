@@ -17,15 +17,30 @@
 
 ## 2. 章节设置逻辑（两个按钮相同）
 
-### 2.1 前50章节（chapter_number <= 50）
-```javascript
-is_advance = 0
-key_cost = 0
-unlock_price = 0
-```
-- **说明**: 免费章节，无需解锁
+### 2.1 免费章节判断
 
-### 2.2 第50章节之后（chapter_number > 50）
+免费章节的判断基于 `unlockprice.default_free_chapters` 字段，每本书可以有不同的免费章节数。
+
+**判断逻辑**：
+```javascript
+if (chapter_number <= unlockprice.default_free_chapters) {
+  // 免费章节
+  is_advance = 0
+  key_cost = 0
+  unlock_price = 0
+} else {
+  // 收费章节
+  // 继续处理 key_cost、is_advance 和 unlock_price
+}
+```
+
+**说明**：
+- 免费章节范围由 `unlockprice.default_free_chapters` 决定，不再硬编码
+- 免费章节不应该是预读章节（`is_advance = 0`）
+- 免费章节不需要钥匙解锁（`key_cost = 0`）
+- 免费章节解锁价格为 0（`unlock_price = 0`）
+
+### 2.2 收费章节设置逻辑（chapter_number > default_free_chapters）
 
 #### 2.2.1 key_cost 设置
 ```javascript
@@ -82,7 +97,7 @@ is_advance = 0
      ```
    - **如果 A < B**: `is_advance=0`（理论上不应该发生）
 
-#### 2.2.3 unlock_price 设置逻辑
+#### 2.2.3 unlock_price 设置逻辑（按字数计价）
 
 **步骤1**: 获取小说的 user_id
 ```sql
@@ -91,7 +106,7 @@ SELECT user_id FROM novel WHERE id = ?
 
 **步骤2**: 查询 unlockprice 表
 ```sql
-SELECT fixed_style, fixed_cost, random_cost_min, random_cost_max
+SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
 FROM unlockprice
 WHERE novel_id = ? AND user_id = ?
 LIMIT 1
@@ -100,21 +115,17 @@ LIMIT 1
 **步骤3**: 根据查询结果设置 unlock_price
 
 - **如果没有数据**:
-  1. 创建一条记录：`fixed_style=1`, `fixed_cost=20`
-  2. `unlock_price = 20`（即 `fixed_cost` 值）
+  1. 创建一条默认记录：`karma_per_1000=6`, `min_karma=5`, `max_karma=30`, `default_free_chapters=50`, `pricing_style='per_word'`
+  2. 使用默认配置计算价格
 
 - **如果有数据**:
-  - **如果 `fixed_style = 1`**（固定模式）:
+  - **按字数计价**（`pricing_style = 'per_word'`）:
     ```javascript
-    unlock_price = fixed_cost
-    ```
-  - **如果 `fixed_style != 1`**（随机模式）:
-    ```javascript
-    // unlock_price 为 random_cost_min 到 random_cost_max 之间的随机值
-    // 使用章节号作为种子，确保同一章节号总是得到相同的价格
-    const range = random_cost_max - random_cost_min + 1;
-    const seed = chapter_number * 7919; // 使用质数作为乘数
-    unlock_price = (seed % range) + random_cost_min;
+    // 1. 如果 chapter_number <= default_free_chapters，返回 0
+    // 2. 如果 word_count <= 0，返回 min_karma
+    // 3. 否则：
+    base_price = Math.ceil((word_count / 1000) * karma_per_1000)
+    unlock_price = clamp(base_price, min_karma, max_karma)
     ```
 
 ## 3. 数据流程
@@ -151,8 +162,9 @@ LIMIT 1
 
 ## 5. 注意事项
 
-1. **is_advance 逻辑**: 确保预读章节数量不超过最大 tier_level 的 advance_chapters 值
-2. **unlock_price 逻辑**: 随机模式下使用章节号作为种子，确保同一章节号总是得到相同的价格
-3. **review_status**: 发布章节进入审核流程（`submitted`），不是直接通过（`approved`）
-4. **章节设置**: 两个按钮的章节设置逻辑完全相同，只有 `review_status` 不同
+1. **免费章节判断**: 基于 `unlockprice.default_free_chapters` 字段，不再硬编码固定值
+2. **is_advance 逻辑**: 确保预读章节数量不超过最大 tier_level 的 advance_chapters 值，且只有收费章节才考虑预读
+3. **unlock_price 逻辑**: 使用按字数计价模式（`pricing_style = 'per_word'`），计算公式为 `base_price = ceil(word_count / 1000) * karma_per_1000`，然后限制在 `[min_karma, max_karma]` 区间内
+4. **review_status**: 发布章节进入审核流程（`submitted`），不是直接通过（`approved`）
+5. **章节设置**: 两个按钮的章节设置逻辑完全相同，只有 `review_status` 不同
 

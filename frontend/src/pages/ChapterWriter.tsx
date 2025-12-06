@@ -5,6 +5,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
 import ScheduleReleaseModal from '../components/ScheduleReleaseModal/ScheduleReleaseModal';
+import Toast from '../components/Toast/Toast';
+import ChapterUpdateConfirmDialog from '../components/ChapterUpdateConfirmDialog/ChapterUpdateConfirmDialog';
 import styles from './ChapterWriter.module.css';
 
 interface ChapterInfo {
@@ -66,12 +68,17 @@ const ChapterWriter: React.FC = () => {
   const [previousChapter, setPreviousChapter] = useState<any>(null);
   
   // 定时发布相关状态
-  const [lastChapterStatus, setLastChapterStatus] = useState<{ review_status: string | null; is_released: number | null } | null>(null);
+  const [lastChapterStatus, setLastChapterStatus] = useState<{ review_status: string | null; is_released: number | null; release_date: string | null } | null>(null);
   const [currentChapterStatus, setCurrentChapterStatus] = useState<{ review_status: string; is_released: number } | null>(null);
   const [prevChapterStatus, setPrevChapterStatus] = useState<{ review_status: string | null; is_released: number | null; release_date: string | null } | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingChapterStatus, setIsLoadingChapterStatus] = useState(false); // 是否正在加载章节状态
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+  const [showUpdateConfirmDialog, setShowUpdateConfirmDialog] = useState(false);
+  const [existingChapter, setExistingChapter] = useState<{ id: number; title: string; review_status: string; is_released: number; release_date: string | null; created_at: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<'draft' | 'publish' | 'schedule' | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   
   // 历史版本状态
   const [showHistory, setShowHistory] = useState(false); // 是否显示历史版本侧边栏
@@ -547,7 +554,8 @@ const ChapterWriter: React.FC = () => {
       if (data) {
         setLastChapterStatus({
           review_status: data.review_status || null,
-          is_released: data.is_released !== undefined ? data.is_released : null
+          is_released: data.is_released !== undefined ? data.is_released : null,
+          release_date: data.release_date || null
         });
       } else {
         setLastChapterStatus(null);
@@ -1105,6 +1113,19 @@ const ChapterWriter: React.FC = () => {
           body: formData
         });
         
+        // 检查是否是重复章节号
+        if (response.status === 409) {
+          const errorData = await response.json();
+          if (errorData.code === 'CHAPTER_EXISTS' && errorData.existingChapter) {
+            setExistingChapter(errorData.existingChapter);
+            setPendingAction('draft');
+            setPendingFormData(formData);
+            setShowUpdateConfirmDialog(true);
+            setIsSaving(false);
+            return;
+          }
+        }
+        
         // 如果是新建章节，保存返回的chapter_id
         if (response.ok) {
           const result = await response.json();
@@ -1199,6 +1220,19 @@ const ChapterWriter: React.FC = () => {
           body: formData
         });
         
+        // 检查是否是重复章节号
+        if (response.status === 409) {
+          const errorData = await response.json();
+          if (errorData.code === 'CHAPTER_EXISTS' && errorData.existingChapter) {
+            setExistingChapter(errorData.existingChapter);
+            setPendingAction('schedule');
+            setPendingFormData(formData);
+            setShowUpdateConfirmDialog(true);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
         if (response.ok) {
           const result = await response.json();
           if (result.chapter_id) {
@@ -1213,11 +1247,21 @@ const ChapterWriter: React.FC = () => {
       }
       
       setShowScheduleModal(false);
-      alert(language === 'zh' ? '定时发布设置成功！' : 'Scheduled release set successfully!');
-      navigate(`/novel-manage/${novelId}`);
+      // 显示成功提示
+      setToast({ 
+        message: 'Scheduled release set successfully!', 
+        type: 'success' 
+      });
+      // 延迟跳转，让用户看到成功提示
+      setTimeout(() => {
+        navigate(`/novel-manage/${novelId}?tab=chapters`);
+      }, 500);
     } catch (error: any) {
       console.error('定时发布失败:', error);
-      alert(error.message || (language === 'zh' ? '定时发布失败' : 'Failed to schedule release'));
+      setToast({ 
+        message: error.message || 'Failed to schedule release', 
+        type: 'error' 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1881,6 +1925,18 @@ const ChapterWriter: React.FC = () => {
         });
         result = await response.json();
         
+        // 检查是否是重复章节号
+        if (response.status === 409) {
+          if (result.code === 'CHAPTER_EXISTS' && result.existingChapter) {
+            setExistingChapter(result.existingChapter);
+            setPendingAction('publish');
+            setPendingFormData(formData);
+            setShowUpdateConfirmDialog(true);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
         if (response.ok && result.chapter_id) {
           setChapterInfo(prev => ({ ...prev, id: result.chapter_id ?? null }));
         }
@@ -2286,8 +2342,8 @@ const ChapterWriter: React.FC = () => {
           <input
             ref={titleRef}
             type="text"
-            placeholder={language === 'zh' ? '请输入章节名称,最多20个字' : 'Please enter chapter title, max 20 characters'}
-            maxLength={20}
+            placeholder={language === 'zh' ? '请输入章节名称,最多100个字' : 'Please enter chapter title, max 100 characters'}
+            maxLength={100}
             value={chapterInfo.title}
             onChange={handleTitleChange}
             style={{ fontSize: `${fontSize}px` }}
@@ -2612,13 +2668,122 @@ const ChapterWriter: React.FC = () => {
         onClose={() => setShowScheduleModal(false)}
         onConfirm={handleConfirmSchedule}
         initialDate={chapterInfo.release_date ? new Date(chapterInfo.release_date) : undefined}
-        minReleaseDate={prevChapterStatus?.release_date ? new Date(prevChapterStatus.release_date) : undefined}
+        minReleaseDate={
+          (chapterId || chapterInfo.id) 
+            ? (prevChapterStatus?.release_date ? new Date(prevChapterStatus.release_date) : undefined)
+            : (lastChapterStatus?.release_date ? new Date(lastChapterStatus.release_date) : undefined)
+        }
         isLoading={isSubmitting}
         novelTitle={title}
         previousChapter={previousChapter ? `第${previousChapter.chapter_number}章 ${previousChapter.title}` : ''}
         currentChapter={`第${chapterInfo.chapter_number}章 ${chapterInfo.title || ''}`}
         wordCount={wordCount}
         isEditMode={!!(chapterId || chapterInfo.id)}
+      />
+
+      {/* Toast 提示 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* 章节更新确认对话框 */}
+      <ChapterUpdateConfirmDialog
+        isOpen={showUpdateConfirmDialog}
+        onClose={() => {
+          setShowUpdateConfirmDialog(false);
+          setExistingChapter(null);
+          setPendingAction(null);
+          setPendingFormData(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingFormData || !existingChapter || !pendingAction) return;
+          
+          setIsSubmitting(true);
+          try {
+            // 将创建请求改为更新请求
+            pendingFormData.append('chapter_id', existingChapter.id.toString());
+            
+            let response: Response;
+            if (pendingAction === 'schedule') {
+              response = await fetch('http://localhost:5000/api/chapter/update', {
+                method: 'POST',
+                headers: {
+                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+                },
+                body: pendingFormData
+              });
+            } else if (pendingAction === 'publish') {
+              pendingFormData.append('action', 'publish');
+              pendingFormData.append('is_released', '1');
+              response = await fetch('http://localhost:5000/api/chapter/update', {
+                method: 'POST',
+                headers: {
+                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+                },
+                body: pendingFormData
+              });
+            } else {
+              // draft
+              pendingFormData.append('action', 'draft');
+              response = await fetch('http://localhost:5000/api/chapter/update', {
+                method: 'POST',
+                headers: {
+                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
+                },
+                body: pendingFormData
+              });
+            }
+            
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.message || '更新失败');
+            }
+            
+            const result = await response.json();
+            
+            // 更新章节信息
+            setChapterInfo(prev => ({ ...prev, id: existingChapter.id }));
+            
+            // 显示成功提示
+            setToast({ 
+              message: pendingAction === 'schedule' 
+                ? 'Scheduled release updated successfully!' 
+                : pendingAction === 'publish'
+                ? 'Chapter updated and published successfully!'
+                : 'Draft updated successfully!', 
+              type: 'success' 
+            });
+            
+            // 关闭对话框
+            setShowUpdateConfirmDialog(false);
+            setExistingChapter(null);
+            setPendingAction(null);
+            setPendingFormData(null);
+            
+            // 如果是定时发布或发布，跳转到章节管理页面
+            if (pendingAction === 'schedule' || pendingAction === 'publish') {
+              setTimeout(() => {
+                navigate(`/novel-manage/${novelId}?tab=chapters`);
+              }, 500);
+            }
+          } catch (error: any) {
+            console.error('更新章节失败:', error);
+            setToast({ 
+              message: error.message || 'Failed to update chapter', 
+              type: 'error' 
+            });
+          } finally {
+            setIsSubmitting(false);
+          }
+        }}
+        existingChapter={existingChapter}
+        newChapterTitle={chapterInfo.title || `Chapter ${chapterInfo.chapter_number}`}
+        chapterNumber={chapterInfo.chapter_number}
+        isLoading={isSubmitting}
       />
     </div>
   );

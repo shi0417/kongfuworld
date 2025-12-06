@@ -2057,15 +2057,48 @@ router.get('/calendar', authenticateAuthor, async (req, res) => {
 
     const [rows] = await db.execute(sql, params);
 
+    // 调试日志：查看原始数据
+    console.log('[Calendar API] Raw rows from DB:', JSON.stringify(rows, null, 2));
+    console.log('[Calendar API] First row date type:', typeof rows[0]?.date, 'value:', rows[0]?.date);
+
+    const processedDays = rows.map(r => {
+      // 确保日期是字符串格式 YYYY-MM-DD
+      let dateStr;
+      if (r.date instanceof Date) {
+        // 如果是 Date 对象，使用本地时区格式化
+        const year = r.date.getFullYear();
+        const month = String(r.date.getMonth() + 1).padStart(2, '0');
+        const day = String(r.date.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+        console.log('[Calendar API] Date object converted:', r.date, '->', dateStr);
+      } else if (typeof r.date === 'string') {
+        // 如果已经是字符串，直接使用（可能是 YYYY-MM-DD 或带时间的格式）
+        dateStr = r.date.split(' ')[0]; // 提取日期部分
+        console.log('[Calendar API] String date processed:', r.date, '->', dateStr);
+      } else {
+        // 其他情况，尝试转换
+        const dateObj = new Date(r.date);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+        console.log('[Calendar API] Other type converted:', r.date, '->', dateStr);
+      }
+      
+      return {
+        date: dateStr,                         // YYYY-MM-DD
+        word_count: Number(r.word_count) || 0, // 当天总增量
+        change_count: Number(r.change_count) || 0, // 当天发布/修改次数
+      };
+    });
+
+    console.log('[Calendar API] Processed days:', JSON.stringify(processedDays, null, 2));
+
     res.json({
       success: true,
       year: yearInt,
       month: monthInt,
-      days: rows.map(r => ({
-        date: r.date,                         // YYYY-MM-DD
-        word_count: Number(r.word_count) || 0, // 当天总增量
-        change_count: Number(r.change_count) || 0, // 当天发布/修改次数
-      })),
+      days: processedDays,
     });
   } catch (err) {
     console.error('Error in /api/writer/calendar', err);

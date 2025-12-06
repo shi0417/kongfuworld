@@ -32,7 +32,7 @@ const PaymentSuccess: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '24px', marginBottom: '16px' }}>⏳</div>
-            <div>处理支付结果中...</div>
+            <div>Processing payment result...</div>
           </div>
         </div>
         <Footer />
@@ -47,10 +47,10 @@ const PaymentSuccess: React.FC = () => {
         <div style={{ textAlign: 'center', maxWidth: '600px', padding: '20px' }}>
           <div style={{ fontSize: '64px', marginBottom: '24px' }}>✅</div>
           <h1 style={{ fontSize: '32px', marginBottom: '16px', color: '#28a745' }}>
-            支付成功！
+            Payment Successful!
           </h1>
           <p style={{ fontSize: '18px', marginBottom: '24px', color: '#ccc' }}>
-            感谢您选择KongFuWorld Champion订阅服务
+            Thank you for choosing KongFuWorld Champion subscription service
           </p>
           
           {orderId && (
@@ -61,7 +61,7 @@ const PaymentSuccess: React.FC = () => {
               marginBottom: '24px',
               border: '1px solid #444'
             }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#aaa' }}>订单号</p>
+              <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#aaa' }}>Order Number</p>
               <p style={{ margin: '0', fontSize: '16px', fontFamily: 'monospace' }}>{orderId}</p>
             </div>
           )}
@@ -73,9 +73,9 @@ const PaymentSuccess: React.FC = () => {
             marginBottom: '32px',
             border: '1px solid #28a745'
           }}>
-            <h3 style={{ margin: '0 0 12px 0', color: '#28a745' }}>🎉 订阅已激活</h3>
+            <h3 style={{ margin: '0 0 12px 0', color: '#28a745' }}>🎉 Subscription Activated</h3>
             <p style={{ margin: '0', fontSize: '14px', color: '#90ee90' }}>
-              您现在可以享受Champion会员的所有特权，包括提前阅读章节等专属功能。
+              You can now enjoy all the privileges of a Champion member, including early access to chapters and other exclusive features.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ const PaymentSuccess: React.FC = () => {
                 fontWeight: '600'
               }}
             >
-              返回小说详情
+              Return to Novel Details
             </button>
             <button 
               onClick={handleReturnToHome}
@@ -108,7 +108,7 @@ const PaymentSuccess: React.FC = () => {
                 fontWeight: '600'
               }}
             >
-              返回首页
+              Return to Homepage
             </button>
           </div>
         </div>

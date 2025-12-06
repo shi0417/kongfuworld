@@ -157,6 +157,8 @@ router.get('/user-subscriptions', async (req, res) => {
         ucs.end_date,
         ucs.payment_method,
         ucs.auto_renew,
+        ucs.cancel_at_period_end,
+        ucs.stripe_subscription_id,
         nct.advance_chapters,
         CASE 
           WHEN ucs.end_date > NOW() THEN 'active'
@@ -565,6 +567,86 @@ router.post('/apply/:novelId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: '提交申请失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// 取消订阅（用户关闭自动续费）
+router.post('/subscription/:id/cancel', async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    // TODO: 从 req.user 获取当前登录用户ID，这里暂时使用请求头或查询参数
+    const currentUserId = req.headers['user-id'] || req.query.userId || req.body.userId;
+    
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: '未登录或用户ID缺失'
+      });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+
+    // 1. 查询订阅记录
+    const [subscriptions] = await db.execute(
+      'SELECT id, user_id, stripe_subscription_id, auto_renew FROM user_champion_subscription WHERE id = ?',
+      [id]
+    );
+
+    if (subscriptions.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '订阅记录不存在'
+      });
+    }
+
+    const subscription = subscriptions[0];
+
+    // 2. 验证用户权限
+    if (parseInt(subscription.user_id) !== parseInt(currentUserId)) {
+      return res.status(403).json({
+        success: false,
+        message: '无权操作此订阅'
+      });
+    }
+
+    // 3. 如果存在 stripe_subscription_id，调用 Stripe API 取消订阅
+    if (subscription.stripe_subscription_id) {
+      const StripeService = require('../services/stripeService');
+      const stripeService = new StripeService();
+      
+      try {
+        await stripeService.cancelSubscriptionAtPeriodEnd(subscription.stripe_subscription_id);
+        console.log(`[取消订阅] Stripe订阅已设置为周期结束后取消 - Subscription ID: ${subscription.stripe_subscription_id}`);
+      } catch (error) {
+        console.error(`[取消订阅] 调用Stripe API失败: ${error.message}`);
+        // 即使 Stripe API 调用失败，也继续更新本地数据库
+      }
+    }
+
+    // 4. 更新本地数据库
+    await db.execute(
+      `UPDATE user_champion_subscription 
+       SET auto_renew = 0, cancel_at_period_end = 1, cancelled_at = NOW(), updated_at = NOW() 
+       WHERE id = ?`,
+      [id]
+    );
+
+    console.log(`[取消订阅] 订阅已取消自动续费 - 订阅ID: ${id}, 用户: ${currentUserId}`);
+
+    res.json({
+      success: true,
+      message: '自动续费已取消，当前周期结束后将不再续费'
+    });
+  } catch (error) {
+    console.error('[取消订阅] 处理失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '取消订阅失败',
       error: error.message
     });
   } finally {

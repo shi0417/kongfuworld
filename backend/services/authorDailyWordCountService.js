@@ -54,9 +54,35 @@ async function recordChapterReleaseChange({ authorId, novelId, chapterId, wordCo
       return;
     }
 
-    // 格式化日期为 YYYY-MM-DD
-    const releaseDateObj = releaseDate instanceof Date ? releaseDate : new Date(releaseDate);
-    const dateStr = releaseDateObj.toISOString().split('T')[0];
+    // 格式化日期为 YYYY-MM-DD（使用本地时区，避免 UTC 时区转换问题）
+    let dateStr;
+    if (typeof releaseDate === 'string') {
+      // 如果已经是字符串格式，直接提取日期部分
+      // 支持格式：'YYYY-MM-DD' 或 'YYYY-MM-DD HH:mm:ss'
+      if (releaseDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+        dateStr = releaseDate.split(' ')[0]; // 提取日期部分
+      } else {
+        // 其他格式，尝试解析
+        const dateObj = new Date(releaseDate);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+      }
+    } else if (releaseDate instanceof Date) {
+      // 如果是 Date 对象，使用本地时区格式化
+      const year = releaseDate.getFullYear();
+      const month = String(releaseDate.getMonth() + 1).padStart(2, '0');
+      const day = String(releaseDate.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    } else {
+      // 其他情况，尝试转换
+      const dateObj = new Date(releaseDate);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    }
 
     const sql = `
       INSERT INTO author_daily_word_count (

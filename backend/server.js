@@ -34,6 +34,9 @@ const {
 // 导入支付路由
 const paymentRoutes = require('./routes/payment');
 
+// 导入 Stripe Webhook Handler
+const stripeWebhookHandler = require('./services/stripeWebhookHandler');
+
 // 导入Champion路由
 const championRoutes = require('./routes/champion');
 
@@ -62,6 +65,16 @@ const app = express();
 app.set('trust proxy', true);
 
 app.use(cors());
+
+// ⚠️ 重要：Stripe Webhook 路由必须在 express.json() 之前
+// Stripe Webhook 需要使用原始请求体（Buffer）进行签名验证
+// 如果使用 express.json()，请求体会被解析为 JSON，导致签名验证失败
+app.post(
+  '/api/webhook/stripe',
+  express.raw({ type: 'application/json' }),
+  stripeWebhookHandler
+);
+
 // 增加body-parser的大小限制，支持文件上传
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // 支持FormData

@@ -625,6 +625,144 @@
   margin-top: 4px;
 }
 
+/* 颜色编码：绿色（≥4000字） */
+.calendarDayGreen {
+  background: #e8f5e9 !important;
+  border-color: #4caf50 !important;
+}
+
+.calendarDayGreen .calendarDayNumber {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.calendarDayGreen .calendarDayLabel {
+  color: #2e7d32;
+}
+
+/* 颜色编码：黄色（<4000字） */
+.calendarDayYellow {
+  background: #fff9c4 !important;
+  border-color: #fbc02d !important;
+}
+
+.calendarDayYellow .calendarDayNumber {
+  color: #f57f17;
+  font-weight: 600;
+}
+
+.calendarDayYellow .calendarDayLabel {
+  color: #f57f17;
+}
+
+/* 颜色编码：橙色（未更新/请假） */
+.calendarDayOrange {
+  background: #ffe0b2 !important;
+  border-color: #ff9800 !important;
+}
+
+.calendarDayOrange .calendarDayNumber {
+  color: #e65100;
+  font-weight: 500;
+}
+
+.calendarDayOrange .calendarDayLabel {
+  color: #e65100;
+}
+
+/* 今日标记覆盖颜色 */
+.calendarDayToday.calendarDayGreen {
+  background: #4caf50 !important;
+  border-color: #4caf50 !important;
+  color: #fff !important;
+}
+
+.calendarDayToday.calendarDayGreen .calendarDayNumber,
+.calendarDayToday.calendarDayGreen .calendarDayLabel {
+  color: #fff !important;
+}
+
+.calendarDayToday.calendarDayYellow {
+  background: #fbc02d !important;
+  border-color: #fbc02d !important;
+  color: #fff !important;
+}
+
+.calendarDayToday.calendarDayYellow .calendarDayNumber,
+.calendarDayToday.calendarDayYellow .calendarDayLabel {
+  color: #fff !important;
+}
+
+.calendarDayToday.calendarDayOrange {
+  background: #ff9800 !important;
+  border-color: #ff9800 !important;
+  color: #fff !important;
+}
+
+.calendarDayToday.calendarDayOrange .calendarDayNumber,
+.calendarDayToday.calendarDayOrange .calendarDayLabel {
+  color: #fff !important;
+}
+
+/* 日历图例 */
+.calendarLegend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legendDotGreen {
+  background: #4caf50;
+}
+
+.legendDotYellow {
+  background: #fbc02d;
+}
+
+.legendDotOrange {
+  background: #ff9800;
+}
+
+/* 月份选择器 */
+.monthPicker {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.monthPicker:hover {
+  border-color: var(--primary-color);
+}
+
+.monthPicker:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(255, 136, 0, 0.2);
+}
+
 /* Announcements Section */
 .announcementsSection {
   background: var(--bg-secondary);

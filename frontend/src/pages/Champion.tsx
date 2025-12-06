@@ -17,6 +17,8 @@ interface ChampionSubscription {
   end_date: string;
   payment_method: string;
   auto_renew: boolean;
+  cancel_at_period_end?: boolean;
+  stripe_subscription_id?: string | null;
   advance_chapters: number;
   status: 'active' | 'expired' | 'inactive';
 }
@@ -95,6 +97,32 @@ const Champion: React.FC = () => {
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
+  };
+
+  const handleCancelAutoRenew = async (subscriptionId: number) => {
+    if (!window.confirm('确定要取消自动续费吗？当前周期结束后将不再续费。')) {
+      return;
+    }
+
+    try {
+      const result = await ApiService.request(`/champion/subscription/${subscriptionId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: authUser?.id || userData?.id
+        })
+      });
+
+      if (result.success) {
+        alert('自动续费已取消');
+        // 刷新订阅列表
+        fetchUserSubscriptions();
+      } else {
+        alert('取消失败: ' + (result.message || '未知错误'));
+      }
+    } catch (error) {
+      console.error('取消自动续费失败:', error);
+      alert('取消失败，请稍后重试');
+    }
   };
 
   if (loading) {
@@ -209,7 +237,38 @@ const Champion: React.FC = () => {
                         </span>
                       </td>
                       <td>${subscription.monthly_price}</td>
-                      <td>{formatDate(subscription.end_date)}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span>{formatDate(subscription.end_date)}</span>
+                          <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                            {subscription.auto_renew && !subscription.cancel_at_period_end ? (
+                              <span style={{ color: '#28a745' }}>Auto-renew: ON</span>
+                            ) : (
+                              <span style={{ color: '#999' }}>Auto-renew: OFF</span>
+                            )}
+                          </div>
+                          {subscription.auto_renew && !subscription.cancel_at_period_end && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelAutoRenew(subscription.id);
+                              }}
+                              style={{
+                                marginTop: '4px',
+                                padding: '4px 8px',
+                                fontSize: '0.75rem',
+                                backgroundColor: '#dc3545',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel auto-renew
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                     );
                   })}

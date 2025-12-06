@@ -27,7 +27,6 @@ const DraftBoxTab: React.FC<{ novelId: number; novelTitle?: string }> = ({ novel
     draft: null
   });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [submittingChapterId, setSubmittingChapterId] = useState<number | null>(null);
 
   useEffect(() => {
     loadDrafts();
@@ -109,38 +108,6 @@ const DraftBoxTab: React.FC<{ novelId: number; novelTitle?: string }> = ({ novel
     }
   };
 
-  // 提交审核（将草稿状态改为 submitted）
-  const handleSubmitForReview = async (draftId: number) => {
-    setSubmittingChapterId(draftId);
-    try {
-      const response = await ApiService.request(`/chapter/${draftId}/submit`, {
-        method: 'POST'
-      });
-
-      if (response.success) {
-        // 从草稿列表中移除（因为状态已改为 submitted，会出现在章节管理列表）
-        setDrafts(prevDrafts => {
-          const updatedDrafts = prevDrafts.filter(d => d.id !== draftId);
-          const total = updatedDrafts.reduce((sum, draft) => sum + (draft.word_count || 0), 0);
-          setTotalWords(total);
-          return updatedDrafts;
-        });
-
-        alert(language === 'zh' 
-          ? '章节已提交审核，可在"章节管理"中查看' 
-          : 'Chapter submitted for review, check in "Chapter Management"');
-      } else {
-        throw new Error(response.message || '提交失败');
-      }
-    } catch (error) {
-      console.error('提交章节审核失败:', error);
-      alert(language === 'zh' 
-        ? `提交失败: ${error instanceof Error ? error.message : '未知错误'}` 
-        : `Submit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setSubmittingChapterId(null);
-    }
-  };
 
   if (loading) {
     return <div className={styles.loading}>{language === 'zh' ? '加载中...' : 'Loading...'}</div>;
@@ -227,16 +194,6 @@ const DraftBoxTab: React.FC<{ novelId: number; novelTitle?: string }> = ({ novel
                           }}
                         >
                           {language === 'zh' ? '编辑' : 'Edit'}
-                        </button>
-                        <button
-                          className={`${styles.actionLink} ${styles.submitBtn}`}
-                          onClick={() => handleSubmitForReview(draft.id)}
-                          disabled={submittingChapterId === draft.id}
-                        >
-                          {submittingChapterId === draft.id 
-                            ? (language === 'zh' ? '提交中...' : 'Submitting...')
-                            : (language === 'zh' ? '提交审核' : 'Submit for Review')
-                          }
                         </button>
                         {/* 只有最后一章才显示删除按钮 */}
                         {isLastChapter && (

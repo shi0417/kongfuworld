@@ -154,11 +154,16 @@ class PayPalServiceSDK {
   }
 
   // 记录支付到数据库
-  async recordPayment(userId, amount, paymentId, status = 'pending', novelId = null) {
+  async recordPayment(userId, amount, paymentId, status = 'pending', novelId = null, tierLevel = null, tierName = null) {
     try {
-      const description = novelId ? 
+      let description = novelId ? 
         `PayPal Payment ID: ${paymentId} | Novel ID: ${novelId}` : 
         `PayPal Payment ID: ${paymentId}`;
+      
+      // 如果有等级信息，添加到描述中
+      if (tierLevel !== null && tierName) {
+        description += ` | Tier Level: ${tierLevel} | Tier Name: ${tierName}`;
+      }
       
       const [result] = await this.db.execute(
         'INSERT INTO payment_record (user_id, novel_id, amount, payment_method, status, type, description) VALUES (?, ?, ?, ?, ?, ?, ?)',

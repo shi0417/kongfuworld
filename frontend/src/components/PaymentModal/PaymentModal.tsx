@@ -18,6 +18,8 @@ interface PaymentModalProps {
     discount_percentage: number;
     time_remaining_formatted: string;
   } | null;
+  autoRenew?: boolean;
+  onAutoRenewChange?: (autoRenew: boolean) => void;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -26,10 +28,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   tier,
   novelTitle,
   onConfirm,
-  promotion
+  promotion,
+  autoRenew = false,
+  onAutoRenewChange
 }) => {
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [localAutoRenew, setLocalAutoRenew] = useState(autoRenew);
+
+  // 当 paymentMethod 改变时，如果不是 Stripe，重置 autoRenew
+  const handlePaymentMethodChange = (method: string) => {
+    setPaymentMethod(method);
+    if (method !== 'stripe') {
+      setLocalAutoRenew(false);
+      if (onAutoRenewChange) {
+        onAutoRenewChange(false);
+      }
+    }
+  };
+
+  const handleAutoRenewChange = (checked: boolean) => {
+    setLocalAutoRenew(checked);
+    if (onAutoRenewChange) {
+      onAutoRenewChange(checked);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -153,7 +176,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           <div className={styles.paymentOptions}>
             <div 
               className={`${styles.paymentOption} ${paymentMethod === 'stripe' ? styles.selected : ''}`}
-              onClick={() => setPaymentMethod('stripe')}
+              onClick={() => handlePaymentMethodChange('stripe')}
             >
               <div className={styles.paymentInfo}>
                 <span className={styles.paymentLogo}>stripe</span>
@@ -166,7 +189,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
             <div 
               className={`${styles.paymentOption} ${paymentMethod === 'paypal' ? styles.selected : ''}`}
-              onClick={() => setPaymentMethod('paypal')}
+              onClick={() => handlePaymentMethodChange('paypal')}
             >
               <div className={styles.paymentInfo}>
                 <span className={styles.paymentLogo}>PayPal</span>
@@ -177,6 +200,29 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 自动续费勾选框（仅 Stripe 时显示） */}
+          {paymentMethod === 'stripe' && (
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginTop: '16px', 
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={localAutoRenew}
+                onChange={(e) => handleAutoRenewChange(e.target.checked)}
+                style={{ marginRight: '8px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.9rem', color: '#333' }}>
+                Auto-renew this Champion every month (Stripe only)
+              </span>
+            </label>
+          )}
 
           <button type="button" className={styles.addCardLink}>Add new card</button>
           <p className={styles.securityText}>

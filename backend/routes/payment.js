@@ -5,19 +5,21 @@ const StripeService = require('../services/stripeService');
 const SimplePaymentService = require('../services/simplePaymentService');
 const UnifiedPaymentService = require('../services/unifiedPaymentService');
 const KarmaPaymentService = require('../services/karmaPaymentService');
+const ChampionService = require('../services/championService');
 
 const paypalService = new PayPalServiceSDK();
 const stripeService = new StripeService();
 const paymentService = new SimplePaymentService();
 const unifiedPaymentService = new UnifiedPaymentService();
 const karmaPaymentService = new KarmaPaymentService();
+const championService = new ChampionService();
 
 // PayPal支付相关路由
 
 // 创建PayPal支付
 router.post('/paypal/create', async (req, res) => {
   try {
-    const { userId, amount, currency = 'USD', description = 'kongfuworld Credits', novelId } = req.body;
+    const { userId, amount, currency = 'USD', description = 'kongfuworld Credits', novelId, tierLevel, tierName } = req.body;
 
     if (!userId || !amount) {
       return res.status(400).json({ success: false, message: 'Missing required parameters' });
@@ -26,8 +28,8 @@ router.post('/paypal/create', async (req, res) => {
     // 使用PayPal服务创建支付
     const payment = await paypalService.createPayment(userId, amount, currency, description);
     
-    // 记录支付到数据库，包含小说ID信息
-    await paypalService.recordPayment(userId, amount, payment.id, 'pending', novelId);
+    // 记录支付到数据库，包含小说ID、等级信息
+    await paypalService.recordPayment(userId, amount, payment.id, 'pending', novelId, tierLevel, tierName);
 
     // 查找approve链接
     const approveLink = payment.links.find(link => link.rel === 'approve');
@@ -304,7 +306,7 @@ router.get('/stripe/payment-methods/:userId', async (req, res) => {
 // 创建Stripe支付意图
 router.post('/stripe/create', async (req, res) => {
   try {
-    const { userId, amount, currency = 'usd', novelId, paymentMethodId } = req.body;
+    const { userId, amount, currency = 'usd', novelId, paymentMethodId, tierLevel, tierName } = req.body;
 
     if (!userId || !amount) {
       return res.status(400).json({ success: false, message: 'Missing required parameters' });
@@ -313,8 +315,21 @@ router.post('/stripe/create', async (req, res) => {
     // 创建Stripe支付意图
     const paymentIntent = await stripeService.createPaymentIntent(userId, amount, currency, novelId, paymentMethodId);
     
-    // 记录支付到数据库
-    await stripeService.recordPayment(userId, amount, paymentIntent.id, 'pending', novelId);
+    // 记录支付到数据库，包含等级信息和 Stripe 相关字段
+    const paymentRecordId = await stripeService.recordPayment(userId, amount, paymentIntent.id, 'pending', novelId, tierLevel, tierName);
+    
+    // 更新 payment_record 的 Stripe 相关字段
+    if (paymentRecordId && paymentIntent.customer) {
+      try {
+        await stripeService.db.execute(
+          'UPDATE payment_record SET stripe_payment_intent_id = ?, stripe_customer_id = ? WHERE id = ?',
+          [paymentIntent.id, paymentIntent.customer, paymentRecordId]
+        );
+        console.log(`[Stripe支付创建] 已更新 payment_record 的 Stripe 字段 - ID: ${paymentRecordId}, customer_id: ${paymentIntent.customer}`);
+      } catch (err) {
+        console.warn(`[Stripe支付创建] 更新 payment_record 的 Stripe 字段失败: ${err.message}`);
+      }
+    }
 
     res.json({
       success: true,
@@ -455,6 +470,177 @@ router.delete('/stripe/payment-method/:userId/:paymentMethodId', async (req, res
   } catch (error) {
     console.error('删除支付方式失败:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 创建 Stripe Champion 订阅（自动续费）
+router.post('/stripe/champion-subscription', async (req, res) => {
+  try {
+    const { userId, novelId, tierLevel, tierName, autoRenew, paymentMethodId } = req.body;
+
+    if (!userId || !novelId || !tierLevel) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '缺少必要参数: userId, novelId, tierLevel' 
+      });
+    }
+
+    // 当前阶段只处理 autoRenew === true 的情况
+    if (autoRenew !== true) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '当前接口仅支持自动续费订阅，请使用 autoRenew: true' 
+      });
+    }
+
+    console.log(`[Champion订阅创建] 开始 - 用户: ${userId}, 小说: ${novelId}, 等级: ${tierLevel}, 自动续费: ${autoRenew}`);
+
+    // 0. 检查是否已有 active 的 Stripe Subscription
+    // 策略 B：如果用户已有 Stripe Subscription，不应该创建新的，而是返回现有订阅信息
+    // 用户应该使用手动支付接口来延长/升级订阅
+    const [existingSubscriptions] = await stripeService.db.execute(
+      'SELECT id, stripe_subscription_id, auto_renew, tier_level, end_date FROM user_champion_subscription WHERE user_id = ? AND novel_id = ? AND is_active = 1',
+      [userId, novelId]
+    );
+
+    if (existingSubscriptions.length > 0) {
+      const existingSub = existingSubscriptions[0];
+      if (existingSub.stripe_subscription_id && Number(existingSub.auto_renew) === 1) {
+        console.log(`[Champion订阅创建] 用户 ${userId} 对小说 ${novelId} 已有 active 的 Stripe Subscription: ${existingSub.stripe_subscription_id}`);
+        
+        // 策略 B：返回现有订阅信息，提示用户使用手动支付接口来延长/升级
+        // 或者，如果用户想要"重新开通自动续费"，可以返回现有订阅信息
+        try {
+          // 获取 Stripe Subscription 信息
+          const subscription = await stripeService.stripe.subscriptions.retrieve(existingSub.stripe_subscription_id);
+          
+          return res.json({
+            success: true,
+            code: 'ALREADY_SUBSCRIBED',
+            message: 'You already have an active Stripe subscription. Use manual payment to extend or upgrade.',
+            subscriptionId: existingSub.stripe_subscription_id,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+            status: subscription.status,
+            autoRenew: true,
+            existingSubscription: true
+          });
+        } catch (error) {
+          console.error(`[Champion订阅创建] 获取现有 Stripe Subscription 信息失败: ${error.message}`);
+          // 如果获取失败，继续创建流程（可能是 Stripe 端的订阅已被删除）
+        }
+      }
+    }
+
+    // 1. 获取或创建 Stripe Price（从数据库动态管理）
+    const priceInfo = await championService.getOrCreateStripePriceForChampionTier({
+      novelId: parseInt(novelId),
+      tierLevel: parseInt(tierLevel),
+      stripeService: stripeService
+    });
+
+    console.log(`[Champion订阅创建] Price 信息 - Price ID: ${priceInfo.priceId}, 价格: $${priceInfo.monthlyPrice}, 币种: ${priceInfo.currency}`);
+
+    // 2. 查询促销活动并获取或创建 Stripe Coupon
+    const couponInfo = await championService.getOrCreateStripeCouponForPromotion({
+      novelId: parseInt(novelId),
+      basePrice: priceInfo.monthlyPrice,
+      currency: priceInfo.currency
+    });
+
+    console.log(`[Champion订阅创建] Coupon 信息 - Coupon ID: ${couponInfo.couponId || '无'}, 促销信息: ${couponInfo.promotionInfo ? JSON.stringify(couponInfo.promotionInfo) : '无'}`);
+
+    // 3. 获取或创建 Stripe Customer
+    // TODO: 需要从 user 表获取 email，这里暂时传 null
+    const customerId = await stripeService.getOrCreateCustomer(parseInt(userId), null);
+
+    // 4. 调用 Stripe Service 创建订阅（使用动态 Price，如果存在促销则应用 Coupon）
+    const subscriptionResult = await stripeService.createChampionSubscription({
+      userId: parseInt(userId),
+      novelId: parseInt(novelId),
+      tierLevel: parseInt(tierLevel),
+      tierName: priceInfo.tierName, // 使用从数据库获取的 tierName
+      priceId: priceInfo.priceId, // 使用动态获取的 Price ID
+      paymentMethodId: paymentMethodId || null,
+      userEmail: null, // TODO: 从 user 表获取 email
+      couponId: couponInfo.couponId || null // 如果有促销，传入 Coupon ID
+    });
+
+    // 5. 创建 payment_record（可选，用于记录）
+    let paymentRecordId = null;
+    try {
+      // 获取 PaymentIntent ID（如果存在）
+      let paymentIntentId = null;
+      if (subscriptionResult.subscription.latest_invoice?.payment_intent) {
+        const paymentIntent = subscriptionResult.subscription.latest_invoice.payment_intent;
+        paymentIntentId = typeof paymentIntent === 'object' ? paymentIntent.id : paymentIntent;
+      }
+      
+      // 获取 Stripe Subscription ID 和 Customer ID
+      const subscriptionId = subscriptionResult.subscription.id;
+      const customerId = subscriptionResult.subscription.customer;
+      
+      // 构建描述，包含促销信息和 PaymentIntent ID（保留用于人类可读）
+      let description = `Stripe Subscription ID: ${subscriptionId} | Novel ID: ${novelId} | Tier Level: ${tierLevel} | Tier Name: ${priceInfo.tierName}`;
+      if (paymentIntentId) {
+        description += ` | PaymentIntent ID: ${paymentIntentId}`;
+      }
+      if (couponInfo.promotionInfo) {
+        description += ` | Promo: ${couponInfo.promotionInfo.promotionId} (${couponInfo.promotionInfo.discountAmount > 0 ? `-$${couponInfo.promotionInfo.discountAmount}` : 'Free'})`;
+      }
+      
+      // 插入 payment_record，包含 Stripe 专用字段
+      const [result] = await stripeService.db.execute(
+        'INSERT INTO payment_record (user_id, novel_id, amount, payment_method, status, type, description, stripe_subscription_id, stripe_payment_intent_id, stripe_customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [userId, novelId, subscriptionResult.amountInDollars, 'stripe', 'pending', 'champion_subscribe', description, subscriptionId, paymentIntentId, customerId]
+      );
+      paymentRecordId = result.insertId;
+      console.log(`[Champion订阅创建] 支付记录已创建 - ID: ${paymentRecordId}, PaymentIntent ID: ${paymentIntentId || '无'}`);
+    } catch (error) {
+      console.warn(`[Champion订阅创建] 创建支付记录失败: ${error.message}，继续处理订阅`);
+    }
+
+    // 6. 调用统一处理服务写入数据库（传入促销信息）
+    const handleResult = await unifiedPaymentService.handleStripeChampionSubscriptionCreated({
+      userId: parseInt(userId),
+      novelId: parseInt(novelId),
+      tierLevel: parseInt(tierLevel),
+      tierName: priceInfo.tierName,
+      monthlyPrice: priceInfo.monthlyPrice, // 原价
+      currency: priceInfo.currency,
+      subscription: subscriptionResult.subscription,
+      customerId: customerId,
+      paymentRecordId: paymentRecordId,
+      promotionInfo: couponInfo.promotionInfo // 传入促销信息
+    });
+
+    console.log(`[Champion订阅创建] 完成 - Subscription ID: ${handleResult.subscriptionId}`);
+
+    // 如果订阅状态是 incomplete，返回 client_secret 供前端完成支付
+    const responseData = {
+      success: true,
+      subscriptionId: handleResult.subscriptionId,
+      currentPeriodStart: handleResult.currentPeriodStart.toISOString(),
+      currentPeriodEnd: handleResult.currentPeriodEnd.toISOString(),
+      autoRenew: true
+    };
+
+    // 如果订阅需要完成支付，返回 client_secret
+    if (subscriptionResult.subscription.status === 'incomplete' && subscriptionResult.clientSecret) {
+      responseData.clientSecret = subscriptionResult.clientSecret;
+      responseData.status = 'incomplete';
+      console.log(`[Champion订阅创建] 订阅需要完成支付，返回 client_secret`);
+    } else {
+      responseData.status = subscriptionResult.subscription.status;
+    }
+
+    res.json(responseData);
+  } catch (error) {
+    console.error('[Champion订阅创建] 失败:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || '创建订阅失败' 
+    });
   }
 });
 

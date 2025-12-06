@@ -282,6 +282,21 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
     return statusMap[status] || status;
   };
 
+  const getPublishStatusClass = (chapter: ChapterData) => {
+    const status = getPublishStatus(chapter);
+    // 根据状态返回对应的 CSS 类名
+    if (status === '已发布' || status === 'Published') {
+      return styles.publishStatusPublished;
+    } else if (status === '定时发布' || status === 'Scheduled') {
+      return styles.publishStatusScheduled;
+    } else if (status === '未发布' || status === 'Unreleased') {
+      return styles.publishStatusUnreleased;
+    } else if (status === '草稿' || status === 'Draft') {
+      return styles.publishStatusDraft;
+    }
+    return styles.publishStatusDefault;
+  };
+
   const getReviewStatusText = (chapter: ChapterData) => {
     const label = getReviewStatusLabel(chapter);
     if (language === 'zh') {
@@ -296,6 +311,46 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
       '草稿': 'Draft'
     };
     return labelMap[label] || label;
+  };
+
+  // 根据日期（月日）生成颜色
+  const getDateColor = (dateString: string | null): string => {
+    if (!dateString) return '#8c8c8c'; // 默认灰色
+    
+    try {
+      const date = new Date(dateString);
+      const month = date.getMonth() + 1; // 0-11 -> 1-12
+      const day = date.getDate();
+      
+      // 使用月日生成一个稳定的颜色
+      // 使用哈希算法生成颜色，确保同一天总是相同颜色
+      const hash = (month * 31 + day) % 360; // 0-359 (HSL hue)
+      const saturation = 65 + (hash % 20); // 65-85%
+      const lightness = 45 + (hash % 15); // 45-60%
+      
+      return `hsl(${hash}, ${saturation}%, ${lightness}%)`;
+    } catch {
+      return '#8c8c8c';
+    }
+  };
+
+  // 根据日期（月日）生成背景颜色（更浅）
+  const getDateBackgroundColor = (dateString: string | null): string => {
+    if (!dateString) return 'rgba(140, 140, 140, 0.1)';
+    
+    try {
+      const date = new Date(dateString);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      
+      const hash = (month * 31 + day) % 360;
+      const saturation = 40 + (hash % 15); // 40-55%
+      const lightness = 92 + (hash % 5); // 92-97%
+      
+      return `hsla(${hash}, ${saturation}%, ${lightness}%, 0.15)`;
+    } catch {
+      return 'rgba(140, 140, 140, 0.1)';
+    }
   };
 
   const updateChapterVolume = async (chapterId: number, volumeId: number | null) => {
@@ -629,20 +684,32 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
                     </select>
                   </td>
                   <td>
-                    {chapter.release_date 
-                      ? new Date(chapter.release_date).toLocaleString('zh-CN', { 
+                    {chapter.release_date ? (
+                      <span 
+                        style={{
+                          color: getDateColor(chapter.release_date),
+                          backgroundColor: getDateBackgroundColor(chapter.release_date),
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 500,
+                          display: 'inline-block'
+                        }}
+                      >
+                        {new Date(chapter.release_date).toLocaleString('zh-CN', { 
                           year: 'numeric',
                           month: '2-digit',
                           day: '2-digit',
                           hour: '2-digit',
                           minute: '2-digit',
                           second: '2-digit'
-                        })
-                      : '-'
-                    }
+                        })}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td>
-                    <span className={styles.publishStatusTag}>
+                    <span className={`${styles.publishStatusTag} ${getPublishStatusClass(chapter)}`}>
                       {getPublishStatusText(chapter)}
                     </span>
                   </td>

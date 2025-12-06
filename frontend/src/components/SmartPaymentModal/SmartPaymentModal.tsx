@@ -33,6 +33,7 @@ interface SmartPaymentModalProps {
     basePrice?: number; // 原价（如果有促销）
     description: string;
     packageId?: number; // 添加packageId用于Karma购买
+    level?: number; // Champion等级
   };
   novelId: number;
   onPaymentSuccess: (orderId: string) => void;
@@ -41,6 +42,8 @@ interface SmartPaymentModalProps {
     discount_percentage: number;
     time_remaining_formatted: string;
   } | null;
+  clientSecret?: string; // 订阅的 clientSecret（用于完成未完成的订阅支付）
+  subscriptionId?: string; // 订阅ID（用于完成订阅支付后的确认）
 }
 
 // 支付表单组件
@@ -53,7 +56,9 @@ const PaymentForm: React.FC<{
   existingPaymentMethods: PaymentMethod[];
   onPaymentMethodSaved: () => void;
   promotion?: SmartPaymentModalProps['promotion'];
-}> = ({ tier, novelId, onPaymentSuccess, onPaymentError, onClose, existingPaymentMethods, onPaymentMethodSaved, promotion }) => {
+  clientSecret?: string; // 订阅的 clientSecret
+  subscriptionId?: string; // 订阅ID
+}> = ({ tier, novelId, onPaymentSuccess, onPaymentError, onClose, existingPaymentMethods, onPaymentMethodSaved, promotion, clientSecret, subscriptionId }) => {
   const { user } = useAuth();
   const stripe = useStripe();
   const elements = useElements();
@@ -154,9 +159,52 @@ const PaymentForm: React.FC<{
     setIsProcessing(true);
     setError(null);
 
-    console.log(`[支付流程] 开始 - 小说ID: ${novelId}, 金额: $${tier.price}`);
+    console.log(`[支付流程] 开始 - 小说ID: ${novelId}, 金额: $${tier.price}, clientSecret: ${clientSecret ? '已提供' : '未提供'}`);
 
     try {
+      // 如果提供了 clientSecret（订阅支付），直接使用它完成支付
+      if (clientSecret) {
+        console.log('[支付流程] 使用提供的 clientSecret 完成订阅支付');
+        
+        if (!stripe || !elements) {
+          throw new Error('Stripe未初始化');
+        }
+
+        // 确认支付（用于订阅的 PaymentIntent）
+        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: elements.getElement(CardElement)!,
+            billing_details: {
+              name: cardholderName.trim() || 'Cardholder'
+            }
+          }
+        });
+
+        if (stripeError) {
+          console.error('[支付流程] Stripe支付错误:', stripeError);
+          throw new Error(stripeError.message);
+        }
+
+        console.log(`[支付流程] Stripe支付结果: ${paymentIntent.status}`);
+
+        if (paymentIntent.status === 'succeeded') {
+          // 如果用户选择保存支付方式
+          if (savePaymentMethod && paymentIntent.payment_method && typeof paymentIntent.payment_method === 'object') {
+            console.log('[支付流程] 保存支付方式:', savePaymentMethod);
+            await savePaymentMethodToServer(paymentIntent.payment_method);
+          }
+
+          // 订阅支付成功，返回订阅ID或PaymentIntent ID
+          const orderId = subscriptionId || paymentIntent.id;
+          console.log('[支付流程] 订阅支付成功，订阅ID:', orderId);
+          onPaymentSuccess(orderId);
+        } else {
+          throw new Error('Payment not completed');
+        }
+        return; // 提前返回，不执行后续逻辑
+      }
+
+      // 原有的支付流程（一次性支付）
       if (selectedPaymentMethod) {
         // 使用已保存的支付方式
         console.log(`[支付流程] 使用已保存的支付方式: ${selectedPaymentMethod}`);
@@ -176,7 +224,9 @@ const PaymentForm: React.FC<{
           amount: tier.price,
           currency: 'usd',
           novelId: novelId,
-          paymentMethodId: selectedPaymentMethod
+          paymentMethodId: selectedPaymentMethod,
+          tierLevel: tier.level, // 传递等级
+          tierName: tier.name // 传递等级名称
         };
 
         const response = await ApiService.request(apiEndpoint, {
@@ -217,7 +267,9 @@ const PaymentForm: React.FC<{
           userId: user?.id,
           amount: tier.price,
           currency: 'usd',
-          novelId: novelId
+          novelId: novelId,
+          tierLevel: tier.level, // 传递等级
+          tierName: tier.name // 传递等级名称
         };
 
         const response = await ApiService.request(apiEndpoint, {
@@ -401,7 +453,9 @@ const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
   novelId,
   onPaymentSuccess,
   onPaymentError,
-  promotion
+  promotion,
+  clientSecret,
+  subscriptionId
 }) => {
   const [existingPaymentMethods, setExistingPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
@@ -511,6 +565,8 @@ const SmartPaymentModal: React.FC<SmartPaymentModalProps> = ({
                 existingPaymentMethods={existingPaymentMethods}
                 onPaymentMethodSaved={handlePaymentMethodSaved}
                 promotion={promotion}
+                clientSecret={clientSecret}
+                subscriptionId={subscriptionId}
               />
             </Elements>
           )}

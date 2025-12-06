@@ -846,7 +846,8 @@ router.get('/chapters/novel/:novelId/last-chapter-status', (req, res) => {
       chapter_number,
       title,
       review_status,
-      is_released
+      is_released,
+      release_date
     FROM chapter
     WHERE novel_id = ?
     ORDER BY chapter_number DESC
@@ -861,7 +862,7 @@ router.get('/chapters/novel/:novelId/last-chapter-status', (req, res) => {
 
     if (results.length === 0) {
       // 没有章节，返回null表示所有按钮都可用（第一个章节）
-      return res.json({ success: true, data: { review_status: null, is_released: null, chapter_number: null, title: null } });
+      return res.json({ success: true, data: { review_status: null, is_released: null, chapter_number: null, title: null, release_date: null } });
     }
 
     res.json({ success: true, data: results[0] });
@@ -1188,19 +1189,80 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
   }
 
   try {
-    // 判断是前50章节还是第50章节之后
+    // 1. 先获取 user_id
+    const novelUserResults = await new Promise((resolve, reject) => {
+      db.query('SELECT user_id FROM novel WHERE id = ?', [novelId], (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    // 检查查询结果
+    if (!novelUserResults || novelUserResults.length === 0) {
+      return res.status(404).json({ success: false, message: 'Novel not found' });
+    }
+
+    const userId = novelUserResults[0]?.user_id;
+    
+    if (!userId) {
+      // 如果 novel.user_id 为 NULL，直接返回错误
+      return res.status(400).json({ success: false, message: 'Novel user not found' });
+    }
+
+    // 2. 查询 unlockprice 表（新版本：按字数计价），获取免费章节数配置
+    const unlockPriceResults = await new Promise((resolve, reject) => {
+      db.query(`
+        SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
+        FROM unlockprice
+        WHERE novel_id = ? AND user_id = ?
+        LIMIT 1
+      `, [novelId, userId], (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    // 获取或创建 unlockprice 配置
+    let config;
+    if (!unlockPriceResults || unlockPriceResults.length === 0) {
+      // 如果没有数据，创建一条默认数据（使用ON DUPLICATE KEY UPDATE防止重复）
+      try {
+        await new Promise((resolve, reject) => {
+          db.query(`
+            INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
+            VALUES (?, ?, 6, 5, 30, 50, 'per_word')
+            ON DUPLICATE KEY UPDATE updated_at = NOW()
+          `, [userId, novelId], (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          });
+        });
+        // 使用默认配置
+        config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
+      } catch (err) {
+        console.error('创建 unlockprice 记录失败:', err);
+        // 使用默认值
+        config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
+      }
+    } else {
+      config = unlockPriceResults[0];
+    }
+
+    const defaultFreeChapters = config.default_free_chapters || 0;
+
+    // 3. 判断是免费章节还是收费章节（基于 unlockprice.default_free_chapters）
     let isAdvance, keyCost, unlockPrice;
 
-    if (chapterNumber <= 50) {
-      // 前50章节：免费章节
+    if (chapterNumber <= defaultFreeChapters) {
+      // 免费章节：前 default_free_chapters 章免费
       isAdvance = 0;
       keyCost = 0;
       unlockPrice = 0;
     } else {
-      // 第50章节之后：收费章节
+      // 收费章节：第 default_free_chapters 章之后收费
       keyCost = 1;
 
-      // 处理 is_advance 逻辑
+      // 处理 is_advance 逻辑（只有收费章节才考虑预读）
       // 1. 查询小说的 champion_status
       const novelResults = await new Promise((resolve, reject) => {
         db.query('SELECT champion_status FROM novel WHERE id = ?', [novelId], (err, results) => {
@@ -1305,108 +1367,110 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
         console.log(`Setting is_advance=0 (champion_status is not approved: ${championStatus})`);
       }
 
-      // 处理 unlock_price 逻辑
-      // 1. 先获取 user_id
-      const novelUserResults = await new Promise((resolve, reject) => {
-        db.query('SELECT user_id FROM novel WHERE id = ?', [novelId], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      });
-
-      // 检查查询结果
-      if (!novelUserResults || novelUserResults.length === 0) {
-        return res.status(404).json({ success: false, message: 'Novel not found' });
-      }
-
-      const userId = novelUserResults[0]?.user_id;
-      
-      if (!userId) {
-        // 如果 novel.user_id 为 NULL，直接返回错误
-        return res.status(400).json({ success: false, message: 'Novel user not found' });
-      }
-
-      // 2. 查询 unlockprice 表（新版本：按字数计价）
-      const unlockPriceResults = await new Promise((resolve, reject) => {
-        db.query(`
-          SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
-          FROM unlockprice
-          WHERE novel_id = ? AND user_id = ?
-          LIMIT 1
-        `, [novelId, userId], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      });
-
-        if (!unlockPriceResults || unlockPriceResults.length === 0) {
-          // 如果没有数据，创建一条默认数据（使用ON DUPLICATE KEY UPDATE防止重复）
-          try {
-            await new Promise((resolve, reject) => {
-              db.query(`
-                INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
-                VALUES (?, ?, 6, 5, 30, 50, 'per_word')
-                ON DUPLICATE KEY UPDATE updated_at = NOW()
-              `, [userId, novelId], (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-              });
-            });
-            // 使用默认配置计算价格
-            const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
-            unlockPrice = calculateChapterPrice(chapterNumber, wordCount || 0, config);
-          } catch (err) {
-            console.error('创建 unlockprice 记录失败:', err);
-            // 使用默认值计算
-            const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
-            unlockPrice = calculateChapterPrice(chapterNumber, wordCount || 0, config);
-          }
-        } else {
-          const config = unlockPriceResults[0];
-          unlockPrice = calculateChapterPrice(chapterNumber, wordCount || 0, config);
-        }
+      // 计算 unlock_price（使用已获取的 config）
+      unlockPrice = calculateChapterPrice(chapterNumber, wordCount || 0, config);
     }
 
-    // 插入章节数据
-    const query = `
-      INSERT INTO chapter (
-        novel_id,
-        volume_id,
-        chapter_number,
-        title,
-        content,
-        translator_note,
-        is_advance,
-        key_cost,
-        unlock_price,
-        review_status,
-        word_count,
-        is_released,
-        release_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    // 检查是否存在相同章节号的章节
+    const checkQuery = `
+      SELECT id, title, review_status, is_released, release_date, created_at
+      FROM chapter
+      WHERE novel_id = ? AND chapter_number = ?
+      LIMIT 1
     `;
 
-    const values = [
-      novelId,
-      volume_id,
-      chapterNumber,
-      chapterTitle.trim(),
-      chapterContent || '',
-      note || '',
-      isAdvance,
-      keyCost,
-      unlockPrice,
-      reviewStatus,
-      calculatedWordCount,
-      isReleased,
-      releaseDate
-    ];
-
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('创建章节失败:', err);
-        return res.status(500).json({ success: false, message: 'Failed to create chapter', error: err.message });
+    db.query(checkQuery, [novelId, chapterNumber], (checkErr, checkResults) => {
+      if (checkErr) {
+        console.error('检查章节是否存在失败:', checkErr);
+        return res.status(500).json({ success: false, message: 'Failed to check chapter existence', error: checkErr.message });
       }
+
+      // 如果存在相同章节号的章节，返回需要确认的信息
+      if (checkResults && checkResults.length > 0) {
+        const existingChapter = checkResults[0];
+        return res.status(409).json({
+          success: false,
+          code: 'CHAPTER_EXISTS',
+          message: 'A chapter with this number already exists',
+          existingChapter: {
+            id: existingChapter.id,
+            title: existingChapter.title,
+            review_status: existingChapter.review_status,
+            is_released: existingChapter.is_released,
+            release_date: existingChapter.release_date,
+            created_at: existingChapter.created_at
+          }
+        });
+      }
+
+      // 插入章节数据
+      const query = `
+        INSERT INTO chapter (
+          novel_id,
+          volume_id,
+          chapter_number,
+          title,
+          content,
+          translator_note,
+          is_advance,
+          key_cost,
+          unlock_price,
+          review_status,
+          word_count,
+          is_released,
+          release_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        novelId,
+        volume_id,
+        chapterNumber,
+        chapterTitle.trim(),
+        chapterContent || '',
+        note || '',
+        isAdvance,
+        keyCost,
+        unlockPrice,
+        reviewStatus,
+        calculatedWordCount,
+        isReleased,
+        releaseDate
+      ];
+
+      db.query(query, values, (err, result) => {
+        if (err) {
+          // 检查是否是唯一约束错误
+          if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
+            // 再次查询现有章节信息
+            db.query(checkQuery, [novelId, chapterNumber], (dupCheckErr, dupCheckResults) => {
+              if (dupCheckErr || !dupCheckResults || dupCheckResults.length === 0) {
+                return res.status(409).json({
+                  success: false,
+                  code: 'CHAPTER_EXISTS',
+                  message: 'A chapter with this number already exists'
+                });
+              }
+              const existingChapter = dupCheckResults[0];
+              return res.status(409).json({
+                success: false,
+                code: 'CHAPTER_EXISTS',
+                message: 'A chapter with this number already exists',
+                existingChapter: {
+                  id: existingChapter.id,
+                  title: existingChapter.title,
+                  review_status: existingChapter.review_status,
+                  is_released: existingChapter.is_released,
+                  release_date: existingChapter.release_date,
+                  created_at: existingChapter.created_at
+                }
+              });
+            });
+            return;
+          }
+          console.error('创建章节失败:', err);
+          return res.status(500).json({ success: false, message: 'Failed to create chapter', error: err.message });
+        }
 
       const newChapterId = result.insertId;
 
@@ -1455,6 +1519,7 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
         chapter_id: newChapterId
       });
     });
+    }); // 闭合外部的 db.query(checkQuery, ...) 回调函数
   } catch (error) {
     console.error('创建章节时出错:', error);
     return res.status(500).json({ success: false, message: 'Failed to create chapter', error: error.message });

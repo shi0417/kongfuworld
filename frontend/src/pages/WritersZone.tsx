@@ -72,6 +72,13 @@ const CalendarComponent: React.FC<CalendarComponentProps> = ({ year, month, cale
     return count.toString();
   };
   
+  // 获取日期状态：green (≥4000), yellow (<4000), orange (未更新)
+  const getDayStatus = (wordCount: number) => {
+    if (wordCount === 0) return 'orange'; // 未更新
+    if (wordCount >= 4000) return 'green'; // ≥4000字
+    return 'yellow'; // <4000字
+  };
+  
   return (
     <div className={styles.calendarGrid}>
       <div className={styles.calendarWeekDays}>
@@ -87,23 +94,41 @@ const CalendarComponent: React.FC<CalendarComponentProps> = ({ year, month, cale
           const todayClass = isToday(day) ? styles.calendarDayToday : '';
           const dayData = statsByDay.get(day);
           const wordCount = dayData?.word_count || 0;
-          const hasUpdate = wordCount > 0;
+          const status = getDayStatus(wordCount);
+          const statusClass = styles[`calendarDay${status.charAt(0).toUpperCase() + status.slice(1)}`] || '';
           
           return (
-            <div key={index} className={`${styles.calendarDay} ${todayClass} ${hasUpdate ? styles.calendarDayUpdated : ''}`}>
-              <div className={styles.calendarDayNumber}>{day}</div>
-              {hasUpdate ? (
+            <div key={index} className={`${styles.calendarDay} ${todayClass} ${statusClass}`}>
+              <div className={styles.calendarDayNumber}>
+                {isToday(day) ? (language === 'zh' ? '今' : 'Today') : day}
+              </div>
+              {wordCount > 0 ? (
                 <div className={styles.calendarDayLabel}>
                   {formatWordCount(wordCount)} {language === 'zh' ? '字' : 'words'}
                 </div>
-              ) : isToday(day) ? (
+              ) : (
                 <div className={styles.calendarDayLabel}>
-                  {t('calendar.today')} {t('calendar.notUpdated')}
+                  {language === 'zh' ? '未更新' : 'Not updated'}
                 </div>
-              ) : null}
+              )}
             </div>
           );
         })}
+      </div>
+      {/* Legend */}
+      <div className={styles.calendarLegend}>
+        <div className={styles.legendItem}>
+          <span className={`${styles.legendDot} ${styles.legendDotGreen}`}></span>
+          <span>{language === 'zh' ? '更新字数 ≥ 4000' : 'Updated words ≥ 4000'}</span>
+        </div>
+        <div className={styles.legendItem}>
+          <span className={`${styles.legendDot} ${styles.legendDotYellow}`}></span>
+          <span>{language === 'zh' ? '更新字数 < 4000' : 'Updated words < 4000'}</span>
+        </div>
+        <div className={styles.legendItem}>
+          <span className={`${styles.legendDot} ${styles.legendDotOrange}`}></span>
+          <span>{language === 'zh' ? '未更新/请假' : 'Not updated/Leave'}</span>
+        </div>
       </div>
     </div>
   );
@@ -156,6 +181,7 @@ const WritersZone: React.FC = () => {
   const [calendarData, setCalendarData] = useState<Array<{ date: string; word_count: number; change_count: number }>>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [selectedNovelId, setSelectedNovelId] = useState<string>('all'); // 'all' 表示所有小说
 
   // 加载用户小说列表
   const loadUserNovels = async () => {
@@ -229,6 +255,12 @@ const WritersZone: React.FC = () => {
         await loadStats();
         // 加载小说列表（用于首页显示）
         await loadUserNovels();
+        // 加载日历数据
+        await loadCalendarData(
+          currentCalendarDate.getFullYear(),
+          currentCalendarDate.getMonth(),
+          selectedNovelId
+        );
       } catch (error) {
         console.error('检查用户状态失败:', error);
         navigate('/email-verification');
@@ -275,15 +307,17 @@ const WritersZone: React.FC = () => {
   };
 
   // 加载日历数据
-  const loadCalendarData = async (year: number, month: number) => {
+  const loadCalendarData = async (year: number, month: number, novelId?: string) => {
     if (!user) return;
     
     setCalendarLoading(true);
     try {
       const monthParam = month + 1; // API 使用 1-12，前端使用 0-11
-      const response = await ApiService.get(
-        `/writer/calendar?year=${year}&month=${monthParam}&userId=${user.id}`
-      ) as any; // 后端直接返回 { success, year, month, days }，不在 data 字段中
+      let url = `/writer/calendar?year=${year}&month=${monthParam}&userId=${user.id}`;
+      if (novelId && novelId !== 'all') {
+        url += `&novelId=${novelId}`;
+      }
+      const response = await ApiService.get(url) as any; // 后端直接返回 { success, year, month, days }，不在 data 字段中
       
       if (response && response.success && response.days) {
         setCalendarData(response.days);
@@ -817,9 +851,38 @@ const WritersZone: React.FC = () => {
               <h3>{t('calendar.title')}</h3>
               <div className={styles.headerActions}>
                 <a href="#" className={styles.link}>{t('calendar.rules')} ?</a>
-                <select className={styles.select}>
-                  <option>2025-11</option>
+                {/* 小说选择下拉框 */}
+                <select 
+                  className={styles.select}
+                  value={selectedNovelId}
+                  onChange={(e) => {
+                    setSelectedNovelId(e.target.value);
+                    loadCalendarData(
+                      currentCalendarDate.getFullYear(),
+                      currentCalendarDate.getMonth(),
+                      e.target.value
+                    );
+                  }}
+                >
+                  <option value="all">{language === 'zh' ? '全部作品' : 'All Works'}</option>
+                  {novels.map(novel => (
+                    <option key={novel.id} value={novel.id.toString()}>
+                      {novel.title}
+                    </option>
+                  ))}
                 </select>
+                {/* 月份选择器 */}
+                <input
+                  type="month"
+                  className={styles.monthPicker}
+                  value={`${currentCalendarDate.getFullYear()}-${String(currentCalendarDate.getMonth() + 1).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [year, month] = e.target.value.split('-').map(Number);
+                    const newDate = new Date(year, month - 1, 1);
+                    setCurrentCalendarDate(newDate);
+                    loadCalendarData(year, month - 1, selectedNovelId);
+                  }}
+                />
                 <button className={styles.leaveBtn}>{t('calendar.applyLeave')}</button>
               </div>
             </div>

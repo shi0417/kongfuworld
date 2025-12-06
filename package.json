@@ -33,6 +33,7 @@
   "dependencies": {
     "mammoth": "^1.9.1",
     "multer": "^2.0.1",
+    "playwright": "^1.57.0",
     "react-slick": "^0.30.3",
     "slick-carousel": "^1.8.1",
     "web-vitals": "^5.0.3"
