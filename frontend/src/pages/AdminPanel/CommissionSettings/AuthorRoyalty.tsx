@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './CommissionSettings.module.css';
+import Toast from '../../../components/Toast/Toast';
 
 interface AuthorRoyaltyProps {
   onError?: (error: string) => void;
@@ -109,6 +110,7 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
   const [showContractSearchResults, setShowContractSearchResults] = useState(false);
   const [selectedContractSearchUserId, setSelectedContractSearchUserId] = useState<number | null>(null);
   const [selectedContractSearchNovelId, setSelectedContractSearchNovelId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
   // 加载作者分成方案列表
   const loadAuthorRoyaltyPlans = async () => {
@@ -415,9 +417,20 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
   const saveNewAuthorPlan = async () => {
     if (!creatingAuthorPlan) return;
     
-    if (!creatingAuthorPlan.name || creatingAuthorPlan.royalty_percent === undefined) {
+    // 验证必填字段
+    if (!creatingAuthorPlan.name || creatingAuthorPlan.royalty_percent === undefined || !creatingAuthorPlan.start_date) {
+      const missingFields = [];
+      if (!creatingAuthorPlan.name) missingFields.push('方案名称 / Plan Name');
+      if (creatingAuthorPlan.royalty_percent === undefined) missingFields.push('分成比例 / Royalty Ratio');
+      if (!creatingAuthorPlan.start_date) missingFields.push('生效时间 / Effective Date');
+      
+      const errorMessage = `请填写必填字段 / Please fill in required fields: ${missingFields.join(', ')}`;
+      setToast({
+        message: errorMessage,
+        type: 'error'
+      });
       if (onError) {
-        onError('请填写方案名称和分成比例');
+        onError('请填写所有必填字段');
       }
       return;
     }
@@ -429,6 +442,16 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
       // 转换日期格式
       const startDate = convertToMySQLDateTime(creatingAuthorPlan.start_date);
       const endDate = convertToMySQLDateTime(creatingAuthorPlan.end_date);
+      
+      // 再次验证转换后的日期
+      if (!startDate) {
+        setToast({
+          message: '生效时间格式不正确 / Invalid effective date format',
+          type: 'error'
+        });
+        setSaving(false);
+        return;
+      }
       
       const response = await fetch('http://localhost:5000/api/admin/author-royalty-plans', {
         method: 'POST',
@@ -456,12 +479,33 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         if (onError) {
           onError('');
         }
+        // 显示成功提示
+        setToast({
+          message: data.message || '创建成功 / Created successfully',
+          type: 'success'
+        });
       } else {
+        // 显示错误提示（中英文双语）
+        const errorMessage = data.messageEn 
+          ? `${data.message} / ${data.messageEn}`
+          : (data.message || '创建失败 / Creation failed');
+        setToast({
+          message: errorMessage,
+          type: 'error'
+        });
         if (onError) {
           onError(data.message || '创建失败');
         }
       }
     } catch (err: any) {
+      // 显示错误提示（中英文双语）
+      const errorMessage = err.message 
+        ? `${err.message} / ${err.message}`
+        : '创建失败 / Creation failed';
+      setToast({
+        message: errorMessage,
+        type: 'error'
+      });
       if (onError) {
         onError(err.message || '创建失败');
       }
@@ -1658,6 +1702,16 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Toast 提示 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={5000}
+          onClose={() => setToast(null)}
+        />
       )}
     </>
   );

@@ -4214,10 +4214,68 @@ router.post('/author-royalty-plans', authenticateAdmin, async (req, res) => {
     }
   } catch (error) {
     console.error('保存作者分成方案错误:', error);
+    
+    // 将数据库错误转换为友好的中英文提示
+    let friendlyMessage = {
+      zh: '保存失败',
+      en: 'Save failed'
+    };
+    
+    // 处理常见的数据库错误
+    if (error.code === 'ER_BAD_NULL_ERROR') {
+      // 提取字段名
+      const fieldMatch = error.sqlMessage && error.sqlMessage.match(/Column '(\w+)' cannot be null/i);
+      if (fieldMatch) {
+        const fieldName = fieldMatch[1];
+        const fieldMap = {
+          'start_date': { zh: '生效时间', en: 'Effective Date' },
+          'end_date': { zh: '结束时间', en: 'End Date' },
+          'name': { zh: '方案名称', en: 'Plan Name' },
+          'royalty_percent': { zh: '分成比例', en: 'Royalty Ratio' }
+        };
+        
+        const fieldLabel = fieldMap[fieldName] || { zh: fieldName, en: fieldName };
+        friendlyMessage = {
+          zh: `请填写必填字段：${fieldLabel.zh}`,
+          en: `Please fill in the required field: ${fieldLabel.en}`
+        };
+      } else {
+        friendlyMessage = {
+          zh: '请填写所有必填字段',
+          en: 'Please fill in all required fields'
+        };
+      }
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      friendlyMessage = {
+        zh: '该方案名称已存在，请使用其他名称',
+        en: 'This plan name already exists, please use another name'
+      };
+    } else if (error.code === 'ER_DATA_TOO_LONG') {
+      friendlyMessage = {
+        zh: '输入的数据过长，请缩短后重试',
+        en: 'Input data is too long, please shorten and try again'
+      };
+    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
+      friendlyMessage = {
+        zh: '输入的数据格式不正确，请检查后重试',
+        en: 'Invalid data format, please check and try again'
+      };
+    } else if (error.message) {
+      // 如果错误消息包含中文，直接使用
+      if (/[\u4e00-\u9fa5]/.test(error.message)) {
+        friendlyMessage = {
+          zh: error.message,
+          en: error.message
+        };
+      }
+    }
+    
     res.status(500).json({
       success: false,
-      message: '保存失败',
-      error: error.message
+      message: friendlyMessage.zh,
+      messageEn: friendlyMessage.en,
+      error: error.message,
+      errorCode: error.code
     });
   } finally {
     if (db) await db.end();

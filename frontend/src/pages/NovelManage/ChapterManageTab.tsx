@@ -313,6 +313,30 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
     return labelMap[label] || label;
   };
 
+  // 预定义的颜色列表，确保不同日期有明显差异
+  const dateColorPalette = [
+    { text: '#1890ff', bg: 'rgba(24, 144, 255, 0.15)' },   // 蓝色
+    { text: '#52c41a', bg: 'rgba(82, 196, 26, 0.15)' },   // 绿色
+    { text: '#fa8c16', bg: 'rgba(250, 140, 22, 0.15)' },  // 橙色
+    { text: '#eb2f96', bg: 'rgba(235, 47, 150, 0.15)' },  // 粉色
+    { text: '#722ed1', bg: 'rgba(114, 46, 209, 0.15)' },  // 紫色
+    { text: '#13c2c2', bg: 'rgba(19, 194, 194, 0.15)' },  // 青色
+    { text: '#f5222d', bg: 'rgba(245, 34, 45, 0.15)' },   // 红色
+    { text: '#faad14', bg: 'rgba(250, 173, 20, 0.15)' },  // 金色
+    { text: '#2f54eb', bg: 'rgba(47, 84, 235, 0.15)' },   // 深蓝
+    { text: '#a0d911', bg: 'rgba(160, 217, 17, 0.15)' },  // 黄绿
+    { text: '#fa541c', bg: 'rgba(250, 84, 28, 0.15)' },   // 橙红
+    { text: '#9254de', bg: 'rgba(146, 84, 222, 0.15)' },  // 紫蓝
+    { text: '#096dd9', bg: 'rgba(9, 109, 217, 0.15)' },   // 天蓝
+    { text: '#389e0d', bg: 'rgba(56, 158, 13, 0.15)' },   // 深绿
+    { text: '#d4380d', bg: 'rgba(212, 56, 13, 0.15)' },   // 深橙
+    { text: '#531dab', bg: 'rgba(83, 29, 171, 0.15)' },   // 深紫
+    { text: '#08979c', bg: 'rgba(8, 151, 156, 0.15)' },   // 深青
+    { text: '#cf1322', bg: 'rgba(207, 19, 34, 0.15)' },   // 深红
+    { text: '#d48806', bg: 'rgba(212, 136, 6, 0.15)' },   // 深金
+    { text: '#0958d9', bg: 'rgba(9, 88, 217, 0.15)' },    // 海军蓝
+  ];
+
   // 根据日期（月日）生成颜色
   const getDateColor = (dateString: string | null): string => {
     if (!dateString) return '#8c8c8c'; // 默认灰色
@@ -322,13 +346,10 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
       const month = date.getMonth() + 1; // 0-11 -> 1-12
       const day = date.getDate();
       
-      // 使用月日生成一个稳定的颜色
-      // 使用哈希算法生成颜色，确保同一天总是相同颜色
-      const hash = (month * 31 + day) % 360; // 0-359 (HSL hue)
-      const saturation = 65 + (hash % 20); // 65-85%
-      const lightness = 45 + (hash % 15); // 45-60%
-      
-      return `hsl(${hash}, ${saturation}%, ${lightness}%)`;
+      // 使用更好的哈希算法，确保不同日期有明显差异
+      // 使用质数 97 和 89 来增加分散度
+      const hash = ((month * 97 + day * 89) % dateColorPalette.length);
+      return dateColorPalette[hash].text;
     } catch {
       return '#8c8c8c';
     }
@@ -343,11 +364,8 @@ const ChapterManageTab: React.FC<ChapterManageTabProps> = ({ novelId, novelTitle
       const month = date.getMonth() + 1;
       const day = date.getDate();
       
-      const hash = (month * 31 + day) % 360;
-      const saturation = 40 + (hash % 15); // 40-55%
-      const lightness = 92 + (hash % 5); // 92-97%
-      
-      return `hsla(${hash}, ${saturation}%, ${lightness}%, 0.15)`;
+      const hash = ((month * 97 + day * 89) % dateColorPalette.length);
+      return dateColorPalette[hash].bg;
     } catch {
       return 'rgba(140, 140, 140, 0.1)';
     }
