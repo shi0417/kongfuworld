@@ -423,3 +423,173 @@
   opacity: 0.9;
 }
 
+/* 三行布局样式 */
+.titleRowInner {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.titleField {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.titleField label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.titleInput {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.contentRowInner {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0 16px;
+}
+
+.contentField {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.contentField label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.inlineTextarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+  background-color: #fafafa;
+}
+
+/* 预检查相关样式 */
+.issueDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #dc3545;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.issueFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  margin-left: 12px;
+  cursor: pointer;
+}
+
+.issueFilter input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* 正文预览和折叠样式 */
+.contentPreviewRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 8px 0 12px;
+}
+
+.contentPreview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.contentPreview label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.contentPreview p {
+  font-size: 13px;
+  max-height: 3.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  margin: 0;
+  color: #333;
+  line-height: 1.6;
+}
+
+.toggleContentBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background-color: #f8f9fa;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.toggleContentBtn:hover {
+  background-color: #e9ecef;
+}
+
+/* 分页样式 */
+.paginationBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  margin-top: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.paginationControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.paginationButton {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.paginationButton:hover:not(:disabled) {
+  background-color: #f8f9fa;
+}
+
+.paginationButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageSizeSelect {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+

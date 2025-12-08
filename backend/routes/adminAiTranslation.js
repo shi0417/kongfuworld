@@ -583,6 +583,40 @@ router.post('/import-batch/:batchId/confirm', authenticateAdmin, async (req, res
 });
 
 /**
+ * POST /api/admin/ai-translation/import-batch/:batchId/precheck
+ * 运行导入章节预检查
+ */
+router.post('/import-batch/:batchId/precheck', authenticateAdmin, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    if (!batchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'batchId is required'
+      });
+    }
+
+    const result = await novelImportService.runImportChapterPrecheck(parseInt(batchId));
+
+    res.json({
+      success: true,
+      data: {
+        total: result.total,
+        issueCount: result.issueCount,
+      }
+    });
+
+  } catch (error) {
+    console.error('[AdminAITranslation] Error running precheck:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to run precheck'
+    });
+  }
+});
+
+/**
  * POST /api/admin/ai-translation/import-batch/:batchId/start-translation
  * 启动翻译任务（基于导入批次）
  * 注意：这个接口会在后续步骤中实现，目前先预留

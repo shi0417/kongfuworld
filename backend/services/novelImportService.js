@@ -11,6 +11,7 @@ const {
   calcVolumeId,
   calcReleaseInfo,
 } = require('./aiChapterImportService');
+const { getOpenAIClient } = require('../ai/translationModel');
 
 // 数据库配置
 const dbConfig = {
@@ -117,7 +118,9 @@ async function createImportBatchFromText({
       const isAdvance = chapterNumber >= advanceStart && new Date(release_date) > now ? 1 : 0;
 
       // 5.6 计算 unlock_priority
-      const unlockPriority = isFree ? 'free' : 'paid';
+      // 注意：数据库 ENUM 值为 'free','key','karma','subscription'
+      // 免费章节用 'free'，收费章节用 'karma'（按字数计算价格）
+      const unlockPriority = isFree ? 'free' : 'karma';
 
       // 5.7 检查是否与现有章节重复
       const [existingChapters] = await db.execute(
@@ -364,11 +367,348 @@ async function markBatchReadyForTranslation(batchId) {
   }
 }
 
+/**
+ * 运行导入章节预检查
+ * @param {number} batchId - 批次ID
+ * @returns {Promise<{total: number, issueCount: number}>}
+ */
+/**
+ * 构建标题统计画像
+ * @param {Array<string>} titles - 标题数组
+ * @returns {Object} 统计画像对象
+ */
+function buildTitleStats(titles) {
+  if (titles.length === 0) {
+    return null;
+  }
+
+  const lengths = titles.map(t => t.length).sort((a, b) => a - b);
+  const n = lengths.length;
+  const median = lengths[Math.floor(n / 2)];
+  const p25 = lengths[Math.floor(n * 0.25)];
+  const p75 = lengths[Math.floor(n * 0.75)];
+  const iqr = Math.max(2, p75 - p25); // 四分位距，至少 2
+  const minNormalLen = Math.max(3, median - iqr);
+  const maxNormalLen = median + iqr;
+
+  const chapterStyleCount = titles.filter(t => /^第.{1,6}(章|节)/.test(t)).length;
+  const chapterStyleRatio = chapterStyleCount / n;
+
+  const punctuationCount = titles.filter(t => /[，。！？、,.!?]/.test(t)).length;
+  const punctuationRatio = punctuationCount / n;
+
+  return {
+    medianLen: median,
+    p25,
+    p75,
+    iqr,
+    minNormalLen,
+    maxNormalLen,
+    chapterStyleRatio,
+    punctuationRatio,
+    useChapterStyle: chapterStyleRatio > 0.6,           // 超过 60% 就认为是"第X章/节"风格为主
+    allowSentencePunctuation: punctuationRatio > 0.3,   // 超过 30% 标题里有句读，就认为标点是常见现象
+  };
+}
+
+/**
+ * 使用 AI 分析标题风格并生成规则
+ * @param {Array<string>} titles - 标题数组
+ * @param {Object} stats - 统计画像
+ * @returns {Promise<Object|null>} AI 生成的规则对象，失败返回 null
+ */
+async function buildAiTitleRules(titles, stats) {
+  try {
+    const client = getOpenAIClient();
+    const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+    // 简单抽样，避免 prompt 太长：取前 80 个或 titles 总数
+    const sample = titles.slice(0, 80);
+
+    const prompt = `下面是同一本网络小说的若干章节标题，请你观察它们的共同风格，并输出一段 JSON 规则，用来判断某个标题是否"显得异常"。
+
+请特别考虑：
+1. 标题的一般长度范围（正常的最短/最长）；
+2. 标题是否通常以"第X章/节"开头；
+3. 标题里是否经常出现句子级标点（，。！？等）；
+4. 你认为判断"把正文句子混进标题"的简单规则是什么。
+
+只输出 JSON，不要解释。例如：
+{
+  "min_reasonable_length": 4,
+  "max_reasonable_length": 26,
+  "typical_prefix_regex": "^第.{1,4}章",
+  "allow_sentence_punctuation": false
+}
+
+以下是本书的一部分标题（每行一个）：
+${sample.join('\n')}`;
+
+    const response = await client.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 500,
+    });
+
+    const text = response.choices[0]?.message?.content || '';
+    
+    // 尝试解析 JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('[NovelImportService] AI response does not contain valid JSON');
+      return null;
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return parsed;
+  } catch (err) {
+    console.error('[NovelImportService] buildAiTitleRules error:', err.message);
+    return null;
+  }
+}
+
+/**
+ * 合并统计规则和 AI 规则
+ * @param {Object} stats - 统计画像
+ * @param {Object|null} aiRules - AI 生成的规则
+ * @returns {Object} 最终生效的规则对象
+ */
+function mergeTitleRulesFromStatsAndAI(stats, aiRules) {
+  if (!stats) {
+    // 如果没有统计画像，使用默认值
+    return {
+      minLen: 3,
+      maxLen: 30,
+      useChapterStyle: false,
+      allowSentencePunctuation: false,
+      chapterPrefixRegex: null,
+    };
+  }
+
+  if (!aiRules) {
+    return {
+      minLen: stats.minNormalLen,
+      maxLen: stats.maxNormalLen,
+      useChapterStyle: stats.useChapterStyle,
+      allowSentencePunctuation: stats.allowSentencePunctuation,
+      chapterPrefixRegex: stats.useChapterStyle ? '^第.{1,6}(章|节)' : null,
+    };
+  }
+
+  // 有 AI 规则时，用 AI 的字段覆盖部分统计结果；缺省字段用 stats 补充
+  return {
+    minLen: typeof aiRules.min_reasonable_length === 'number'
+      ? aiRules.min_reasonable_length
+      : stats.minNormalLen,
+    maxLen: typeof aiRules.max_reasonable_length === 'number'
+      ? aiRules.max_reasonable_length
+      : stats.maxNormalLen,
+    useChapterStyle: typeof aiRules.typical_prefix_regex === 'string'
+      ? true
+      : stats.useChapterStyle,
+    allowSentencePunctuation: typeof aiRules.allow_sentence_punctuation === 'boolean'
+      ? aiRules.allow_sentence_punctuation
+      : stats.allowSentencePunctuation,
+    chapterPrefixRegex: typeof aiRules.typical_prefix_regex === 'string'
+      ? aiRules.typical_prefix_regex
+      : (stats.useChapterStyle ? '^第.{1,6}(章|节)' : null),
+  };
+}
+
+/**
+ * 使用规则检查标题
+ * @param {string} title - 标题
+ * @param {Object} rules - 规则对象
+ * @param {Set} issueTags - 问题标签集合
+ */
+function checkTitleWithRules(title, rules, issueTags) {
+  const t = title.trim();
+  if (!t) {
+    issueTags.add('title_empty');
+    return;
+  }
+
+  const len = t.length;
+
+  // 1. 远超本书正常长度上限：认为带正文的概率很大
+  if (len > rules.maxLen + 5) {
+    issueTags.add('title_too_long_for_book');
+  }
+
+  // 2. 明显短得离谱（可能错误切割）
+  if (len < rules.minLen - 3) {
+    issueTags.add('title_too_short_for_book');
+  }
+
+  // 3. 如果本书标题多数没有句读，这个标题却有很多句读且偏长，则怀疑是句子
+  const hasSentencePunctuation = /[，。！？、,.!?]/.test(t);
+  if (!rules.allowSentencePunctuation && hasSentencePunctuation && len > rules.maxLen) {
+    issueTags.add('title_like_sentence');
+  }
+
+  // 4. 如果绝大部分标题是"第X章/节"，但这个不是这种模式，则认为风格不一致
+  if (rules.useChapterStyle && rules.chapterPrefixRegex) {
+    const re = new RegExp(rules.chapterPrefixRegex);
+    if (!re.test(t)) {
+      issueTags.add('title_style_mismatch');
+    }
+  }
+}
+
+/**
+ * 检查标题中的广告规则
+ * @param {string} title - 标题
+ * @param {Set} issueTags - 问题标签集合
+ */
+function checkTitleAdRules(title, issueTags) {
+  if (/www\.|\.com\b|小说网|免费阅读|记住本站|手机阅读/.test(title)) {
+    issueTags.add('title_ad_like');
+  }
+}
+
+/**
+ * 运行导入章节预检查
+ * @param {number} batchId - 批次ID
+ * @returns {Promise<{total: number, issueCount: number}>}
+ */
+async function runImportChapterPrecheck(batchId) {
+  let db;
+  try {
+    db = await mysql.createConnection(dbConfig);
+
+    // 获取批次的所有章节
+    const [chapters] = await db.execute(
+      `SELECT id, clean_title, raw_title, clean_content, raw_content, en_content 
+       FROM novel_import_chapter 
+       WHERE batch_id = ?`,
+      [batchId]
+    );
+
+    const AD_KEYWORDS = [
+      '微信', 'QQ群', '扣群', '企鹅群', '公众号',
+      '扫二维码', '加群', '加我', '加VX',
+      '记住本站', '本站', '小说网', '免费小说',
+      '.com', '.net', '.org', 'www.', 'http://', 'https://'
+    ];
+
+    // 一、提取所有标题，生成统计画像
+    const allTitles = chapters
+      .map(ch => (ch.clean_title || ch.raw_title || '').trim())
+      .filter(t => t.length > 0);
+
+    let titleStats = null;
+    let aiTitleRules = null;
+    let effectiveTitleRules = null;
+
+    if (allTitles.length > 0) {
+      // 二、构建统计画像（纯统计自适应规则）
+      titleStats = buildTitleStats(allTitles);
+
+      // 三、可选：调用 AI 生成补充规则
+      try {
+        aiTitleRules = await buildAiTitleRules(allTitles, titleStats);
+      } catch (err) {
+        console.warn('[NovelImportService] AI title rules generation failed, using stats only:', err.message);
+      }
+
+      // 四、合并统计规则和 AI 规则
+      effectiveTitleRules = mergeTitleRulesFromStatsAndAI(titleStats, aiTitleRules);
+
+      // 开发环境日志（可选）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[NovelImportService] Title precheck stats:', {
+          titleStats,
+          aiTitleRules,
+          effectiveTitleRules,
+        });
+      }
+    } else {
+      // 如果没有标题，使用默认规则
+      effectiveTitleRules = {
+        minLen: 3,
+        maxLen: 30,
+        useChapterStyle: false,
+        allowSentencePunctuation: false,
+        chapterPrefixRegex: null,
+      };
+    }
+
+    let issueCount = 0;
+
+    // 五、对每个章节进行检查
+    for (const chapter of chapters) {
+      const issueTags = new Set();
+
+      // 获取标题
+      const rawTitle = (chapter.clean_title || chapter.raw_title || '').trim();
+      const zhContent = (chapter.clean_content || chapter.raw_content || '').trim();
+      const enContent = (chapter.en_content || '').trim();
+      const combinedContent = `${zhContent}\n${enContent}`;
+
+      // 规则 1：标题检查（使用统计+AI规则）
+      if (effectiveTitleRules) {
+        checkTitleWithRules(rawTitle, effectiveTitleRules, issueTags);
+      }
+      checkTitleAdRules(rawTitle, issueTags);
+
+      // 规则 2：正文广告/外链/站点信息
+      for (const kw of AD_KEYWORDS) {
+        if (combinedContent.includes(kw)) {
+          issueTags.add('ad_line');
+          break;
+        }
+      }
+      if (/(http:\/\/|https:\/\/|www\.)\S+/i.test(combinedContent)) {
+        issueTags.add('url_in_content');
+      }
+
+      // 规则 3：正文极端长度
+      const wordLen = (combinedContent || '').length;
+      if (wordLen < 20 || wordLen > 20000) {
+        issueTags.add('length_suspect');
+      }
+
+      const hasIssue = issueTags.size > 0;
+      const issueTagsStr = hasIssue ? Array.from(issueTags).join(',') : null;
+      const issueSummary = hasIssue ? `规则触发：${issueTagsStr}` : null;
+
+      if (hasIssue) {
+        issueCount++;
+      }
+
+      // 更新章节的预检查标记
+      await db.execute(
+        `UPDATE novel_import_chapter 
+         SET has_issue = ?, issue_tags = ?, issue_summary = ?, updated_at = NOW()
+         WHERE id = ?`,
+        [hasIssue ? 1 : 0, issueTagsStr, issueSummary, chapter.id]
+      );
+    }
+
+    return {
+      total: chapters.length,
+      issueCount,
+    };
+  } catch (error) {
+    console.error('[NovelImportService] runImportChapterPrecheck error:', error);
+    throw error;
+  } finally {
+    if (db) await db.end();
+  }
+}
+
 module.exports = {
   createImportBatchFromText,
   getImportBatchDetails,
   updateImportChapters,
   markBatchReadyForTranslation,
   calculateWordCount,
+  runImportChapterPrecheck,
 };
 

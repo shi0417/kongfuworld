@@ -58,6 +58,9 @@ interface ImportChapter {
   release_date: string | null;
   status: 'draft' | 'ready_for_translation' | 'translating' | 'translated' | 'imported' | 'skipped' | 'duplicate_existing';
   chapter_id: number | null;
+  has_issue?: number | boolean;
+  issue_tags?: string | null;
+  issue_summary?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +113,13 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
   const [batchFreeCount, setBatchFreeCount] = useState<string>('100');
   const [batchChaptersPerDay, setBatchChaptersPerDay] = useState<string>('3');
   const [batchReleaseTime, setBatchReleaseTime] = useState<string>('08:00');
+  
+  // 预检查、筛选、分页相关状态
+  const [showOnlyIssues, setShowOnlyIssues] = useState<boolean>(false);
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [expandedChapterId, setExpandedChapterId] = useState<number | null>(null);
+  const [precheckLoading, setPrecheckLoading] = useState<boolean>(false);
   
   // 初始化发布开始日期为今天
   useEffect(() => {
@@ -606,6 +616,64 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
     setEditingContent('');
   };
 
+  // 运行预检查
+  const handleRunPrecheck = async () => {
+    if (!importBatch) {
+      onError?.('请先预览导入');
+      return;
+    }
+
+    setPrecheckLoading(true);
+    try {
+      const response = await adminApiRequest(`/admin/ai-translation/import-batch/${importBatch.id}/precheck`, {
+        method: 'POST',
+      });
+
+      if (response.success) {
+        // 重新获取章节列表以更新 has_issue 字段
+        const batchResponse = await adminApiRequest(`/admin/ai-translation/import-batch/${importBatch.id}`, {
+          method: 'GET',
+        });
+
+        if (batchResponse.success) {
+          setChapterRows(batchResponse.data.chapters || []);
+        }
+
+        alert(`预检查完成，共 ${response.data.issueCount} 章存在疑似问题（总计 ${response.data.total} 章）`);
+      } else {
+        onError?.(response.message || '预检查失败');
+      }
+    } catch (error: any) {
+      onError?.(error.message || '预检查失败');
+    } finally {
+      setPrecheckLoading(false);
+    }
+  };
+
+  // 筛选和分页逻辑
+  const filteredChapters = showOnlyIssues
+    ? chapterRows.filter((c) => c.has_issue === 1 || c.has_issue === true)
+    : chapterRows;
+
+  const totalChapters = filteredChapters.length;
+  const totalPages = Math.max(1, Math.ceil(totalChapters / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedChapters = filteredChapters.slice(startIndex, endIndex);
+
+  // 当筛选或分页大小变化时，自动修正当前页
+  useEffect(() => {
+    const nextTotalPages = Math.max(1, Math.ceil(filteredChapters.length / pageSize));
+    setCurrentPage((prev) => Math.min(prev, nextTotalPages));
+  }, [filteredChapters.length, pageSize]);
+
+  // 当展开的章节不在当前页时，自动收起
+  useEffect(() => {
+    if (expandedChapterId && !pagedChapters.find(ch => ch.id === expandedChapterId)) {
+      setExpandedChapterId(null);
+    }
+  }, [pagedChapters, expandedChapterId]);
+
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>AI 批量翻译导入</h2>
@@ -893,6 +961,11 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                 setEditingChapterId(null);
                 setEditingField(null);
                 setEditingContent('');
+                setShowOnlyIssues(false);
+                setPageSize(50);
+                setCurrentPage(1);
+                setExpandedChapterId(null);
+                setPrecheckLoading(false);
                 if (pollingInterval) {
                   clearInterval(pollingInterval);
                   setPollingInterval(null);
@@ -910,6 +983,38 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
       {workMode === 'preview' && importBatch && chapterRows.length > 0 && (
         <div className={styles.taskSection}>
           <h3>导入预览（共 {chapterRows.length} 章）</h3>
+          
+          {/* 预检查和筛选工具条 */}
+          <div className={styles.batchToolbar} style={{ marginBottom: '10px' }}>
+            <div className={styles.toolbarSection}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ margin: 0 }}>预检查与筛选</h4>
+                <label className={styles.issueFilter}>
+                  <input
+                    type="checkbox"
+                    checked={showOnlyIssues}
+                    onChange={(e) => {
+                      setShowOnlyIssues(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                  />
+                  只显示有疑似问题的章节
+                </label>
+              </div>
+              <div className={styles.toolbarRow}>
+                <div className={styles.toolbarItem}>
+                  <button
+                    onClick={handleRunPrecheck}
+                    className={styles.toolbarButton}
+                    disabled={precheckLoading || loading}
+                    style={{ backgroundColor: '#ffc107', color: '#000' }}
+                  >
+                    {precheckLoading ? '检查中...' : '预检查整本小说'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           
           {/* 批量操作工具条 */}
           <div className={styles.batchToolbar}>
@@ -993,7 +1098,7 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
 
           {/* 章节列表表格 */}
           <div className={styles.chaptersSection}>
-            <div className={styles.chaptersTable} style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            <div className={styles.chaptersTable}>
               <table>
                 <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 10 }}>
                   <tr>
@@ -1030,130 +1135,232 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {chapterRows.map((chapter) => (
-                    <tr 
-                      key={chapter.id}
-                      style={{ 
-                        backgroundColor: chapter.status === 'duplicate_existing' ? '#fff3cd' : (changedChapterIds.has(chapter.id) ? '#e7f3ff' : 'transparent')
-                      }}
-                    >
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedChapterIds.has(chapter.id)}
-                          onChange={(e) => {
-                            const newSet = new Set(selectedChapterIds);
-                            if (e.target.checked) {
-                              newSet.add(chapter.id);
-                            } else {
-                              newSet.delete(chapter.id);
-                            }
-                            setSelectedChapterIds(newSet);
-                          }}
-                          disabled={chapter.status === 'duplicate_existing'}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={chapter.chapter_number}
-                          onChange={(e) => updateChapterField(chapter.id, 'chapter_number', parseInt(e.target.value) || 0)}
-                          style={{ width: '60px' }}
-                          className={styles.input}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={chapter.volume_id || ''}
-                          onChange={(e) => updateChapterField(chapter.id, 'volume_id', e.target.value ? parseInt(e.target.value) : null)}
-                          style={{ width: '60px' }}
-                          className={styles.input}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={chapter.clean_title || chapter.raw_title || ''}
-                          onChange={(e) => updateChapterField(chapter.id, 'clean_title', e.target.value)}
-                          style={{ width: '100%' }}
-                          className={styles.input}
-                          placeholder="中文标题"
-                        />
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => openEditDialog(chapter.id, 'clean_content', chapter.clean_content || chapter.raw_content || '')}
-                          className={styles.editButton}
-                        >
-                          查看/编辑 ({((chapter.clean_content || chapter.raw_content || '').length)} 字)
-                        </button>
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={chapter.en_title || ''}
-                          onChange={(e) => updateChapterField(chapter.id, 'en_title', e.target.value)}
-                          style={{ width: '100%' }}
-                          className={styles.input}
-                          placeholder="英文标题"
-                        />
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => openEditDialog(chapter.id, 'en_content', chapter.en_content || '')}
-                          className={styles.editButton}
-                        >
-                          查看/编辑 ({((chapter.en_content || '').length)} 字)
-                        </button>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>{chapter.word_count || 0}</td>
-                      <td>
-                        <input
-                          type="number"
-                          value={chapter.unlock_price}
-                          onChange={(e) => updateChapterField(chapter.id, 'unlock_price', parseInt(e.target.value) || 0)}
-                          style={{ width: '80px' }}
-                          className={styles.input}
-                        />
-                        <small style={{ display: 'block', color: '#666', fontSize: '10px' }}>系统自动生成</small>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={chapter.key_cost}
-                          onChange={(e) => updateChapterField(chapter.id, 'key_cost', parseInt(e.target.value) || 0)}
-                          style={{ width: '60px' }}
-                          className={styles.input}
-                          min="0"
-                          max="1"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="datetime-local"
-                          value={chapter.release_date ? chapter.release_date.slice(0, 16) : ''}
-                          onChange={(e) => updateChapterField(chapter.id, 'release_date', e.target.value ? e.target.value.replace('T', ' ') + ':00' : null)}
-                          className={styles.input}
-                          style={{ width: '100%', fontSize: '12px' }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={chapter.is_released === 1}
-                          onChange={(e) => updateChapterField(chapter.id, 'is_released', e.target.checked ? 1 : 0)}
-                        />
-                      </td>
-                      <td>
-                        <span className={`${styles.statusBadge} ${getStatusClass(chapter.status)}`}>
-                          {chapter.status === 'duplicate_existing' ? '重复' : getStatusText(chapter.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {pagedChapters.map((chapter) => {
+                    const rowBgColor = chapter.status === 'duplicate_existing' ? '#fff3cd' : (changedChapterIds.has(chapter.id) ? '#e7f3ff' : 'transparent');
+                    const totalCols = 13; // 表头总列数
+                    const hasIssue = chapter.has_issue === 1 || chapter.has_issue === true;
+                    
+                    return (
+                      <React.Fragment key={chapter.id ?? chapter.chapter_number}>
+                        {/* 第一行：元信息行（除标题/正文外的其他字段） */}
+                        <tr style={{ backgroundColor: rowBgColor }}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedChapterIds.has(chapter.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedChapterIds);
+                                if (e.target.checked) {
+                                  newSet.add(chapter.id);
+                                } else {
+                                  newSet.delete(chapter.id);
+                                }
+                                setSelectedChapterIds(newSet);
+                              }}
+                              disabled={chapter.status === 'duplicate_existing'}
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input
+                                type="number"
+                                value={chapter.chapter_number}
+                                onChange={(e) => updateChapterField(chapter.id, 'chapter_number', parseInt(e.target.value) || 0)}
+                                style={{ width: '60px' }}
+                                className={styles.input}
+                              />
+                              {hasIssue && (
+                                <span
+                                  className={styles.issueDot}
+                                  title={chapter.issue_summary || chapter.issue_tags || '疑似有问题的章节'}
+                                />
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              value={chapter.volume_id || ''}
+                              onChange={(e) => updateChapterField(chapter.id, 'volume_id', e.target.value ? parseInt(e.target.value) : null)}
+                              style={{ width: '60px' }}
+                              className={styles.input}
+                            />
+                          </td>
+                          <td colSpan={4} style={{ fontSize: '12px', color: '#999', padding: '8px' }}>
+                            标题和正文见下方
+                          </td>
+                          <td style={{ textAlign: 'center' }}>{chapter.word_count || 0}</td>
+                          <td>
+                            <input
+                              type="number"
+                              value={chapter.unlock_price}
+                              onChange={(e) => updateChapterField(chapter.id, 'unlock_price', parseInt(e.target.value) || 0)}
+                              style={{ width: '80px' }}
+                              className={styles.input}
+                            />
+                            <small style={{ display: 'block', color: '#666', fontSize: '10px' }}>系统自动生成</small>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              value={chapter.key_cost}
+                              onChange={(e) => updateChapterField(chapter.id, 'key_cost', parseInt(e.target.value) || 0)}
+                              style={{ width: '60px' }}
+                              className={styles.input}
+                              min="0"
+                              max="1"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="datetime-local"
+                              value={chapter.release_date ? chapter.release_date.slice(0, 16) : ''}
+                              onChange={(e) => updateChapterField(chapter.id, 'release_date', e.target.value ? e.target.value.replace('T', ' ') + ':00' : null)}
+                              className={styles.input}
+                              style={{ width: '100%', fontSize: '12px' }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={chapter.is_released === 1}
+                              onChange={(e) => updateChapterField(chapter.id, 'is_released', e.target.checked ? 1 : 0)}
+                            />
+                          </td>
+                          <td>
+                            <span className={`${styles.statusBadge} ${getStatusClass(chapter.status)}`}>
+                              {chapter.status === 'duplicate_existing' ? '重复' : getStatusText(chapter.status)}
+                            </span>
+                          </td>
+                        </tr>
+                        
+                        {/* 第二行：标题行（中文标题 + 英文标题） */}
+                        <tr className={styles.titleRow} style={{ backgroundColor: rowBgColor }}>
+                          <td colSpan={totalCols}>
+                            <div className={styles.titleRowInner}>
+                              <div className={styles.titleField}>
+                                <label>中文标题</label>
+                                <input
+                                  type="text"
+                                  className={styles.titleInput}
+                                  value={chapter.clean_title || chapter.raw_title || ''}
+                                  onChange={(e) => updateChapterField(chapter.id, 'clean_title', e.target.value)}
+                                  placeholder="中文标题"
+                                />
+                              </div>
+                              <div className={styles.titleField}>
+                                <label>英文标题</label>
+                                <input
+                                  type="text"
+                                  className={styles.titleInput}
+                                  value={chapter.en_title || ''}
+                                  onChange={(e) => updateChapterField(chapter.id, 'en_title', e.target.value)}
+                                  placeholder="英文标题"
+                                />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                        
+                        {/* 第三行：正文行（中文正文 + 英文正文，支持折叠/展开） */}
+                        <tr className={styles.contentRow} style={{ backgroundColor: rowBgColor }}>
+                          <td colSpan={totalCols}>
+                            {expandedChapterId === chapter.id ? (
+                              <div className={styles.contentRowInner}>
+                                <div className={styles.contentField}>
+                                  <label>中文正文</label>
+                                  <textarea
+                                    className={styles.inlineTextarea}
+                                    value={chapter.clean_content || chapter.raw_content || ''}
+                                    onChange={(e) => updateChapterField(chapter.id, 'clean_content', e.target.value)}
+                                    placeholder="中文正文"
+                                  />
+                                </div>
+                                <div className={styles.contentField}>
+                                  <label>英文正文</label>
+                                  <textarea
+                                    className={styles.inlineTextarea}
+                                    value={chapter.en_content || ''}
+                                    onChange={(e) => updateChapterField(chapter.id, 'en_content', e.target.value)}
+                                    placeholder="英文正文"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className={styles.toggleContentBtn}
+                                  onClick={() => setExpandedChapterId(null)}
+                                >
+                                  收起正文
+                                </button>
+                              </div>
+                            ) : (
+                              <div className={styles.contentPreviewRow}>
+                                <div className={styles.contentPreview}>
+                                  <label>中文正文</label>
+                                  <p>
+                                    {((chapter.clean_content || chapter.raw_content || '').slice(0, 120) || '（无内容）')}
+                                    {((chapter.clean_content || chapter.raw_content || '').length > 120) ? '…' : ''}
+                                  </p>
+                                </div>
+                                <div className={styles.contentPreview}>
+                                  <label>英文正文</label>
+                                  <p>
+                                    {((chapter.en_content || '').slice(0, 120) || '（无内容）')}
+                                    {(chapter.en_content && chapter.en_content.length > 120) ? '…' : ''}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className={styles.toggleContentBtn}
+                                  onClick={() => setExpandedChapterId(chapter.id)}
+                                >
+                                  展开正文
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+            
+            {/* 分页条 */}
+            <div className={styles.paginationBar}>
+              <span>
+                第 {currentPage} / {totalPages} 页（共 {totalChapters} 章）
+              </span>
+              <div className={styles.paginationControls}>
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className={styles.paginationButton}
+                >
+                  上一页
+                </button>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className={styles.paginationButton}
+                >
+                  下一页
+                </button>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    const newSize = Number(e.target.value) || 50;
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  className={styles.pageSizeSelect}
+                >
+                  <option value={30}>每页 30 章</option>
+                  <option value={50}>每页 50 章</option>
+                  <option value={100}>每页 100 章</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

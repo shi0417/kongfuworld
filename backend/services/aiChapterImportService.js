@@ -182,8 +182,9 @@ async function buildChapterRowFromDraft(draft, config, indexInBatch, now) {
     is_advance = 1;
   }
 
-  // 7. unlock_priority：免费章节标记 'free'，收费章节标记 'paid'
-  const unlock_priority = isFree ? 'free' : 'paid';
+  // 7. unlock_priority：免费章节标记 'free'，收费章节标记 'karma'（按字数计算价格）
+  // 注意：数据库 ENUM 值为 'free','key','karma','subscription'
+  const unlock_priority = isFree ? 'free' : 'karma';
 
   // 8. 时间戳
   const nowStr = dayjs(now).format('YYYY-MM-DD HH:mm:ss');
