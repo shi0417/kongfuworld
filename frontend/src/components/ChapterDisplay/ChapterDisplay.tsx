@@ -70,8 +70,10 @@ const ChapterDisplay: React.FC<ChapterDisplayProps> = ({ novelId, user }) => {
   // 加载指定卷的章节
   const loadVolumeChapters = async (volumeId: number) => {
     try {
+      // 传递 userId 参数以支持可见性过滤
+      const userIdParam = user?.id ? `&userId=${user.id}` : '';
       // 传递一个足够大的limit值，确保获取所有章节
-      const response = await ApiService.request(`/volume/${volumeId}/chapters?sort=chapter_number&limit=1000`);
+      const response = await ApiService.request(`/volume/${volumeId}/chapters?sort=chapter_number&limit=1000${userIdParam}`);
       
       if (response.success) {
         setVolumeChapters(prev => ({
@@ -232,8 +234,14 @@ const ChapterDisplay: React.FC<ChapterDisplayProps> = ({ novelId, user }) => {
                       <span 
                         className={styles.volumeChapterStatus}
                         style={{ color: getChapterStatusColor(chapter) }}
+                        title={chapter.is_advance ? 'Champion Advance Chapter' : ''}
                       >
                         {getChapterStatusIcon(chapter)}
+                        {chapter.is_advance && (
+                          <span style={{ marginLeft: '4px', fontSize: '12px', color: '#9c27b0' }}>
+                            Champion Advance
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>

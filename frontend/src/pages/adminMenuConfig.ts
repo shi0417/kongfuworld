@@ -14,6 +14,7 @@ export type AdminMenuItemKey =
   | 'editor-base-income'
   | 'commission-settings'
   | 'editor-management'
+  | 'ai-batch-translation'
   // 新增 —— 顶部和底部的独立菜单
   | 'novel-review'
   | 'new-novel-pool'
@@ -55,7 +56,8 @@ export const incomeEditorMenuGroup: AdminMenuGroup = {
     { key: 'commission-transaction', label: '推广佣金明细-3', icon: '💰', tab: 'commission-transaction' },
     { key: 'editor-base-income', label: '编辑基础收入-4', icon: '📝', tab: 'editor-base-income' },
     { key: 'commission-settings', label: '提成设置', icon: '⚙️', tab: 'commission-settings' },
-    { key: 'editor-management', label: '编辑管理', icon: '👥', tab: 'editor-management' }
+    { key: 'editor-management', label: '编辑管理', icon: '👥', tab: 'editor-management' },
+    { key: 'ai-batch-translation', label: 'AI 批量翻译导入', icon: '🤖', tab: 'ai-batch-translation' }
   ]
 };
 

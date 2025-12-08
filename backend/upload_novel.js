@@ -213,18 +213,52 @@ async function getNovelVolumes(novelId) {
 }
 
 // 获取小说章节信息
-async function getNovelChapters(novelId) {
-  const sql = `
-    SELECT c.id, c.chapter_number, c.title, c.volume_id, v.title as volume_title, v.volume_id
-    FROM chapter c
-    LEFT JOIN volume v ON c.volume_id = v.volume_id AND v.novel_id = c.novel_id
-    WHERE c.novel_id = ?
-    ORDER BY c.chapter_number
-  `;
-  
-  const results = await executeQuery(sql, [novelId]);
-  console.log('获取章节信息:', results);
-  return results;
+async function getNovelChapters(novelId, userId = null) {
+  // 使用mysql2/promise进行异步查询
+  const mysql = require('mysql2/promise');
+  let db;
+  try {
+    db = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'kongfuworld',
+      charset: 'utf8mb4'
+    });
+
+    // 调用 championService 获取可见性信息
+    const ChampionService = require('./services/championService');
+    const championService = new ChampionService();
+    const visibility = await championService.getUserChapterVisibility(db, novelId, userId);
+
+    // 构建可见性过滤条件
+    let visibilityCondition = 'c.is_released = 1 AND c.review_status = \'approved\'';
+    const queryParams = [novelId];
+
+    if (!visibility.championEnabled || !visibility.isChampion) {
+      // 未启用 Champion 或非 Champion 用户：只显示 is_advance=0 的章节
+      visibilityCondition += ' AND c.is_advance = 0';
+    } else {
+      // Champion 用户：显示 chapter_number <= visibleMaxChapterNumber 的章节
+      visibilityCondition += ' AND c.chapter_number <= ?';
+      queryParams.push(visibility.visibleMaxChapterNumber);
+    }
+
+    const sql = `
+      SELECT c.id, c.chapter_number, c.title, c.volume_id, c.is_advance, 
+             v.title as volume_title, v.volume_id
+      FROM chapter c
+      LEFT JOIN volume v ON c.volume_id = v.id AND v.novel_id = c.novel_id
+      WHERE c.novel_id = ? AND ${visibilityCondition}
+      ORDER BY c.chapter_number
+    `;
+    
+    const [results] = await db.execute(sql, queryParams);
+    console.log('获取章节信息:', results.length, '个章节');
+    return results;
+  } finally {
+    if (db) await db.end();
+  }
 }
 
 // 解析文档（支持多种格式）
@@ -727,12 +761,13 @@ async function getNovelInfoAPI(req, res) {
 async function getNovelChaptersAPI(req, res) {
   try {
     const { novelId } = req.params;
+    const userId = req.query.userId ? parseInt(req.query.userId, 10) : null;
     
     if (!novelId) {
       return res.status(400).json({ error: '请提供小说ID' });
     }
     
-    const chapters = await getNovelChapters(novelId);
+    const chapters = await getNovelChapters(novelId, userId);
     
     res.json({ 
       success: true, 

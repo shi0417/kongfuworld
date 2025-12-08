@@ -249,31 +249,49 @@ const ChapterReader: React.FC = () => {
         setLoading(true);
         setError(null);
         console.log('📖 开始加载章节内容:', chapterId);
-        const chapter = await novelService.getChapterContent(parseInt(chapterId), user?.id);
-        console.log('📖 章节内容加载成功:', chapter.title);
-        console.log('📖 [ChapterReader] ========== 章节数据详情 ==========');
-        console.log('📖 [ChapterReader] 章节ID:', chapter.id);
-        console.log('📖 [ChapterReader] 章节标题:', chapter.title);
-        console.log('📖 [ChapterReader] 章节完整数据对象:', chapter);
-        console.log('📖 [ChapterReader] unlock_price (原始值):', chapter.unlock_price);
-        console.log('📖 [ChapterReader] unlock_price (类型):', typeof chapter.unlock_price);
-        console.log('📖 [ChapterReader] unlock_price === null?:', chapter.unlock_price === null);
-        console.log('📖 [ChapterReader] unlock_price === undefined?:', chapter.unlock_price === undefined);
-        console.log('📖 [ChapterReader] unlock_price == 0?:', chapter.unlock_price == 0);
-        console.log('📖 [ChapterReader] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
-        console.log('📖 [ChapterReader] !!chapter.unlock_price:', !!chapter.unlock_price);
-        console.log('📖 [ChapterReader] Number(chapter.unlock_price):', Number(chapter.unlock_price));
-        console.log('📖 [ChapterReader] 章节内容长度:', chapter.content?.length || 0);
-        console.log('📖 [ChapterReader] 章节数据的所有键:', Object.keys(chapter));
-        console.log('📖 [ChapterReader] ======================================');
-        setChapterData(chapter);
+        let chapter;
+        try {
+          chapter = await novelService.getChapterContent(parseInt(chapterId), user?.id);
+          console.log('📖 章节内容加载成功:', chapter.title);
+          console.log('📖 [ChapterReader] ========== 章节数据详情 ==========');
+          console.log('📖 [ChapterReader] 章节ID:', chapter.id);
+          console.log('📖 [ChapterReader] 章节标题:', chapter.title);
+          console.log('📖 [ChapterReader] 章节完整数据对象:', chapter);
+          console.log('📖 [ChapterReader] unlock_price (原始值):', chapter.unlock_price);
+          console.log('📖 [ChapterReader] unlock_price (类型):', typeof chapter.unlock_price);
+          console.log('📖 [ChapterReader] unlock_price === null?:', chapter.unlock_price === null);
+          console.log('📖 [ChapterReader] unlock_price === undefined?:', chapter.unlock_price === undefined);
+          console.log('📖 [ChapterReader] unlock_price == 0?:', chapter.unlock_price == 0);
+          console.log('📖 [ChapterReader] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
+          console.log('📖 [ChapterReader] !!chapter.unlock_price:', !!chapter.unlock_price);
+          console.log('📖 [ChapterReader] Number(chapter.unlock_price):', Number(chapter.unlock_price));
+          console.log('📖 [ChapterReader] 章节内容长度:', chapter.content?.length || 0);
+          console.log('📖 [ChapterReader] 章节数据的所有键:', Object.keys(chapter));
+          console.log('📖 [ChapterReader] ======================================');
+          setChapterData(chapter);
+        } catch (chapterError: any) {
+          // 处理可见性错误
+          if (chapterError.code === 'CHAPTER_NOT_ACCESSIBLE') {
+            setError('This chapter is only available as Champion advance reading.');
+            setLoading(false);
+            return;
+          }
+          if (chapterError.code === 'CHAPTER_NOT_RELEASED') {
+            setError('This chapter has not been released yet.');
+            setLoading(false);
+            return;
+          }
+          throw chapterError;
+        }
         
         // 使用自定义 Hook 检查章节锁定状态
-        console.log('🔍 [ChapterReader] 准备调用 checkLockStatus...');
-        console.log('🔍 [ChapterReader] 当前 isChapterLocked 状态:', isChapterLocked);
-        await checkLockStatus(chapter, user);
-        console.log('🔍 [ChapterReader] checkLockStatus 调用完成');
-        console.log('🔍 [ChapterReader] 调用后 isChapterLocked 状态:', isChapterLocked);
+        if (chapter) {
+          console.log('🔍 [ChapterReader] 准备调用 checkLockStatus...');
+          console.log('🔍 [ChapterReader] 当前 isChapterLocked 状态:', isChapterLocked);
+          await checkLockStatus(chapter, user);
+          console.log('🔍 [ChapterReader] checkLockStatus 调用完成');
+          console.log('🔍 [ChapterReader] 调用后 isChapterLocked 状态:', isChapterLocked);
+        }
       } catch (err: any) {
         console.error('加载章节内容失败:', err);
         const errorMessage = err.message || '加载章节内容失败，请稍后重试';
@@ -383,7 +401,7 @@ const ChapterReader: React.FC = () => {
       try {
         setChaptersLoading(true);
         console.log('开始获取章节列表:', novelId);
-        const chaptersList = await novelService.getNovelChapters(parseInt(novelId));
+        const chaptersList = await novelService.getNovelChapters(parseInt(novelId), user?.id);
         console.log('章节列表获取成功:', chaptersList.length, '个章节');
         setChapters(chaptersList);
       } catch (err) {
@@ -396,7 +414,7 @@ const ChapterReader: React.FC = () => {
     };
 
     loadChapters();
-  }, [novelId]);
+  }, [novelId, user]);
 
   // 处理章节点击
   const handleChapterClick = (chapter: any) => {
@@ -871,8 +889,20 @@ const ChapterReader: React.FC = () => {
           }}>
             {chapterData.title}
           </h1>
-          <div style={{ color: '#666', fontSize: 16 }}>
-            Chapter {chapterData.chapter_number}
+          <div style={{ color: '#666', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <span>Chapter {chapterData.chapter_number}</span>
+            {chapterData.is_advance && (
+              <span style={{ 
+                background: 'linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%)',
+                color: '#fff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: 600
+              }}>
+                Champion Advance
+              </span>
+            )}
           </div>
         </div>
 

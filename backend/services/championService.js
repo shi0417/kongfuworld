@@ -123,7 +123,7 @@ class ChampionService {
     }
   }
 
-  // 获取用户可访问的章节数
+  // 获取用户可访问的章节数（保留向后兼容）
   async getUserAccessibleChapters(userId, novelId) {
     try {
       // 获取小说的总章节数（从chapter表统计）
@@ -162,6 +162,112 @@ class ChampionService {
       return accessibleChapters;
     } catch (error) {
       throw new Error(`获取用户可访问章节失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 计算某个用户在某本小说下的章节可见范围
+   * @param {Pool} db - 数据库连接池或连接对象
+   * @param {number} novelId - 小说ID
+   * @param {number|null} userId - 用户ID，未登录传 null
+   * @returns {Promise<{
+   *   championEnabled: boolean,        // novel.champion_status === 'approved'
+   *   isChampion: boolean,             // 用户是否有有效订阅
+   *   visibleMaxChapterNumber: number, // 用户可见的最大 chapter_number（Champion 用户用）
+   *   baseMaxChapterNumber: number,    // B：基础章节最大编号
+   *   userAdvanceChapters: number      // A_user：该用户可预读章节数；普通用户为 0
+   * }>}
+   */
+  async getUserChapterVisibility(db, novelId, userId) {
+    try {
+      // 1. 查询 novel.champion_status
+      const [novelRows] = await db.execute(
+        'SELECT champion_status FROM novel WHERE id = ?',
+        [novelId]
+      );
+
+      if (novelRows.length === 0) {
+        throw new Error(`小说 ${novelId} 不存在`);
+      }
+
+      const championStatus = novelRows[0]?.champion_status || 'invalid';
+      const championEnabled = championStatus === 'approved';
+
+      // 2. 计算基础章节最大编号 B（is_advance=0 AND is_released=1 AND review_status='approved'）
+      const [baseMaxRows] = await db.execute(
+        `SELECT COALESCE(MAX(chapter_number), 0) AS baseMax 
+         FROM chapter 
+         WHERE novel_id = ? AND is_released = 1 AND is_advance = 0 AND review_status = 'approved'`,
+        [novelId]
+      );
+      const baseMaxChapterNumber = baseMaxRows[0]?.baseMax || 0;
+
+      // 3. 计算所有已发布章节最大编号 M（is_released=1 AND review_status='approved'）
+      const [releasedMaxRows] = await db.execute(
+        `SELECT COALESCE(MAX(chapter_number), 0) AS releasedMax 
+         FROM chapter 
+         WHERE novel_id = ? AND is_released = 1 AND review_status = 'approved'`,
+        [novelId]
+      );
+      const releasedMaxChapterNumber = releasedMaxRows[0]?.releasedMax || 0;
+
+      // 4. 如果未启用 Champion 或用户未登录，直接返回
+      if (!championEnabled || !userId) {
+        return {
+          championEnabled: false,
+          isChampion: false,
+          visibleMaxChapterNumber: baseMaxChapterNumber,
+          baseMaxChapterNumber,
+          userAdvanceChapters: 0
+        };
+      }
+
+      // 5. 查询用户当前有效订阅 + 对应 tier 的 advance_chapters
+      const [subscriptionRows] = await db.execute(
+        `SELECT t.advance_chapters
+         FROM user_champion_subscription s
+         JOIN novel_champion_tiers t
+           ON t.novel_id = s.novel_id
+          AND t.tier_level = s.tier_level
+          AND t.is_active = 1
+         WHERE s.user_id = ?
+           AND s.novel_id = ?
+           AND s.is_active = 1
+           AND s.end_date > NOW()
+         ORDER BY s.end_date DESC
+         LIMIT 1`,
+        [userId, novelId]
+      );
+
+      // 6. 如果查不到记录，用户不是 Champion
+      if (subscriptionRows.length === 0) {
+        return {
+          championEnabled: true,
+          isChampion: false,
+          visibleMaxChapterNumber: baseMaxChapterNumber,
+          baseMaxChapterNumber,
+          userAdvanceChapters: 0
+        };
+      }
+
+      // 7. 用户是 Champion，获取预读章节数
+      const userAdvanceChapters = subscriptionRows[0]?.advance_chapters || 0;
+
+      // 8. 计算 visibleMaxChapterNumber = min(B + A_user, M)
+      const visibleMaxChapterNumber = Math.min(
+        baseMaxChapterNumber + userAdvanceChapters,
+        releasedMaxChapterNumber
+      );
+
+      return {
+        championEnabled: true,
+        isChampion: true,
+        visibleMaxChapterNumber,
+        baseMaxChapterNumber,
+        userAdvanceChapters
+      };
+    } catch (error) {
+      throw new Error(`获取用户章节可见性失败: ${error.message}`);
     }
   }
 

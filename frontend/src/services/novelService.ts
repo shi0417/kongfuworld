@@ -48,9 +48,10 @@ class NovelService {
   }
 
   // 获取小说章节列表
-  async getNovelChapters(novelId: number): Promise<NovelChapter[]> {
+  async getNovelChapters(novelId: number, userId?: number | null): Promise<NovelChapter[]> {
     try {
-      const response = await fetch(`${this.baseURL}/novel/${novelId}/chapters`);
+      const userIdParam = userId ? `?userId=${userId}` : '';
+      const response = await fetch(`${this.baseURL}/novel/${novelId}/chapters${userIdParam}`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -154,6 +155,23 @@ class NovelService {
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`API错误响应: ${response.status} - ${errorText}`);
+          
+          // 尝试解析错误响应为 JSON
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { message: errorText };
+          }
+          
+          // 如果是可见性错误，抛出包含 code 的错误
+          if (errorData.code === 'CHAPTER_NOT_ACCESSIBLE' || errorData.code === 'CHAPTER_NOT_RELEASED') {
+            const error = new Error(`HTTP ${response.status}: ${JSON.stringify(errorData)}`);
+            (error as any).code = errorData.code;
+            (error as any).data = errorData;
+            throw error;
+          }
+          
           throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
@@ -161,6 +179,13 @@ class NovelService {
         console.log('API响应数据解析成功');
         
         if (!data.success) {
+          // 如果是可见性错误，抛出包含 code 的错误
+          if (data.code === 'CHAPTER_NOT_ACCESSIBLE' || data.code === 'CHAPTER_NOT_RELEASED') {
+            const error = new Error(data.message || 'API返回失败状态');
+            (error as any).code = data.code;
+            (error as any).data = data;
+            throw error;
+          }
           throw new Error(data.message || 'API返回失败状态');
         }
         
@@ -197,7 +222,8 @@ class NovelService {
           prev_chapter_id: apiData.prev_chapter_id ?? null,
           next_chapter_id: apiData.next_chapter_id ?? null,
           has_prev: apiData.has_prev ?? Boolean(apiData.prev_chapter_id),
-          has_next: apiData.has_next ?? Boolean(apiData.next_chapter_id)
+          has_next: apiData.has_next ?? Boolean(apiData.next_chapter_id),
+          is_advance: apiData.is_advance ?? false
         };
         
         console.log('📦 [novelService] ========== 章节内容解析结果 ==========');

@@ -144,6 +144,10 @@ app.use('/api/user', userRoutes);
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+// Admin AI 批量翻译导入路由
+const adminAiTranslationRoutes = require('./routes/adminAiTranslation');
+app.use('/api/admin/ai-translation', adminAiTranslationRoutes);
+
 // 个人信息路由
 const personalInfoRoutes = require('./routes/personalInfo');
 app.use('/api/personal-info', personalInfoRoutes);
@@ -2436,31 +2440,22 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
         c.content,
         c.unlock_price,
         c.translator_note,
+        c.is_released,
+        c.is_advance,
         n.title as novel_title,
         n.author,
         n.translator,
         v.title as volume_title,
-        v.volume_id,
-        (SELECT id
-         FROM chapter
-         WHERE novel_id = c.novel_id
-           AND review_status = 'approved'
-           AND chapter_number < c.chapter_number
-         ORDER BY chapter_number DESC
-         LIMIT 1) AS prev_chapter_id,
-        (SELECT id
-         FROM chapter
-         WHERE novel_id = c.novel_id
-           AND review_status = 'approved'
-           AND chapter_number > c.chapter_number
-         ORDER BY chapter_number ASC
-         LIMIT 1) AS next_chapter_id
+        v.volume_id
       FROM chapter c
       JOIN novel n ON c.novel_id = n.id
       LEFT JOIN volume v ON c.volume_id = v.id
         AND v.novel_id = c.novel_id
       WHERE c.id = ? AND c.review_status = 'approved'
     `;
+    
+    // 注意：这里不检查 is_released，因为我们需要在后续逻辑中检查它
+    // 如果在这里就过滤掉，用户访问未发布章节时会得到 404，而不是明确的 403 错误
     
     console.log('[Chapter API] 📝 SQL 查询准备执行');
     console.log('[Chapter API] SQL 参数:', [chapterId]);
@@ -2472,7 +2467,10 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     
     if (results.length === 0) {
       console.log('[Chapter API] ⚠️ 未找到章节，返回 404');
-      return res.status(404).json({ message: 'Chapter not found or hidden' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Chapter not found or hidden' 
+      });
     }
     
     const chapter = results[0];
@@ -2483,16 +2481,130 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     console.log('[Chapter API] 章节号:', chapter.chapter_number);
     console.log('[Chapter API] 章节标题:', chapter.title);
     console.log('[Chapter API] unlock_price:', chapter.unlock_price);
+    console.log('[Chapter API] is_released:', chapter.is_released);
+    console.log('[Chapter API] is_advance:', chapter.is_advance);
     
-    // 修复：使用更安全的 null 检查，避免 0 被误判为 falsy
-    const prevId = (chapter.prev_chapter_id !== null && chapter.prev_chapter_id !== undefined) 
-      ? chapter.prev_chapter_id 
-      : null;
-    const nextId = (chapter.next_chapter_id !== null && chapter.next_chapter_id !== undefined) 
-      ? chapter.next_chapter_id 
-      : null;
+    // 🔍 检查章节可见性（在解锁检查之前）
+    const ChampionService = require('./services/championService');
+    const championService = new ChampionService();
+    const visibility = await championService.getUserChapterVisibility(db, chapter.novel_id, userId);
     
-    // 🔒 安全修复：检查用户权限
+    console.log('[Chapter API] ========== 可见性检查结果 ==========');
+    console.log('[Chapter API] championEnabled:', visibility.championEnabled);
+    console.log('[Chapter API] isChampion:', visibility.isChampion);
+    console.log('[Chapter API] visibleMaxChapterNumber:', visibility.visibleMaxChapterNumber);
+    console.log('[Chapter API] baseMaxChapterNumber:', visibility.baseMaxChapterNumber);
+    console.log('[Chapter API] userAdvanceChapters:', visibility.userAdvanceChapters);
+    
+    // 1. 检查 is_released 和 review_status（已在 SQL 中过滤 review_status）
+    // 确保 is_released 是数字类型，并严格检查是否为 1
+    const isReleased = Number(chapter.is_released) === 1;
+    console.log('[Chapter API] is_released 原始值:', chapter.is_released, '类型:', typeof chapter.is_released);
+    console.log('[Chapter API] is_released 转换后:', isReleased);
+    
+    if (!isReleased) {
+      console.log('[Chapter API] ❌ 章节未发布，返回 403');
+      return res.status(403).json({
+        success: false,
+        code: 'CHAPTER_NOT_RELEASED',
+        message: 'This chapter is not released yet.'
+      });
+    }
+    
+    // 2. 根据 Champion 规则检查可见性
+    let canAccess = false;
+    
+    if (!visibility.championEnabled) {
+      // 未启用 Champion：只允许访问 is_advance=0 的章节
+      canAccess = chapter.is_advance === 0;
+    } else if (!visibility.isChampion) {
+      // 启用 Champion 但用户不是 Champion：只允许访问 is_advance=0 的章节
+      canAccess = chapter.is_advance === 0;
+    } else {
+      // Champion 用户：允许访问 chapter_number <= visibleMaxChapterNumber 的章节
+      canAccess = chapter.chapter_number <= visibility.visibleMaxChapterNumber;
+    }
+    
+    if (!canAccess) {
+      console.log('[Chapter API] ❌ 章节不在用户可见范围内，返回 403');
+      return res.status(403).json({
+        success: false,
+        code: 'CHAPTER_NOT_ACCESSIBLE',
+        message: 'This chapter is only available as Champion advance reading.'
+      });
+    }
+    
+    console.log('[Chapter API] ✅ 章节可见性检查通过');
+    
+    // 3. 计算上一章/下一章（基于可见性）
+    // 注意：参数顺序必须与 SQL 中的 ? 占位符顺序一致
+    let prevVisibilityCondition = 'is_released = 1 AND review_status = \'approved\'';
+    let nextVisibilityCondition = 'is_released = 1 AND review_status = \'approved\'';
+    const prevParams = [chapter.novel_id];
+    const nextParams = [chapter.novel_id];
+    
+    if (!visibility.championEnabled || !visibility.isChampion) {
+      prevVisibilityCondition += ' AND is_advance = 0';
+      nextVisibilityCondition += ' AND is_advance = 0';
+    } else {
+      // Champion 用户：先添加 visibleMaxChapterNumber 参数
+      prevVisibilityCondition += ' AND chapter_number <= ?';
+      nextVisibilityCondition += ' AND chapter_number <= ?';
+      prevParams.push(visibility.visibleMaxChapterNumber);
+      nextParams.push(visibility.visibleMaxChapterNumber);
+    }
+    
+    // 最后添加 chapter_number 参数（用于 < 或 > 比较）
+    prevParams.push(chapter.chapter_number);
+    nextParams.push(chapter.chapter_number);
+    
+    // 构建完整的 SQL 查询字符串用于调试
+    const prevQuery = `SELECT id FROM chapter WHERE novel_id = ? AND ${prevVisibilityCondition} AND chapter_number < ? ORDER BY chapter_number DESC LIMIT 1`;
+    const nextQuery = `SELECT id FROM chapter WHERE novel_id = ? AND ${nextVisibilityCondition} AND chapter_number > ? ORDER BY chapter_number ASC LIMIT 1`;
+    
+    console.log('[Chapter API] ========== 上一章/下一章查询 ==========');
+    console.log('[Chapter API] prevQuery:', prevQuery);
+    console.log('[Chapter API] prevParams:', prevParams);
+    console.log('[Chapter API] nextQuery:', nextQuery);
+    console.log('[Chapter API] nextParams:', nextParams);
+    
+    const [prevResults] = await db.execute(prevQuery, prevParams);
+    
+    const [nextResults] = await db.execute(nextQuery, nextParams);
+    
+    console.log('[Chapter API] 上一章查询结果数量:', prevResults.length);
+    console.log('[Chapter API] 上一章查询结果:', prevResults.length > 0 ? prevResults[0] : null);
+    console.log('[Chapter API] 下一章查询结果数量:', nextResults.length);
+    console.log('[Chapter API] 下一章查询结果:', nextResults.length > 0 ? nextResults[0] : null);
+    
+    // 额外验证：如果查询返回了结果，再次检查 is_released
+    if (nextResults.length > 0) {
+      const nextChapterId = nextResults[0].id;
+      const [verifyResults] = await db.execute(
+        'SELECT id, chapter_number, is_released, review_status FROM chapter WHERE id = ?',
+        [nextChapterId]
+      );
+      if (verifyResults.length > 0) {
+        const nextChapter = verifyResults[0];
+        console.log('[Chapter API] ⚠️ 下一章验证:', {
+          id: nextChapter.id,
+          chapter_number: nextChapter.chapter_number,
+          is_released: nextChapter.is_released,
+          review_status: nextChapter.review_status
+        });
+        if (Number(nextChapter.is_released) !== 1 || nextChapter.review_status !== 'approved') {
+          console.log('[Chapter API] ❌ 下一章验证失败：章节不符合可见性条件，将返回 null');
+          nextResults.length = 0; // 清空结果
+        }
+      }
+    }
+    
+    console.log('[Chapter API] ======================================');
+    
+    const prevId = prevResults.length > 0 ? prevResults[0].id : null;
+    const nextId = nextResults.length > 0 ? nextResults[0].id : null;
+    
+    // 🔒 安全修复：检查用户权限（解锁检查）
     let fullContent = chapter.content;
     let isLocked = false;
     
@@ -2546,6 +2658,7 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
       translator: chapter.translator,
       volume_title: chapter.volume_title,
       volume_id: chapter.volume_id,
+      is_advance: chapter.is_advance === 1,
       prev_chapter_id: prevId,
       next_chapter_id: nextId,
       has_prev: Boolean(prevId),
@@ -4536,30 +4649,49 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
 });
 
 // 获取指定卷的章节列表
-app.get('/api/volume/:volumeId/chapters', (req, res) => {
-  const { volumeId } = req.params;
+app.get('/api/volume/:volumeId/chapters', async (req, res) => {
+  const volumeId = parseInt(req.params.volumeId, 10);
   const { sort = 'chapter_number' } = req.query;
-  const { page = 1, limit = 50 } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const userId = req.query.userId ? parseInt(req.query.userId, 10) : null;
 
   const offset = (page - 1) * limit;
+  
+  // 确保 offset 是整数
+  const offsetNum = parseInt(offset) || 0;
 
-  // 获取卷信息
-  const volumeQuery = `
-    SELECT v.*, n.title as novel_title
-    FROM volume v
-    JOIN novel n ON v.novel_id = n.id
-    WHERE v.id = ?
-  `;
+  let db;
+  try {
+    // 使用mysql2/promise进行异步查询
+    const mysql = require('mysql2/promise');
+    db = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '123456',
+      database: process.env.DB_NAME || 'kongfuworld',
+      charset: 'utf8mb4'
+    });
 
-  db.query(volumeQuery, [volumeId], (err, volumeInfo) => {
-    if (err) {
-      console.error('获取卷信息失败:', err);
-      return res.status(500).json({ message: '获取卷信息失败' });
-    }
+    // 获取卷信息（包含 novel_id）
+    const [volumeInfo] = await db.execute(
+      `SELECT v.*, n.title as novel_title, v.novel_id
+       FROM volume v
+       JOIN novel n ON v.novel_id = n.id
+       WHERE v.id = ?`,
+      [volumeId]
+    );
 
     if (volumeInfo.length === 0) {
       return res.status(404).json({ message: '卷不存在' });
     }
+
+    const novelId = volumeInfo[0].novel_id;
+
+    // 调用 championService 获取可见性信息
+    const ChampionService = require('./services/championService');
+    const championService = new ChampionService();
+    const visibility = await championService.getUserChapterVisibility(db, novelId, userId);
 
     // 获取章节列表
     let orderBy = 'c.chapter_number ASC';
@@ -4569,7 +4701,21 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
       orderBy = 'c.created_at ASC';
     }
 
+    // 构建可见性过滤条件
+    let visibilityCondition = 'c.is_released = 1 AND c.review_status = \'approved\'';
+    const queryParams = [volumeId];
+
+    if (!visibility.championEnabled || !visibility.isChampion) {
+      // 未启用 Champion 或非 Champion 用户：只显示 is_advance=0 的章节
+      visibilityCondition += ' AND c.is_advance = 0';
+    } else {
+      // Champion 用户：显示 chapter_number <= visibleMaxChapterNumber 的章节
+      visibilityCondition += ' AND c.chapter_number <= ?';
+      queryParams.push(visibility.visibleMaxChapterNumber);
+    }
+
     // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
+    // LIMIT 和 OFFSET 需要直接插入数值，不能使用占位符
     const chaptersQuery = `
       SELECT 
         c.id,
@@ -4586,49 +4732,54 @@ app.get('/api/volume/:volumeId/chapters', (req, res) => {
       FROM chapter c
       JOIN volume v ON c.volume_id = v.id
         AND v.novel_id = c.novel_id
-      WHERE v.id = ? AND c.review_status = 'approved'
+      WHERE v.id = ? AND ${visibilityCondition}
       ORDER BY ${orderBy}
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offsetNum}
     `;
 
-    db.query(chaptersQuery, [volumeId, parseInt(limit), parseInt(offset)], (err2, chapters) => {
-      if (err2) {
-        console.error('获取章节列表失败:', err2);
-        return res.status(500).json({ message: '获取章节列表失败' });
-      }
+    console.log('[Volume Chapters API] 查询参数:', queryParams);
+    console.log('[Volume Chapters API] SQL条件:', visibilityCondition);
+    console.log('[Volume Chapters API] LIMIT:', limit, 'OFFSET:', offsetNum);
 
-      // 获取章节总数
-      // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
-      const totalQuery = `
-        SELECT COUNT(*) as total
-        FROM chapter c
-        JOIN volume v ON c.volume_id = v.id
-          AND v.novel_id = c.novel_id
-        WHERE v.id = ? AND c.review_status = 'approved'
-      `;
+    const [chapters] = await db.execute(chaptersQuery, queryParams);
 
-      db.query(totalQuery, [volumeId], (err3, totalResult) => {
-        if (err3) {
-          console.error('获取章节总数失败:', err3);
-          return res.status(500).json({ message: '获取章节总数失败' });
+    // 获取章节总数（使用相同的可见性条件）
+    const totalQuery = `
+      SELECT COUNT(*) as total
+      FROM chapter c
+      JOIN volume v ON c.volume_id = v.id
+        AND v.novel_id = c.novel_id
+      WHERE v.id = ? AND ${visibilityCondition}
+    `;
+
+    const totalParams = [volumeId];
+    if (visibility.championEnabled && visibility.isChampion) {
+      totalParams.push(visibility.visibleMaxChapterNumber);
+    }
+
+    console.log('[Volume Chapters API] 总数查询参数:', totalParams);
+
+    const [totalResult] = await db.execute(totalQuery, totalParams);
+
+    res.json({
+      success: true,
+      data: {
+        volume: volumeInfo[0],
+        chapters,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalResult[0].total,
+          pages: Math.ceil(totalResult[0].total / limit)
         }
-
-        res.json({
-          success: true,
-          data: {
-            volume: volumeInfo[0],
-            chapters,
-            pagination: {
-              page: parseInt(page),
-              limit: parseInt(limit),
-              total: totalResult[0].total,
-              pages: Math.ceil(totalResult[0].total / limit)
-            }
-          }
-        });
-      });
+      }
     });
-  });
+  } catch (error) {
+    console.error('获取卷章节列表失败:', error);
+    res.status(500).json({ message: '获取卷章节列表失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
 });
 
 // 导入定时发布服务

@@ -1184,7 +1184,15 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
     } else {
       // 立即发布
       isReleased = parseInt(is_released) === 1 ? 1 : 0;
-      releaseDate = new Date().toISOString().slice(0, 19).replace('T', ' '); // 当前时间
+      // 使用当地时间而不是UTC时间
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      releaseDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; // 当前时间（当地时间）
     }
   }
 
@@ -1615,7 +1623,16 @@ router.post('/chapter/update', textFieldsMulter.none(), async (req, res) => {
     updateFields.push('is_released = ?');
     updateValues.push(1);
     updateFields.push('release_date = ?');
-    updateValues.push(new Date().toISOString().slice(0, 19).replace('T', ' '));
+    // 使用当地时间而不是UTC时间
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const localDateTimeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    updateValues.push(localDateTimeString);
   } else if (action === 'schedule') {
     // 更新定时发布
     updateFields.push('review_status = ?');
@@ -1898,6 +1915,7 @@ router.get('/chapter/:chapterId', (req, res) => {
        FROM chapter
        WHERE novel_id = c.novel_id
          AND review_status = 'approved'
+         AND is_released = 1
          AND chapter_number < c.chapter_number
        ORDER BY chapter_number DESC
        LIMIT 1) AS prev_chapter_id,
@@ -1905,6 +1923,7 @@ router.get('/chapter/:chapterId', (req, res) => {
        FROM chapter
        WHERE novel_id = c.novel_id
          AND review_status = 'approved'
+         AND is_released = 1
          AND chapter_number > c.chapter_number
        ORDER BY chapter_number ASC
        LIMIT 1) AS next_chapter_id

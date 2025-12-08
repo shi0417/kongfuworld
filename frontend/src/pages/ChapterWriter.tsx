@@ -1946,11 +1946,23 @@ const ChapterWriter: React.FC = () => {
         throw new Error(result.message || '发布失败');
       }
 
-      alert(language === 'zh' ? '章节发布成功！' : 'Chapter published successfully!');
-      navigate(`/novel-manage/${novelId}`);
+      // 显示成功Toast提示
+      setToast({
+        message: language === 'zh' ? '章节发布成功！' : 'Chapter published successfully!',
+        type: 'success'
+      });
+      
+      // 延迟跳转，让用户看到成功提示，跳转到章节管理标签页
+      setTimeout(() => {
+        navigate(`/novel-manage/${novelId}?tab=chapters`);
+      }, 1500);
     } catch (error: any) {
       console.error('发布章节失败:', error);
-      alert(error.message || (language === 'zh' ? '发布章节失败' : 'Failed to publish chapter'));
+      // 显示错误Toast提示
+      setToast({
+        message: error.message || (language === 'zh' ? '发布章节失败' : 'Failed to publish chapter'),
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -2686,6 +2698,7 @@ const ChapterWriter: React.FC = () => {
         <Toast
           message={toast.message}
           type={toast.type}
+          duration={5000}
           onClose={() => setToast(null)}
         />
       )}
