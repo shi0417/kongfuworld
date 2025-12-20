@@ -1,0 +1,126 @@
+.wrap {
+  margin: 18px 0 22px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 6px 0 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.viewAll {
+  color: #7aa7ff;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.card {
+  flex: 0 0 auto;
+  width: 240px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.28);
+  border-color: rgba(122,167,255,0.35);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 10px;
+  padding: 10px;
+}
+
+.cover {
+  width: 76px;
+  height: 102px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+}
+
+.info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.name {
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaRow {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 82, 82, 0.15);
+  border: 1px solid rgba(255, 82, 82, 0.25);
+  color: #ff8a8a;
+}
+
+.ends {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.ctaRow {
+  padding: 0 10px 12px;
+}
+
+.cta {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d6cdf;
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.cta:hover {
+  filter: brightness(1.05);
+}
+
+

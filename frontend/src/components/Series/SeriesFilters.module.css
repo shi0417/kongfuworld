@@ -1,0 +1,136 @@
+.sidebar {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+}
+
+.panel {
+  background: #1a1b1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 14px 10px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-weight: 800;
+  font-size: 16px;
+  color: #e8e8ea;
+}
+
+.clearBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #e8e8ea;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.group {
+  margin: 12px 0 14px;
+}
+
+.groupTitle {
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #d0d0d2;
+  font-size: 13px;
+}
+
+.inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.radio,
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #e8e8ea;
+  cursor: pointer;
+  user-select: none;
+}
+
+.genreList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.muted {
+  color: rgba(255,255,255,0.65);
+  font-size: 13px;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 1000;
+}
+
+.drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #0f0f10;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px 14px 0 0;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  z-index: 1001;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.open {
+  transform: translateY(0);
+}
+
+.drawerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.drawerTitle {
+  font-weight: 900;
+  font-size: 16px;
+  color: #e8e8ea;
+}
+
+.closeBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: #1a1b1e;
+  color: #e8e8ea;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+@media (max-width: 980px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+

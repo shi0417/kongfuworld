@@ -1,0 +1,174 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cardWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metaRow {
+  color: rgba(255,255,255,0.72);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.genresRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.86);
+}
+
+.skeletonCard {
+  width: 140px; /* 与 NovelCard 一致，避免布局跳动 */
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1b1e;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.skeletonCover {
+  width: 100%;
+  height: 180px; /* 与 NovelCard.cover 一致 */
+  background: rgba(255,255,255,0.08);
+}
+
+.skeletonInfo {
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeletonLineLg,
+.skeletonLineMd,
+.skeletonLineSm {
+  border-radius: 6px;
+  background: rgba(255,255,255,0.10);
+}
+
+.skeletonLineLg {
+  height: 14px;
+  width: 90%;
+}
+
+.skeletonLineMd {
+  height: 12px;
+  width: 70%;
+}
+
+.skeletonLineSm {
+  height: 12px;
+  width: 55%;
+}
+
+.skeletonBadge {
+  display: inline-block;
+  height: 18px;
+  width: 62px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.shimmer {
+  position: relative;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.10) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: #1a1b1e;
+}
+
+.listCover :global(.card) {
+  background: transparent;
+}
+
+.listInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.listTitle {
+  font-size: 18px;
+  font-weight: 900;
+  color: #e8e8ea;
+}
+
+.listAuthor {
+  color: rgba(255,255,255,0.70);
+  font-weight: 700;
+}
+
+.listMeta {
+  color: rgba(255,255,255,0.72);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.listGenres {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+@media (max-width: 1199px) {
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 979px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 599px) {
+  .grid { grid-template-columns: 1fr; }
+  .listRow { grid-template-columns: 1fr; }
+}
+
+

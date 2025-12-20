@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import NavBar from '../components/NavBar/NavBar';
 import Footer from '../components/Footer/Footer';
 import DailyRewardsModal from '../components/DailyRewardsModal/DailyRewardsModal';
@@ -18,11 +18,13 @@ import { debugAuthStatus } from '../utils/authDebug';
 const BookDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, user: authUser } = useAuth();
   const { user: userData } = useUser();
   const [showMore, setShowMore] = useState(false);
   const [tab, setTab] = useState('About');
   const [showDailyModal, setShowDailyModal] = useState(false);
+  const hasAppliedQueryTabRef = useRef(false);
   
   // 小说数据状态
   const [book, setBook] = useState<NovelDetail | null>(null);
@@ -87,6 +89,29 @@ const BookDetail: React.FC = () => {
 
     loadNovelDetail();
   }, [id, user]);
+
+  // 仅支持 ?tab=champion：首次加载时根据 query + book 状态自动激活 Champion Tab
+  // - 不引入新状态管理
+  // - 不影响用户后续手动点击 Tabs（只应用一次）
+  // - 如果 Champion 未启用则回退 About
+  useEffect(() => {
+    if (hasAppliedQueryTabRef.current) return;
+    if (!book) return;
+
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== 'champion') {
+      hasAppliedQueryTabRef.current = true;
+      return;
+    }
+
+    if (book.champion_status === 'approved') {
+      setTab('Champion');
+    } else {
+      setTab('About');
+    }
+
+    hasAppliedQueryTabRef.current = true;
+  }, [searchParams, book]);
 
   // 检查是否应该显示签到弹窗
   useEffect(() => {

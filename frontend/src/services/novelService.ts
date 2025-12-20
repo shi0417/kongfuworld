@@ -27,6 +27,47 @@ export interface NovelChapter {
   created_at: string;
 }
 
+export type SeriesSort = 'latest' | 'rating' | 'chapters' | 'alpha' | string;
+
+export type SeriesListParams = {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  genres?: number[]; // genre ids
+  status?: string;
+  lang?: string;
+  sort?: SeriesSort;
+};
+
+export type SeriesListItem = {
+  id: number;
+  title: string;
+  author: string | null;
+  cover: string | null;
+  status: string | null;
+  rating: number | null;
+  reviews: number | null;
+  chapters: number | null;
+  languages: string | null;
+  review_status: string;
+  genre_names: string | null;
+};
+
+export type SeriesListResponse = {
+  items: SeriesListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type GenreItem = {
+  id: number;
+  name?: string;
+  slug?: string;
+  chinese_name?: string | null;
+};
+
 class NovelService {
   private baseURL = `${API_BASE_URL}/api`;
 
@@ -257,6 +298,46 @@ class NovelService {
     }
     
     throw lastError || new Error('获取章节内容失败');
+  }
+
+  // Public Series/Novels 列表（分页/筛选/排序）
+  async getSeriesList(params: SeriesListParams): Promise<SeriesListResponse> {
+    const sp = new URLSearchParams();
+    if (params.page) sp.set('page', String(params.page));
+    if (params.pageSize) sp.set('pageSize', String(params.pageSize));
+    if (params.query) sp.set('query', params.query);
+    if (params.status) sp.set('status', params.status);
+    if (params.lang) sp.set('lang', params.lang);
+    if (params.sort) sp.set('sort', String(params.sort));
+    if (params.genres && params.genres.length > 0) sp.set('genres', params.genres.join(','));
+
+    const url = `${this.baseURL}/series?${sp.toString()}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || '获取 Series 列表失败');
+    }
+    return data.data as SeriesListResponse;
+  }
+
+  // 获取 Series 可用 language tokens（用于 /series 筛选）
+  async getSeriesLanguages(): Promise<string[]> {
+    const res = await fetch(`${this.baseURL}/series/languages`);
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || '获取 Languages 失败');
+    }
+    return (data?.data?.languages || []) as string[];
+  }
+
+  // 可选：获取 genre 列表（用于筛选）
+  async getGenres(): Promise<GenreItem[]> {
+    const res = await fetch(`${this.baseURL}/genres`);
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || '获取 Genres 失败');
+    }
+    return (data?.data?.items || []) as GenreItem[];
   }
 }
 

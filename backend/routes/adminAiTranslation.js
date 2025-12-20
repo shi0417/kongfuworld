@@ -12,6 +12,7 @@ const router = express.Router();
 
 const translationTaskService = require('../ai/translationTaskService');
 const novelImportService = require('../services/novelImportService');
+const { runNovelTranslationWorkflow } = require('../ai/langchain/novelTranslationWorkflow');
 
 // 配置 multer 用于文件上传（内存存储）
 const upload = multer({
@@ -124,11 +125,11 @@ router.post('/start-from-text', authenticateAdmin, async (req, res) => {
     // 获取初始任务详情
     const taskDetails = await translationTaskService.getTaskDetails(taskId);
 
-    // 异步执行翻译任务（避免请求超时）
-    // 注意：这里使用 setTimeout 来异步执行，实际生产环境建议使用任务队列
+    // 异步执行翻译任务（使用新的 LangChain Workflow）
+    // 注意：这里使用 setImmediate 来异步执行，实际生产环境建议使用任务队列
     setImmediate(async () => {
       try {
-        await translationTaskService.runTranslationTask(taskId, finalImportConfig);
+        await runNovelTranslationWorkflow(taskId);
         console.log(`[AdminAITranslation] Task ${taskId} completed`);
       } catch (error) {
         console.error(`[AdminAITranslation] Task ${taskId} failed:`, error);
@@ -277,10 +278,10 @@ router.post('/upload-source-file', authenticateAdmin, upload.single('file'), asy
     // 获取初始任务详情
     const taskDetails = await translationTaskService.getTaskDetails(taskId);
 
-    // 异步执行翻译任务（避免请求超时）
+    // 异步执行翻译任务（使用新的 LangChain Workflow）
     setImmediate(async () => {
       try {
-        await translationTaskService.runTranslationTask(taskId, finalImportConfig);
+        await runNovelTranslationWorkflow(taskId);
         console.log(`[AdminAITranslation] Task ${taskId} completed`);
       } catch (error) {
         console.error(`[AdminAITranslation] Task ${taskId} failed:`, error);
@@ -604,6 +605,8 @@ router.post('/import-batch/:batchId/precheck', authenticateAdmin, async (req, re
       data: {
         total: result.total,
         issueCount: result.issueCount,
+        suspectCount: result.suspectCount || 0, // AI 判断不合理的标题数
+        autoFixedCount: result.autoFixedCount || 0, // AI 自动修复的标题数
       }
     });
 
@@ -647,14 +650,10 @@ router.post('/import-batch/:batchId/start-translation', authenticateAdmin, async
     // 3. 获取初始任务详情
     const taskDetails = await translationTaskService.getTaskDetails(taskId);
 
-    // 4. 异步执行翻译任务（使用新的 LangChain 流水线）
+    // 4. 异步执行翻译任务（使用新的 LangChain Workflow）
     setImmediate(async () => {
       try {
-        // 构建导入配置
-        const { buildChapterImportConfig } = require('../services/aiChapterImportConfig');
-        const importConfig = buildChapterImportConfig({ novelId: batchDetails.batch.novel_id });
-        
-        await translationTaskService.runTranslationTaskFromImportBatch(taskId, importConfig);
+        await runNovelTranslationWorkflow(taskId);
         console.log(`[AdminAITranslation] Task ${taskId} completed`);
       } catch (error) {
         console.error(`[AdminAITranslation] Task ${taskId} failed:`, error);
@@ -676,6 +675,86 @@ router.post('/import-batch/:batchId/start-translation', authenticateAdmin, async
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to start translation'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/ai-translation/task/:taskId/pause
+ * 暂停翻译任务
+ */
+router.post('/task/:taskId/pause', authenticateAdmin, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        message: 'taskId is required'
+      });
+    }
+    
+    const db = await mysql.createConnection(dbConfig);
+    await db.execute(
+      'UPDATE translation_task SET status = ? WHERE id = ?',
+      ['paused', taskId]
+    );
+    await db.end();
+    
+    res.json({
+      success: true,
+      message: `Task ${taskId} paused`
+    });
+  } catch (error) {
+    console.error('[AdminAITranslation] Error pausing task:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to pause task'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/ai-translation/task/:taskId/resume
+ * 恢复翻译任务
+ */
+router.post('/task/:taskId/resume', authenticateAdmin, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        message: 'taskId is required'
+      });
+    }
+    
+    const db = await mysql.createConnection(dbConfig);
+    await db.execute(
+      'UPDATE translation_task SET status = ? WHERE id = ?',
+      ['running', taskId]
+    );
+    await db.end();
+    
+    // 异步继续执行 Workflow
+    setImmediate(async () => {
+      try {
+        await runNovelTranslationWorkflow(parseInt(taskId));
+        console.log(`[AdminAITranslation] Task ${taskId} resumed and completed`);
+      } catch (error) {
+        console.error(`[AdminAITranslation] Task ${taskId} resume failed:`, error);
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: `Task ${taskId} resumed`
+    });
+  } catch (error) {
+    console.error('[AdminAITranslation] Error resuming task:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to resume task'
     });
   }
 });

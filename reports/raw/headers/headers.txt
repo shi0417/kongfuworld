@@ -1,0 +1,36 @@
+前端安全头检查 (http://localhost:3000):
+缺失: HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+得分: 0%
+
+后端安全头检查 (http://localhost:5000):
+缺失: HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy
+得分: 33%
+
+详细头部信息:
+{
+  "frontend": {
+    "x-powered-by": "Express",
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "*",
+    "access-control-allow-headers": "*",
+    "content-type": "text/html; charset=utf-8",
+    "accept-ranges": "bytes",
+    "content-length": "1695",
+    "etag": "W/\"69f-Uxlwx/kuUlzWt1klak4J1vSbSWA\"",
+    "vary": "Accept-Encoding",
+    "date": "Tue, 16 Dec 2025 09:37:25 GMT",
+    "connection": "keep-alive",
+    "keep-alive": "timeout=5"
+  },
+  "backend": {
+    "x-powered-by": "Express",
+    "access-control-allow-origin": "*",
+    "content-security-policy": "default-src 'none'",
+    "x-content-type-options": "nosniff",
+    "content-type": "text/html; charset=utf-8",
+    "content-length": "139",
+    "date": "Tue, 16 Dec 2025 09:37:25 GMT",
+    "connection": "keep-alive",
+    "keep-alive": "timeout=5"
+  }
+}

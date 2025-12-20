@@ -57,9 +57,6 @@ const translations = {
     'calendar.notUpdated': 'Not Updated',
     'announcements.title': 'Official Announcements',
     'announcements.more': 'More >',
-    'contests.title': 'Writing Contests',
-    'courses.title': 'Recommended Courses',
-    'topics.title': 'Trending Topics',
     
     // Buttons
     'btn.viewNow': 'View Now',
@@ -319,9 +316,6 @@ const translations = {
     'calendar.notUpdated': '未更新',
     'announcements.title': '官方动态',
     'announcements.more': '更多>',
-    'contests.title': '有奖征文',
-    'courses.title': '推荐课程',
-    'topics.title': '热议话题',
     
     // Buttons
     'btn.viewNow': '立即查看',

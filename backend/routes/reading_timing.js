@@ -68,12 +68,22 @@ router.post('/update-exit-time', async (req, res) => {
     const formattedExitTime = formatDateTime(exitTime);
     console.log(`🔄 格式化时间: 离开${formattedExitTime}`);
     
-    // 根据记录ID直接更新离开时间
+    // 根据记录ID更新离开时间，并同步计算停留时长 stay_duration（秒）
+    // 规则：
+    // - page_enter_time 为空：stay_duration 置为 NULL（无法计算）
+    // - exitTime 早于 enterTime：stay_duration 置为 0（避免负数）
+    // - 否则：stay_duration = TIMESTAMPDIFF(SECOND, page_enter_time, page_exit_time)
     const [updateResult] = await db.execute(`
       UPDATE reading_log 
-      SET page_exit_time = ?
+      SET 
+        page_exit_time = ?,
+        stay_duration = CASE
+          WHEN page_enter_time IS NULL OR ? IS NULL THEN NULL
+          WHEN TIMESTAMPDIFF(SECOND, page_enter_time, ?) < 0 THEN 0
+          ELSE TIMESTAMPDIFF(SECOND, page_enter_time, ?)
+        END
       WHERE id = ?
-    `, [formattedExitTime, recordId]);
+    `, [formattedExitTime, formattedExitTime, formattedExitTime, formattedExitTime, recordId]);
     
     if (updateResult.affectedRows > 0) {
       console.log(`✅ 更新离开时间成功: 记录ID ${recordId}`);

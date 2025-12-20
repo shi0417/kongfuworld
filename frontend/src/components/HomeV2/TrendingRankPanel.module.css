@@ -1,0 +1,108 @@
+.wrap {
+  background: #1a1b1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.viewAll {
+  color: #7aa7ff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.tab {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.85);
+  font-weight: 800;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tabActive {
+  border-color: rgba(122,167,255,0.7);
+  color: #7aa7ff;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 28px 44px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(122,167,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #7aa7ff;
+}
+
+.cover {
+  width: 44px;
+  height: 58px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+}
+
+.name {
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.meta {
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.empty {
+  color: rgba(255,255,255,0.65);
+  padding: 10px 2px;
+  font-size: 13px;
+}
+
+

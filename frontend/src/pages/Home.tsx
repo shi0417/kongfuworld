@@ -5,13 +5,15 @@ import BannerCarousel from '../components/BannerCarousel/BannerCarousel';
 import Announcements from '../components/Announcements/Announcements';
 import NovelListSection from '../components/NovelListSection/NovelListSection';
 import Footer from '../components/Footer/Footer';
-import homepageService, { Novel, Banner } from '../services/homepageService';
+import homepageService, { HomepageV2, Novel, Banner } from '../services/homepageService';
+import { HomeV2Page } from '../components/HomeV2/HomeV2Page';
 import styles from './Home.module.css';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [v2, setV2] = useState<HomepageV2 | null>(null);
   
   // 数据状态
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -27,9 +29,28 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setV2(null);
 
+      // 关键要求：首页只请求 1 次接口。
+      // 这里直接请求 /api/homepage/all，一次拿到旧字段 + v2（若存在），避免二次请求。
+      const all = await homepageService.getHomepageAll(6);
+      const preferV2 = process.env.REACT_APP_HOME_V2 !== '0';
+
+      if (preferV2 && all && all.success && all.data && all.data.v2) {
+        setV2(all.data.v2);
+        return;
+      }
+
+      if (all && all.success && all.data) {
+        setBanners(all.data.banners || []);
+        setPopularNovels(all.data.popularNovels || []);
+        setNewReleases(all.data.newReleases || []);
+        setTopSeries(all.data.topSeries || []);
+        return;
+      }
+
+      // 极端 fallback：/api/homepage/all 不可用时，回退旧逻辑（会产生多请求，但只在故障场景启用）
       const data = await homepageService.getAllHomepageData();
-      
       setBanners(data.banners);
       setPopularNovels(data.popularNovels);
       setNewReleases(data.newReleases);
@@ -104,6 +125,11 @@ const Home: React.FC = () => {
         <Footer />
       </div>
     );
+  }
+
+  // V2 首页（Wuxiaworld 风格排布）
+  if (v2) {
+    return <HomeV2Page v2={v2} onNovelClick={handleNovelClick} />;
   }
 
   return (

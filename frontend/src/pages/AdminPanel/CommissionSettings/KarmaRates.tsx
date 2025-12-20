@@ -135,7 +135,10 @@ const KarmaRates: React.FC<KarmaRatesProps> = ({ onError }) => {
         <p>说明：所有章节解锁消费将按解锁时刻对应的汇率计算。调整汇率仅影响未来消费，历史已结算数据不会被回算。</p>
       </div>
       <div className={styles.paymentTable}>
-        <h3>Karma汇率列表</h3>
+        <div className={styles.tableHeaderRow}>
+          <h3 style={{ margin: 0 }}>Karma汇率列表</h3>
+          <span className={styles.tableNameBadge}>表名：karma_dollars</span>
+        </div>
         <table>
           <thead>
             <tr>

@@ -1,0 +1,1 @@
+select * from site_legal_documents ;

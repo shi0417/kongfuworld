@@ -223,10 +223,6 @@ const NavBar: React.FC = () => {
       <div className={styles.leftNav}>
         <div className={styles.navLink} onClick={() => navigate('/series')}>Series</div>
         <div className={styles.navLink} onClick={() => navigate('/bookmarks')}>Bookmarks</div>
-        <div className={styles.navLink} onClick={() => navigate('/forum')}>Forum</div>
-        <div className={styles.navLink} onClick={() => navigate('/resources')}>
-          Resources <span style={{ marginLeft: 4, fontSize: '12px' }}>▼</span>
-        </div>
         <div className={styles.navLink} onClick={handleWritersZoneClick}>
           Writers' Zone
         </div>

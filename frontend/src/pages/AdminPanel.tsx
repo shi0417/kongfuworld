@@ -16,6 +16,10 @@ import EditorManagement from './AdminPanel/EditorManagement';
 import AdminUserPage from './AdminPanel/AdminUserPage';
 import NewNovelPool from './AdminPanel/NewNovelPool';
 import AdminPayoutAccounts from './AdminPanel/AdminPayoutAccounts';
+import AdminBannerManagement from './AdminPanel/AdminBannerManagement';
+import AdminAnnouncementManagement from './AdminPanel/AdminAnnouncementManagement';
+import AdminLegalDocsManagement from './AdminPanel/AdminLegalDocsManagement';
+import AdminInbox from './AdminPanel/AdminInbox';
 import EditorSettlementPayoutModal from './AdminPanel/EditorSettlementPayoutModal';
 import AIBatchTranslation from './AdminPanel/AIBatchTranslation';
 import { incomeEditorMenuGroup, ALL_MENU_KEYS, topStandaloneMenus, bottomStandaloneMenus } from './adminMenuConfig';
@@ -57,7 +61,7 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'editor-base-income' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'ai-batch-translation' | 'admin-payout-account';
+type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'editor-base-income' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'ai-batch-translation' | 'admin-payout-account' | 'admin-banner-management' | 'announcement-management' | 'admin-legal-docs' | 'admin-inbox';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -3335,6 +3339,24 @@ const AdminPanel: React.FC = () => {
           {/* 我的收款账户选项卡 */}
           {activeTab === 'admin-payout-account' && (
             <AdminPayoutAccounts onError={setError} />
+          )}
+
+          {/* Banner 管理选项卡 */}
+          {activeTab === 'admin-banner-management' && (
+            <AdminBannerManagement onError={setError} />
+          )}
+
+          {/* 公告管理选项卡 */}
+          {activeTab === 'announcement-management' && (
+            <AdminAnnouncementManagement onError={setError} />
+          )}
+
+          {/* 站点政策管理选项卡 */}
+          {activeTab === 'admin-legal-docs' && (
+            <AdminLegalDocsManagement onError={setError} />
+          )}
+          {activeTab === 'admin-inbox' && (
+            <AdminInbox onError={setError} />
           )}
                 </div>
               </div>

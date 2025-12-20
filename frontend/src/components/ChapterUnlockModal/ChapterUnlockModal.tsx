@@ -9,6 +9,7 @@ interface ChapterUnlockModalProps {
   isOpen: boolean;
   onClose: () => void;
   chapterId: number;
+  novelId: number;
   userId: number;
   onUnlockSuccess: () => void;
 }
@@ -59,6 +60,7 @@ const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
   isOpen,
   onClose,
   chapterId,
+  novelId,
   userId,
   onUnlockSuccess
 }) => {
@@ -300,9 +302,8 @@ const ChapterUnlockModal: React.FC<ChapterUnlockModalProps> = ({
   };
 
   const handleSubscribe = () => {
-    console.log('🏅 Champion subscription feature');
-    // Can navigate to subscription page or show subscription modal
-    alert('Champion subscription feature under development...');
+    // 只负责“跳转 + 意图表达”，不在这里做 Champion 状态判断，也不调用 Champion API
+    navigate(`/book/${novelId}?tab=champion`);
   };
 
   if (!isOpen) return null;

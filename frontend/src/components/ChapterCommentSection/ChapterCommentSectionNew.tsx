@@ -4,6 +4,7 @@ import ChapterCommentReplies from './ChapterCommentReplies';
 import styles from './ChapterCommentSectionNew.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import Toast from '../Toast/Toast';
 
 interface ChapterCommentSectionNewProps {
   chapterId: number;
@@ -21,6 +22,11 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
   const [showRepliesMap, setShowRepliesMap] = useState<Record<number, boolean>>({});
   const [showReplyFormMap, setShowReplyFormMap] = useState<Record<number, boolean>>({});
   const [replyCountsMap, setReplyCountsMap] = useState<Record<number, number>>({});
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ message, type });
+  };
 
   useEffect(() => {
     loadComments();
@@ -61,10 +67,12 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
   const handleSubmitComment = async () => {
     if (!user) {
       setError('Please login to post a comment.');
+      showToast('Please login to post a comment.', 'warning');
       return;
     }
     if (commentContent.trim().length < 10) {
       setError('Comment must be at least 10 characters.');
+      showToast('Comment must be at least 10 characters.', 'warning');
       return;
     }
 
@@ -74,8 +82,10 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
       await chapterCommentService.submitChapterComment(chapterId, commentContent);
       setCommentContent('');
       await loadComments();
+      showToast('Comment submitted successfully', 'success');
     } catch (err: any) {
       setError(err.message || 'Failed to submit comment.');
+      showToast(err.message || 'Failed to submit comment.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -297,6 +307,14 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
 
   return (
     <div className={styles.commentSection}>
+      {/* Toast 提示（风格参考段落评论） */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* 评论输入区域 */}
       <div className={styles.commentForm}>
         <div className={styles.formTitle}>Add a comment</div>

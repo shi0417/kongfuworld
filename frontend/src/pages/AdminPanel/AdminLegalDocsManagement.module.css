@@ -1,0 +1,113 @@
+.filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterGroup label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filterGroup select {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.titleCell {
+  font-weight: 500;
+}
+
+.title {
+  font-size: 14px;
+  color: #333;
+}
+
+.sub {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.previewCell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+}
+
+.timeCell {
+  font-size: 12px;
+  color: #666;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.statusBadge[data-status="draft"] {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.statusBadge[data-status="published"] {
+  background: #d4edda;
+  color: #155724;
+}
+
+.statusBadge[data-status="archived"] {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.currentBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #007bff;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.tableName {
+  display: inline-block;
+  margin-left: 12px;
+  font-size: 12px;
+  color: #666;
+  font-family: 'Courier New', monospace;
+  font-weight: normal;
+}
+

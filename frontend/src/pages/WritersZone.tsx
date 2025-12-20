@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,6 +8,7 @@ import Footer from '../components/Footer/Footer';
 import PersonalInfo from '../components/PersonalInfo/PersonalInfo';
 import CommentManagement from '../components/CommentManagement/CommentManagement';
 import IncomeManagement from './WritersZone/IncomeManagement';
+import WorkData from './WritersZone/WorkData';
 import ApiService from '../services/ApiService';
 import styles from './WritersZone.module.css';
 
@@ -182,6 +183,9 @@ const WritersZone: React.FC = () => {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [selectedNovelId, setSelectedNovelId] = useState<string>('all'); // 'all' 表示所有小说
+  const [announcements, setAnnouncements] = useState<Array<{ id: number; title: string; created_at: string; link_url: string | null }>>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // 加载用户小说列表
   const loadUserNovels = async () => {
@@ -232,6 +236,37 @@ const WritersZone: React.FC = () => {
     }
   };
 
+  // 加载官方动态公告（只加载作者端公告，限制2条）
+  const loadAnnouncements = async () => {
+    try {
+      setAnnouncementsLoading(true);
+      const res = await ApiService.get('/news?target_audience=writer');
+      if (res.success && res.data && res.data.items) {
+        // 只取前 2 条
+        const items = res.data.items.slice(0, 2);
+        setAnnouncements(items);
+      }
+    } catch (error) {
+      console.error('加载官方动态失败:', error);
+      setAnnouncements([]);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  // 加载未读消息数
+  const loadUnreadCount = async () => {
+    try {
+      const response = await ApiService.get('/writer/inbox/unread-count');
+      if (response.success && response.data) {
+        setUnreadCount(response.data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('加载未读数失败:', error);
+      setUnreadCount(0);
+    }
+  };
+
   // 检查用户是否登录且是作者
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -261,6 +296,10 @@ const WritersZone: React.FC = () => {
           currentCalendarDate.getMonth(),
           selectedNovelId
         );
+        // 加载官方动态
+        await loadAnnouncements();
+        // 加载未读消息数
+        await loadUnreadCount();
       } catch (error) {
         console.error('检查用户状态失败:', error);
         navigate('/email-verification');
@@ -285,24 +324,26 @@ const WritersZone: React.FC = () => {
 
   // 加载统计数据
   const loadStats = async () => {
+    if (!user) return;
     try {
-      // TODO: 实现获取统计数据API
-      // const response = await ApiService.get(`/writers-zone/stats/${user?.id}`);
-      // setStats(response.data);
-      
-      // 临时数据
-      if (user) {
-        const joinDate = new Date(user.created_at || Date.now());
-        const daysJoined = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+      const response = await ApiService.get('/writer/stats');
+      if (response.success && response.data) {
         setStats({
-          worksCount: 0,
-          daysJoined: daysJoined || 109,
-          cumulativeIncome: 0,
-          cumulativeWordCount: 0
+          worksCount: response.data.worksCount || 0,
+          daysJoined: response.data.daysJoined || 0,
+          cumulativeIncome: response.data.cumulativeIncome || 0,
+          cumulativeWordCount: response.data.cumulativeWordCount || 0
         });
       }
     } catch (error) {
       console.error('加载统计数据失败:', error);
+      // 失败时使用默认值
+      setStats({
+        worksCount: 0,
+        daysJoined: 0,
+        cumulativeIncome: 0,
+        cumulativeWordCount: 0
+      });
     }
   };
 
@@ -406,14 +447,34 @@ const WritersZone: React.FC = () => {
         <div className={styles.headerContent}>
           <h1 className={styles.headerTitle}>{t('header.title')}</h1>
           <div className={styles.headerActions}>
-            <button className={styles.headerBtn} onClick={() => navigate('/writers-exchange')}>
-              {t('header.writerExchange')}
-            </button>
             <button className={styles.headerBtn} onClick={() => navigate('/contract-policy')}>
               {t('header.contractPolicy')}
             </button>
-            <button className={styles.headerBtn}>
+            <button 
+              className={styles.headerBtn}
+              onClick={() => navigate('/writers-zone/inbox')}
+              style={{ position: 'relative' }}
+            >
+              <span style={{ marginRight: '4px' }}>✉️</span>
               {t('header.messages')}
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  backgroundColor: '#ff4444',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  padding: '2px 6px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  minWidth: '18px',
+                  textAlign: 'center',
+                  lineHeight: '16px'
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
             <div className={styles.userDropdown}>
               <span>{userData?.pen_name || user?.username || 'User'}</span>
@@ -468,8 +529,6 @@ const WritersZone: React.FC = () => {
                   >
                     {t('nav.novel')}
                   </div>
-                  <div className={styles.subNavItem}>{t('nav.shortStory')}</div>
-                  <div className={styles.subNavItem}>{t('nav.script')}</div>
                 </div>
               )}
 
@@ -491,11 +550,13 @@ const WritersZone: React.FC = () => {
                   >
                     {t('nav.commentManagement')}
                   </div>
-                  <div className={styles.subNavItem}>{t('nav.readerCorrections')}</div>
                 </div>
               )}
 
-              <div className={styles.navItem}>
+              <div
+                className={`${styles.navItem} ${activeNav === 'workData' ? styles.active : ''}`}
+                onClick={() => setActiveNav('workData')}
+              >
                 <span className={styles.navIcon}>📊</span>
                 {t('nav.workData')}
               </div>
@@ -509,43 +570,11 @@ const WritersZone: React.FC = () => {
               </div>
 
               <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('learningExchange')}
-              >
-                <span className={styles.navIcon}>📖</span>
-                {t('nav.learningExchange')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('learningExchange') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('learningExchange') && (
-                <div className={styles.subNav}>
-                  <div className={styles.subNavItem}>{t('header.writerExchange')}</div>
-                  <div className={styles.subNavItem}>{t('nav.writerAcademy')}</div>
-                </div>
-              )}
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📅</span>
-                {t('nav.leaveManagement')}
-              </div>
-
-              <div
                 className={`${styles.navItem} ${activeNav === 'personalInfo' ? styles.active : ''}`}
                 onClick={() => setActiveNav('personalInfo')}
               >
                 <span className={styles.navIcon}>👤</span>
                 {t('nav.personalInfo')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📄</span>
-                {t('nav.myContracts')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📝</span>
-                {t('nav.myPosts')}
               </div>
             </div>
           </nav>
@@ -558,6 +587,8 @@ const WritersZone: React.FC = () => {
             <CommentManagement userId={user?.id || 0} />
           ) : activeNav === 'incomeManagement' ? (
             <IncomeManagement />
+          ) : activeNav === 'workData' ? (
+            <WorkData />
           ) : activeNav === 'personalInfo' ? (
             <PersonalInfo 
               userId={user?.id || 0} 
@@ -694,22 +725,6 @@ const WritersZone: React.FC = () => {
           ) : (
             <>
           {/* Promotional Banner */}
-          <div className={styles.banner}>
-            <div className={styles.bannerContent}>
-              <div className={styles.bannerText}>
-                <h2>
-                  {language === 'zh' 
-                    ? '从拒稿到签约 新手作家的签约过稿心得'
-                    : 'From Rejection to Contract: New Writer\'s Contract Submission Experience'}
-                </h2>
-              </div>
-              <div className={styles.bannerIllustration}>🎨</div>
-              <button className={styles.bannerBtn}>
-                {t('btn.viewNow')}
-              </button>
-            </div>
-          </div>
-
           {/* User Profile and Stats */}
           <div className={styles.profileSection}>
             <div className={styles.profileCard}>
@@ -755,8 +770,6 @@ const WritersZone: React.FC = () => {
             <div className={styles.workTabs}>
               <div className={styles.workTabsLeft}>
                 <button className={`${styles.workTab} ${styles.active}`}>{t('nav.novel')}</button>
-                <button className={styles.workTab}>{t('nav.shortStory')}</button>
-                <button className={styles.workTab}>{t('nav.script')}</button>
               </div>
               {novels.length > 0 && (
                 <div className={styles.workActionsTop}>
@@ -906,94 +919,56 @@ const WritersZone: React.FC = () => {
           <div className={styles.announcementsSection}>
             <div className={styles.sectionHeader}>
               <h3>{t('announcements.title')}</h3>
-              <a href="#" className={styles.link}>{t('announcements.more')}</a>
+              <Link to="/news?target_audience=writer" className={styles.link}>{t('announcements.more')}</Link>
             </div>
             <div className={styles.announcementsList}>
-              <div className={styles.announcementItem}>
-                <span className={styles.date}>10-31</span>
-                <span className={styles.content}>
-                  {language === 'zh'
-                    ? '版权运营相关更新说明'
-                    : 'Copyright Operations Update'}
-                </span>
-              </div>
-              <div className={styles.announcementItem}>
-                <span className={styles.date}>10-28</span>
-                <span className={styles.content}>
-                  {language === 'zh'
-                    ? '作家成就系统上线'
-                    : 'Writer Achievement System Launched'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Writing Contests */}
-          <div className={styles.contestsSection}>
-            <div className={styles.sectionHeader}>
-              <h3>{t('contests.title')}</h3>
-              <a href="#" className={styles.link}>{t('works.more')}</a>
-            </div>
-            <div className={styles.contestCards}>
-              <div className={styles.contestCard}>
-                <div className={styles.contestImage}>特色职业</div>
-              </div>
-              <div className={styles.contestCard}>
-                <div className={styles.contestImage}>强取豪夺</div>
-              </div>
-              <div className={styles.contestCard}>
-                <div className={styles.contestImage}>地域风情</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recommended Courses */}
-          <div className={styles.coursesSection}>
-            <div className={styles.sectionHeader}>
-              <h3>{t('courses.title')}</h3>
-              <a href="#" className={styles.link}>{t('works.more')}</a>
-            </div>
-            <div className={styles.courseList}>
-              <div className={styles.courseItem}>
-                <div className={styles.courseInfo}>
-                  <h4>
-                    {language === 'zh'
-                      ? '剧情拖沓,节奏太慢?如何加快故事节奏?'
-                      : 'Plot Dragging, Rhythm Too Slow? How to Speed Up Story Rhythm?'}
-                  </h4>
-                  <div className={styles.courseMeta}>
-                    <span>10-28</span>
-                    <span>100 reads</span>
-                    <span>50 likes</span>
-                    <span>20 favorites</span>
-                  </div>
+              {announcementsLoading ? (
+                <div style={{ textAlign: 'center', padding: '10px', color: '#999' }}>
+                  {language === 'zh' ? '加载中...' : 'Loading...'}
                 </div>
-                <div className={styles.courseImage}>📚</div>
-              </div>
+              ) : announcements.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '10px', color: '#999' }}>
+                  {language === 'zh' ? '暂无公告' : 'No announcements'}
+                </div>
+              ) : (
+                announcements.map((item) => {
+                  // 格式化日期为 MM-DD
+                  const date = new Date(item.created_at);
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const dateStr = `${month}-${day}`;
+                  
+                  const handleClick = () => {
+                    if (item.link_url) {
+                      // 如果是站内相对路径，使用 navigate
+                      if (item.link_url.startsWith('/')) {
+                        navigate(item.link_url);
+                      } else {
+                        // 外部链接，新窗口打开
+                        window.open(item.link_url, '_blank', 'noopener,noreferrer');
+                      }
+                    } else {
+                      // 跳转到公告详情页
+                      navigate(`/news/${item.id}`);
+                    }
+                  };
+
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={styles.announcementItem}
+                      onClick={handleClick}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <span className={styles.date}>{dateStr}</span>
+                      <span className={styles.content}>{item.title}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Trending Topics */}
-          <div className={styles.topicsSection}>
-            <div className={styles.sectionHeader}>
-              <h3>{t('topics.title')}</h3>
-              <a href="#" className={styles.link}>{t('works.more')}</a>
-            </div>
-            <div className={styles.topicList}>
-              <div className={styles.topicItem}>
-                <span className={styles.topicContent}>
-                  {language === 'zh'
-                    ? '短故事福利升级相关讨论'
-                    : 'Short Story Welfare Upgrade Discussion'}
-                </span>
-                <div className={styles.topicMeta}>
-                  <span>💬 10 comments</span>
-                  <span>100 reads</span>
-                  <span>5 replies</span>
-                </div>
-              </div>
-            </div>
-          </div>
             </>
           )}
         </main>

@@ -1,0 +1,38 @@
+.wrap {
+  margin: 18px 0 22px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 6px 0 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.viewAll {
+  color: #7aa7ff;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.empty {
+  color: rgba(255,255,255,0.65);
+  padding: 12px 2px;
+  font-size: 13px;
+}
+
+

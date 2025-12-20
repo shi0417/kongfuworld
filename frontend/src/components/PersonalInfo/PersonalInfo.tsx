@@ -22,7 +22,6 @@ interface PersonalInfoData {
   avatar: string | null;
   addresses: Address[];
   identity_verification: IdentityVerification | null;
-  bank_cards: BankCard[];
 }
 
 interface Address {
@@ -41,14 +40,6 @@ interface IdentityVerification {
   verification_status: 'pending' | 'verified' | 'rejected';
 }
 
-interface BankCard {
-  binding_id: number;
-  platform_name: string;
-  masked_card_number: string;
-  bank_name: string | null;
-  cardholder_name: string | null;
-  full_card_number_raw: string | null; // 真实卡号，用于编辑
-}
 
 interface PersonalInfoProps {
   userId: number;
@@ -72,13 +63,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
   const [emergencyContactPhoneCountryCode, setEmergencyContactPhoneCountryCode] = useState<string>('+86');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
-  const [showBankCardModal, setShowBankCardModal] = useState(false);
-  const [editingBankCardId, setEditingBankCardId] = useState<number | null>(null);
-  const [originalBankCardData, setOriginalBankCardData] = useState<BankCard | null>(null);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
-  const [activeBankCardTab, setActiveBankCardTab] = useState<'manage' | 'logs'>('manage');
-  const [bankCardChangeLogs, setBankCardChangeLogs] = useState<any[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
   const [autoLogoutOnBrowserClose, setAutoLogoutOnBrowserClose] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
@@ -88,12 +73,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
     recipient_name: '',
     recipient_phone: '',
     is_default: false
-  });
-  const [bankCardForm, setBankCardForm] = useState({
-    platform_name: '',
-    full_card_number: '',
-    bank_name: '',
-    cardholder_name: ''
   });
   const [identityForm, setIdentityForm] = useState({
     id_card_number: '',
@@ -119,79 +98,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
     loadPersonalInfo();
     loadUserSettings();
   }, [userId]);
-
-  // 当切换到变更记录标签时加载数据
-  useEffect(() => {
-    if (activeBankCardTab === 'logs') {
-      loadBankCardChangeLogs();
-    }
-  }, [activeBankCardTab, userId]);
-
-  // 加载银行卡变更记录
-  const loadBankCardChangeLogs = async () => {
-    try {
-      setLoadingLogs(true);
-      const response = await ApiService.get(`/personal-info/${userId}/bank-cards/change-logs`);
-      if (response.success) {
-        setBankCardChangeLogs(response.data || []);
-      }
-    } catch (error) {
-      console.error('加载银行卡变更记录失败:', error);
-      setToast({ message: language === 'zh' ? '加载变更记录失败' : 'Failed to load change logs', type: 'error' });
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
-
-  // 设为当前的收款银行
-  const handleSetAsCurrentBankCard = (log: any, isOld: boolean) => {
-    // 获取银行卡数据
-    const cardData = isOld ? {
-      platform_name: log.platform_name || 'kongfuworld网站',
-      full_card_number: log.old_card_number_raw || '',
-      bank_name: log.old_bank_name || '',
-      cardholder_name: log.old_cardholder_name || ''
-    } : {
-      platform_name: log.platform_name || 'kongfuworld网站',
-      full_card_number: log.new_card_number_raw || '',
-      bank_name: log.new_bank_name || '',
-      cardholder_name: log.new_cardholder_name || ''
-    };
-
-    console.log('设为当前收款银行 - 银行卡数据:', cardData);
-    console.log('变更记录原始数据:', log);
-    console.log('旧卡号原始值:', log.old_card_number_raw);
-    console.log('新卡号原始值:', log.new_card_number_raw);
-
-    // 检查是否已有该平台的银行卡绑定
-    const existingCard = data?.bank_cards.find(card => card.platform_name === cardData.platform_name);
-    
-    // 先设置表单数据
-    const formData = {
-      platform_name: cardData.platform_name,
-      full_card_number: cardData.full_card_number,
-      bank_name: cardData.bank_name,
-      cardholder_name: cardData.cardholder_name
-    };
-    
-    if (existingCard) {
-      // 如果已存在，打开编辑模态框并填充数据
-      setEditingBankCardId(existingCard.binding_id);
-      setOriginalBankCardData(existingCard);
-      setBankCardForm(formData);
-      setShowBankCardModal(true);
-      // 切换到管理标签
-      setActiveBankCardTab('manage');
-    } else {
-      // 如果不存在，打开添加模态框并填充数据
-      setEditingBankCardId(null);
-      setOriginalBankCardData(null);
-      setBankCardForm(formData);
-      setShowBankCardModal(true);
-      // 切换到管理标签
-      setActiveBankCardTab('manage');
-    }
-  };
 
   // 加载用户设置
   const loadUserSettings = async () => {
@@ -390,95 +296,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
     }
   };
 
-  // 编辑银行卡（打开模态框并填充数据）
-  const handleEditBankCard = (card: BankCard) => {
-    setEditingBankCardId(card.binding_id);
-    // 保存原始数据用于对比
-    setOriginalBankCardData(card);
-    setBankCardForm({
-      platform_name: card.platform_name,
-      full_card_number: card.full_card_number_raw || '',
-      bank_name: card.bank_name || '',
-      cardholder_name: card.cardholder_name || ''
-    });
-    setShowBankCardModal(true);
-  };
-
-  // 添加银行卡
-  const handleAddBankCard = async () => {
-    try {
-      // 固定使用kongfuworld网站作为平台名称
-      const formData = {
-        ...bankCardForm,
-        platform_name: 'kongfuworld网站'
-      };
-      await ApiService.post(`/personal-info/${userId}/bank-cards`, formData);
-      setShowBankCardModal(false);
-      setEditingBankCardId(null);
-      setOriginalBankCardData(null);
-      setBankCardForm({ platform_name: '', full_card_number: '', bank_name: '', cardholder_name: '' });
-      await loadPersonalInfo();
-      setToast({ message: language === 'zh' ? '银行卡绑定成功' : 'Bank card bound successfully', type: 'success' });
-    } catch (error) {
-      console.error('绑定银行卡失败:', error);
-      setToast({ message: language === 'zh' ? '绑定银行卡失败' : 'Failed to bind bank card', type: 'error' });
-    }
-  };
-
-  // 更新银行卡
-  const handleUpdateBankCard = async () => {
-    if (!editingBankCardId || !originalBankCardData) return;
-
-    // 对比新旧银行卡信息
-    const hasCardNumberChange = bankCardForm.full_card_number !== (originalBankCardData.full_card_number_raw || '');
-    const hasBankNameChange = bankCardForm.bank_name !== (originalBankCardData.bank_name || '');
-    const hasCardholderNameChange = bankCardForm.cardholder_name !== (originalBankCardData.cardholder_name || '');
-
-    // 检查是否有任何变化
-    if (!hasCardNumberChange && !hasBankNameChange && !hasCardholderNameChange) {
-      setToast({ message: language === 'zh' ? '银行卡信息没有更改，无需保存' : 'No changes detected, no need to save', type: 'info' });
-      return;
-    }
-
-    try {
-      await ApiService.put(`/personal-info/${userId}/bank-cards/${editingBankCardId}`, {
-        full_card_number: bankCardForm.full_card_number,
-        bank_name: bankCardForm.bank_name,
-        cardholder_name: bankCardForm.cardholder_name
-      });
-      setShowBankCardModal(false);
-      setEditingBankCardId(null);
-      setOriginalBankCardData(null);
-      setBankCardForm({ platform_name: '', full_card_number: '', bank_name: '', cardholder_name: '' });
-      await loadPersonalInfo();
-      // 如果当前在变更记录标签，重新加载变更记录
-      if (activeBankCardTab === 'logs') {
-        await loadBankCardChangeLogs();
-      }
-      setToast({ message: language === 'zh' ? '银行卡更新成功' : 'Bank card updated successfully', type: 'success' });
-    } catch (error: any) {
-      console.error('更新银行卡失败:', error);
-      const errorMessage = error.response?.data?.message || error.message || (language === 'zh' ? '更新失败' : 'Failed to update bank card');
-      setToast({ message: errorMessage, type: 'error' });
-    }
-  };
-
-  // 更换银行卡（保留原功能，使用prompt）
-  const handleReplaceBankCard = async (bindingId: number) => {
-    const newCardNumber = prompt(language === 'zh' ? '请输入新卡号：' : 'Please enter new card number:');
-    if (!newCardNumber) return;
-
-    try {
-      await ApiService.put(`/personal-info/${userId}/bank-cards/${bindingId}`, {
-        full_card_number: newCardNumber
-      });
-      await loadPersonalInfo();
-      setToast({ message: language === 'zh' ? '银行卡更换成功' : 'Bank card replaced successfully', type: 'success' });
-    } catch (error) {
-      console.error('更换银行卡失败:', error);
-      setToast({ message: language === 'zh' ? '更换失败' : 'Failed to replace bank card', type: 'error' });
-    }
-  };
 
   if (loading) {
     return <div className={styles.loading}>{language === 'zh' ? '加载中...' : 'Loading...'}</div>;
@@ -763,131 +580,12 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
         </div>
       </div>
 
-      {/* 银行卡绑定 */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h3 className={styles.sectionTitle}>
-            {language === 'zh' ? '银行卡绑定' : 'Bank Card Binding'}
-          </h3>
-          <div className={styles.tabs}>
-            <button
-              className={`${styles.tab} ${activeBankCardTab === 'manage' ? styles.active : ''}`}
-              onClick={() => setActiveBankCardTab('manage')}
-            >
-              {language === 'zh' ? '银行卡管理' : 'Bank Card Management'}
-            </button>
-            <button
-              className={`${styles.tab} ${activeBankCardTab === 'logs' ? styles.active : ''}`}
-              onClick={() => setActiveBankCardTab('logs')}
-            >
-              {language === 'zh' ? '银行卡变更记录' : 'Change Records'}
-            </button>
-          </div>
-        </div>
-        {activeBankCardTab === 'manage' && (
-          <div className={styles.bankCardList}>
-            {data.bank_cards.length > 0 ? (
-              data.bank_cards.map(card => (
-                <div key={card.binding_id} className={styles.bankCardItem}>
-                  <div className={styles.bankCardInfo}>
-                    <span className={styles.platformName}>{card.platform_name}</span>
-                    <span className={styles.cardNumber}>({card.masked_card_number})</span>
-                  </div>
-                  <button
-                    className={styles.replaceBtn}
-                    onClick={() => handleEditBankCard(card)}
-                  >
-                    {language === 'zh' ? '更改' : 'Change'}
-                  </button>
-                </div>
-              ))
-            ) : (
-              <div className={styles.emptyState}>
-                {language === 'zh' ? '暂无银行卡绑定' : 'No bank cards bound'}
-              </div>
-            )}
-            <button
-              className={styles.addBankCardBtn}
-              onClick={() => {
-                setEditingBankCardId(null);
-                setOriginalBankCardData(null);
-                setBankCardForm({ platform_name: '', full_card_number: '', bank_name: '', cardholder_name: '' });
-                setShowBankCardModal(true);
-              }}
-            >
-              {language === 'zh' ? '+ 添加银行卡' : '+ Add Bank Card'}
-            </button>
-          </div>
-        )}
-        {activeBankCardTab === 'logs' && (
-          <div className={styles.changeLogs}>
-            {loadingLogs ? (
-              <div className={styles.loading}>{language === 'zh' ? '加载中...' : 'Loading...'}</div>
-            ) : bankCardChangeLogs.length === 0 ? (
-              <div className={styles.emptyState}>
-                {language === 'zh' ? '暂无变更记录' : 'No change records'}
-              </div>
-            ) : (
-              <div className={styles.logsTable}>
-                <table className={styles.logsTableContent}>
-                  <thead>
-                    <tr>
-                      <th>{language === 'zh' ? 'ID' : 'ID'}</th>
-                      <th>{language === 'zh' ? '旧银行卡信息' : 'Old Bank Card'}</th>
-                      <th>{language === 'zh' ? '新银行卡信息' : 'New Bank Card'}</th>
-                      <th>{language === 'zh' ? '变更日期' : 'Change Date'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bankCardChangeLogs.map((log) => (
-                      <tr key={log.log_id}>
-                        <td>{log.log_id}</td>
-                        <td>
-                          <div className={styles.cardDetails}>
-                            <div><strong>{language === 'zh' ? '卡号' : 'Card Number'}:</strong> {log.old_masked_card_number || '-'}</div>
-                            <div><strong>{language === 'zh' ? '开户银行' : 'Bank'}:</strong> {log.old_bank_name || '-'}</div>
-                            <div><strong>{language === 'zh' ? '持卡人' : 'Cardholder'}:</strong> {log.old_cardholder_name || '-'}</div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.cardDetails}>
-                            <div><strong>{language === 'zh' ? '卡号' : 'Card Number'}:</strong> {log.new_masked_card_number || '-'}</div>
-                            <div><strong>{language === 'zh' ? '开户银行' : 'Bank'}:</strong> {log.new_bank_name || '-'}</div>
-                            <div><strong>{language === 'zh' ? '持卡人' : 'Cardholder'}:</strong> {log.new_cardholder_name || '-'}</div>
-                          </div>
-                        </td>
-                        <td>
-                          {log.changed_at ? new Date(log.changed_at).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US') : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* 账号安全 */}
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>
           {language === 'zh' ? '账号安全' : 'Account Security'}
         </h3>
         <div className={styles.infoList}>
-          <div className={styles.infoItem}>
-            <div className={styles.infoLabel}>
-              {language === 'zh' ? '登录密码' : 'Login Password'}
-            </div>
-            <div className={styles.infoValue}>
-              <span className={styles.unset}>
-                {language === 'zh' ? '未设置' : 'Not Set'}
-              </span>
-              <button className={styles.setBtn}>
-                {language === 'zh' ? '立即设置' : 'Set Now'}
-              </button>
-            </div>
-          </div>
           <div className={styles.infoItem}>
             <div className={styles.infoLabel}>
               {language === 'zh' ? '手机号' : 'Mobile Number'}
@@ -1060,68 +758,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
                   setShowAddressModal(false);
                   setEditingAddressId(null);
                   setAddressForm({ address_details: '', recipient_name: '', recipient_phone: '', is_default: false });
-                }} 
-                className={styles.cancelBtn}
-              >
-                {language === 'zh' ? '取消' : 'Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 银行卡绑定模态框 */}
-      {showBankCardModal && (
-        <div className={styles.modal}>
-          <div className={styles.modalContent}>
-            <h3>{editingBankCardId ? (language === 'zh' ? '更改银行卡' : 'Change Bank Card') : (language === 'zh' ? '绑定银行卡' : 'Bind Bank Card')}</h3>
-            <div className={styles.formGroup}>
-              <label>{language === 'zh' ? '平台名称' : 'Platform Name'}</label>
-              <input
-                type="text"
-                value="kongfuworld网站"
-                readOnly
-                className={styles.readonlyInput}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>{language === 'zh' ? '银行卡号' : 'Card Number'}</label>
-              <input
-                type="text"
-                value={bankCardForm.full_card_number}
-                onChange={(e) => setBankCardForm({ ...bankCardForm, full_card_number: e.target.value })}
-                placeholder={language === 'zh' ? '请输入银行卡号' : 'Enter card number'}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>{language === 'zh' ? '银行名称' : 'Bank Name'}</label>
-              <input
-                type="text"
-                value={bankCardForm.bank_name}
-                onChange={(e) => setBankCardForm({ ...bankCardForm, bank_name: e.target.value })}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>{language === 'zh' ? '持卡人姓名' : 'Cardholder Name'}</label>
-              <input
-                type="text"
-                value={bankCardForm.cardholder_name}
-                onChange={(e) => setBankCardForm({ ...bankCardForm, cardholder_name: e.target.value })}
-              />
-            </div>
-            <div className={styles.modalActions}>
-              <button 
-                onClick={editingBankCardId ? handleUpdateBankCard : handleAddBankCard} 
-                className={styles.saveBtn}
-              >
-                {editingBankCardId ? (language === 'zh' ? '保存' : 'Save') : (language === 'zh' ? '绑定' : 'Bind')}
-              </button>
-              <button 
-                onClick={() => {
-                  setShowBankCardModal(false);
-                  setEditingBankCardId(null);
-                  setOriginalBankCardData(null);
-                  setBankCardForm({ platform_name: '', full_card_number: '', bank_name: '', cardholder_name: '' });
                 }} 
                 className={styles.cancelBtn}
               >

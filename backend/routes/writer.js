@@ -2112,5 +2112,72 @@ router.get('/calendar', authenticateAuthor, async (req, res) => {
   }
 });
 
+// 获取作者统计数据（入驻天数、累计收入、累计字数）
+router.get('/stats', authenticateAuthor, async (req, res) => {
+  let db;
+  try {
+    const userId = req.userId;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 1. 获取用户创建时间，计算入驻天数
+    const [userRows] = await db.execute(
+      'SELECT created_at FROM user WHERE id = ?',
+      [userId]
+    );
+    
+    let daysJoined = 0;
+    if (userRows.length > 0 && userRows[0].created_at) {
+      const createdDate = new Date(userRows[0].created_at);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - createdDate.getTime());
+      daysJoined = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+    
+    // 2. 获取累计收入：user_income_monthly 表中该用户的 total_income_usd 总和
+    const [incomeRows] = await db.execute(
+      'SELECT COALESCE(SUM(total_income_usd), 0) as total_income FROM user_income_monthly WHERE user_id = ?',
+      [userId]
+    );
+    const cumulativeIncome = parseFloat(incomeRows[0]?.total_income || 0);
+    
+    // 3. 获取累计字数：该用户所有小说的章节字数总和
+    const [wordCountRows] = await db.execute(
+      `SELECT COALESCE(SUM(c.word_count), 0) as total_word_count
+       FROM chapter c
+       INNER JOIN novel n ON c.novel_id = n.id
+       WHERE n.user_id = ?`,
+      [userId]
+    );
+    const cumulativeWordCount = parseInt(wordCountRows[0]?.total_word_count || 0);
+    
+    // 4. 获取作品数量
+    const [worksRows] = await db.execute(
+      'SELECT COUNT(*) as count FROM novel WHERE user_id = ?',
+      [userId]
+    );
+    const worksCount = parseInt(worksRows[0]?.count || 0);
+    
+    res.json({
+      success: true,
+      data: {
+        worksCount,
+        daysJoined,
+        cumulativeIncome,
+        cumulativeWordCount
+      }
+    });
+  } catch (error) {
+    console.error('获取作者统计数据失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取统计数据失败',
+      error: error.message
+    });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
 module.exports = router;
 

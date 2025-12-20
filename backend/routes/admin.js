@@ -3,6 +3,9 @@ const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Decimal = require('decimal.js');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const PayPalService = require('../services/paypalService');
 const AlipayService = require('../services/alipayService');
 const ChapterReviewController = require('../controllers/chapterReviewController');
@@ -220,16 +223,27 @@ router.post('/login', async (req, res) => {
 router.get('/pending-novels', authenticateAdmin, async (req, res) => {
   let db;
   try {
+    const { page = 1, limit = 20 } = req.query;
+    
     db = await mysql.createConnection(dbConfig);
     
     // 应用权限过滤
+    // - super_admin: 显示所有小说（permissionFilter.where 为空）
+    // - editor: 只显示 novel_editor_contract 中该编辑有效的小说（status='active' 且日期在有效期内）
     const permissionFilter = await getNovelPermissionFilter(
       db, 
       req.admin.adminId, 
       req.admin.role
     );
     
+    // 确保参数类型正确
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const offsetNum = (pageNum - 1) * limitNum;
+    
     // 查询待审批的小说（created, submitted, reviewing状态），包含标签和主角信息
+    // 支持分页，行为与 /admin/novels 对齐
+    // LIMIT 和 OFFSET 需要直接插入数值，不能使用占位符（与 /admin/novels 保持一致）
     const [novels] = await db.execute(
       `SELECT 
         n.*, 
@@ -244,9 +258,17 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
        LEFT JOIN protagonist p ON n.id = p.novel_id
        WHERE n.review_status IN ('created', 'submitted', 'reviewing') ${permissionFilter.where}
        GROUP BY n.id
-       ORDER BY n.id DESC`,
+       ORDER BY n.id DESC
+       LIMIT ${limitNum} OFFSET ${offsetNum}`,
       permissionFilter.params
     );
+
+    // 获取总数（需要应用相同的权限过滤）
+    let countQuery = `SELECT COUNT(DISTINCT n.id) as total 
+                      FROM novel n
+                      WHERE n.review_status IN ('created', 'submitted', 'reviewing') ${permissionFilter.where}`;
+    const [countResult] = await db.execute(countQuery, permissionFilter.params);
+    const total = countResult[0].total;
 
     // 处理标签和主角数据
     const processedNovels = novels.map(novel => {
@@ -260,35 +282,19 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
       };
     });
 
-    // 计算 can_review 字段：小说审批权限基于 novel_editor_contract，有效合同才能审核
-    const { adminId, role } = req.admin;
-    let novelIds = processedNovels.map(n => n.id);
-    let contractMap = {};
-
-    // super_admin 需要查询是否有合同
-    if (role === 'super_admin' && novelIds.length > 0) {
-      const placeholders = novelIds.map(() => '?').join(',');
-      const [contracts] = await db.execute(
-        `SELECT novel_id 
-         FROM novel_editor_contract 
-         WHERE editor_admin_id = ? 
-           AND status = 'active' 
-           AND start_date <= NOW()
-           AND (end_date IS NULL OR end_date >= NOW())
-           AND novel_id IN (${placeholders})`,
-        [adminId, ...novelIds]
-      );
-      contractMap = Object.fromEntries(contracts.map(c => [c.novel_id, true]));
-    }
-
-    // 为每本小说添加 can_review 字段
+    // 计算 can_review 字段
+    // 业务规则：
+    // - super_admin: 可以无条件审核所有小说（不依赖 novel_editor_contract）
+    // - editor/chief_editor: 能看到的小说一定能审核（已通过 getNovelPermissionFilter 过滤）
+    const { role } = req.admin;
     const result = processedNovels.map(novel => {
       let can_review = false;
-      if (role === 'editor' || role === 'chief_editor') {
+      if (role === 'super_admin') {
+        // super_admin 可以无条件审核所有小说
+        can_review = true;
+      } else if (role === 'editor' || role === 'chief_editor') {
         // 能看到就说明有合同（已通过 getNovelPermissionFilter 过滤）
         can_review = true;
-      } else if (role === 'super_admin') {
-        can_review = !!contractMap[novel.id];
       }
       return {
         ...novel,
@@ -298,7 +304,8 @@ router.get('/pending-novels', authenticateAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      data: result
+      data: result,
+      total: total
     });
 
   } catch (error) {
@@ -366,8 +373,9 @@ router.post('/review-novel', authenticateAdmin, async (req, res) => {
       });
     }
     
-    // 审批通过设置为 approved，拒绝设置为 locked（违规锁定）
-    const status = action === 'approve' ? 'approved' : 'locked';
+    // 审批通过设置为 approved，拒绝设置为 rejected
+    // 注意：locked 状态已废弃，统一使用 rejected 作为小说审批拒绝状态
+    const status = action === 'approve' ? 'approved' : 'rejected';
     
     // 更新小说状态
     await db.execute(
@@ -377,7 +385,7 @@ router.post('/review-novel', authenticateAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: action === 'approve' ? '已批准' : '已锁定',
+      message: action === 'approve' ? '已批准' : '已拒绝',
       data: {
         novelId,
         status
@@ -411,7 +419,9 @@ router.put('/novel/:id/status', authenticateAdmin, async (req, res) => {
     }
 
     // 验证状态值是否有效
-    const validStatuses = ['created', 'submitted', 'reviewing', 'approved', 'published', 'unlisted', 'archived', 'locked'];
+    // 注意：locked 状态已废弃作为小说审批状态，统一使用 rejected
+    // locked 保留在此处仅用于其他违规锁定场景（非审批流程）
+    const validStatuses = ['created', 'submitted', 'reviewing', 'approved', 'rejected', 'published', 'unlisted', 'archived', 'locked'];
     if (!validStatuses.includes(review_status)) {
       return res.status(400).json({
         success: false,
@@ -532,35 +542,19 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
     const [countResult] = await db.execute(countQuery, countParams);
     const total = countResult[0].total;
 
-    // 计算 can_review 字段：小说审批权限基于 novel_editor_contract，有效合同才能审核
-    const { adminId, role } = req.admin;
-    let novelIds = processedNovels.map(n => n.id);
-    let contractMap = {};
-
-    // super_admin 需要查询是否有合同
-    if (role === 'super_admin' && novelIds.length > 0) {
-      const placeholders = novelIds.map(() => '?').join(',');
-      const [contracts] = await db.execute(
-        `SELECT novel_id 
-         FROM novel_editor_contract 
-         WHERE editor_admin_id = ? 
-           AND status = 'active' 
-           AND start_date <= NOW()
-           AND (end_date IS NULL OR end_date >= NOW())
-           AND novel_id IN (${placeholders})`,
-        [adminId, ...novelIds]
-      );
-      contractMap = Object.fromEntries(contracts.map(c => [c.novel_id, true]));
-    }
-
-    // 为每本小说添加 can_review 字段
+    // 计算 can_review 字段
+    // 业务规则：
+    // - super_admin: 可以无条件审核所有小说（不依赖 novel_editor_contract）
+    // - editor/chief_editor: 能看到的小说一定能审核（已通过 getNovelPermissionFilter 过滤）
+    const { role } = req.admin;
     const result = processedNovels.map(novel => {
       let can_review = false;
-      if (role === 'editor' || role === 'chief_editor') {
+      if (role === 'super_admin') {
+        // super_admin 可以无条件审核所有小说
+        can_review = true;
+      } else if (role === 'editor' || role === 'chief_editor') {
         // 能看到就说明有合同（已通过 getNovelPermissionFilter 过滤）
         can_review = true;
-      } else if (role === 'super_admin') {
-        can_review = !!contractMap[novel.id];
       }
       return {
         ...novel,
@@ -571,12 +565,7 @@ router.get('/novels', authenticateAdmin, async (req, res) => {
     res.json({
       success: true,
       data: result,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: total,
-        totalPages: Math.ceil(total / limitNum)
-      }
+      total: total
     });
 
   } catch (error) {
@@ -3831,43 +3820,62 @@ router.get('/users/search', authenticateAdmin, async (req, res) => {
 router.get('/novels/search', authenticateAdmin, async (req, res) => {
   let db;
   try {
-    const { q } = req.query;
-    if (!q || q.trim() === '') {
-      return res.json({
-        success: true,
-        data: []
-      });
+    const { q, publishedOnly } = req.query;
+    const qTrimmed = (q || '').toString().trim();
+    // 允许 publishedOnly=1 且 q 为空时返回一批最新 published 小说，用于下拉默认数据
+    if (!qTrimmed && publishedOnly !== '1') {
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, data: [] });
     }
     
     db = await mysql.createConnection(dbConfig);
     
+    // 如果 q 为空且 publishedOnly=1：直接返回最新 published 小说列表
+    if (!qTrimmed && publishedOnly === '1') {
+      const [novels] = await db.execute(
+        `
+          SELECT id, title, author, description, status, review_status
+          FROM novel
+          WHERE review_status = 'published'
+          ORDER BY id DESC
+          LIMIT 20
+        `
+      );
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, data: novels });
+    }
+
     // 搜索所有可能的字段：id, title, author, 主角名
-    const searchTerm = `%${q}%`;
+    const searchTerm = `%${qTrimmed}%`;
     
     // 先尝试按ID精确匹配
-    const isNumeric = /^\d+$/.test(q.trim());
+    const isNumeric = /^\d+$/.test(qTrimmed);
     
     let query;
     let params;
     
+    const publishedFilterSql = publishedOnly === '1' ? " AND n.review_status = 'published' " : '';
+
     if (isNumeric) {
       // 如果是数字，同时搜索ID和标题、作者、主角
       query = `
         SELECT DISTINCT n.id, n.title, n.author, n.description, n.status
         FROM novel n
         LEFT JOIN protagonist p ON n.id = p.novel_id
-        WHERE n.id = ? OR n.title LIKE ? OR n.author LIKE ? OR p.name LIKE ?
+        WHERE (n.id = ? OR n.title LIKE ? OR n.author LIKE ? OR p.name LIKE ?)
+          ${publishedFilterSql}
         ORDER BY n.id DESC
         LIMIT 20
       `;
-      params = [parseInt(q.trim()), searchTerm, searchTerm, searchTerm];
+      params = [parseInt(qTrimmed), searchTerm, searchTerm, searchTerm];
     } else {
       // 如果不是数字，只搜索标题、作者、主角
       query = `
         SELECT DISTINCT n.id, n.title, n.author, n.description, n.status
         FROM novel n
         LEFT JOIN protagonist p ON n.id = p.novel_id
-        WHERE n.title LIKE ? OR n.author LIKE ? OR p.name LIKE ?
+        WHERE (n.title LIKE ? OR n.author LIKE ? OR p.name LIKE ?)
+          ${publishedFilterSql}
         ORDER BY n.id DESC
         LIMIT 20
       `;
@@ -3875,7 +3883,7 @@ router.get('/novels/search', authenticateAdmin, async (req, res) => {
     }
     
     const [novels] = await db.execute(query, params);
-    
+    res.set('Cache-Control', 'no-store');
     res.json({
       success: true,
       data: novels
@@ -3887,6 +3895,486 @@ router.get('/novels/search', authenticateAdmin, async (req, res) => {
       message: '搜索失败',
       error: error.message
     });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 首页 Banner 管理（Admin） ====================
+
+// Banner 图片上传（保存到 /covers 对应目录：avatars）
+const bannerUploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../avatars');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'banner-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const bannerUpload = multer({
+  storage: bannerUploadStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) return cb(null, true);
+    cb(new Error('Only image files are allowed (jpg/jpeg/png/gif/webp)'));
+  }
+});
+
+// POST /api/admin/homepage/banners/upload-image
+router.post('/homepage/banners/upload-image', authenticateAdmin, requireRole('editor', 'super_admin'), bannerUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: '未收到文件（字段名应为 file）' });
+    }
+    // /covers 实际映射到 avatars 目录（见 backend/server.js）
+    return res.json({
+      success: true,
+      message: '上传成功',
+      data: {
+        filename: req.file.filename,
+        image_url: `/covers/${req.file.filename}`
+      }
+    });
+  } catch (error) {
+    console.error('上传 Banner 图片失败:', error);
+    return res.status(500).json({ success: false, message: '上传失败', error: error.message });
+  }
+});
+
+function parseDateTimeForValidation(value) {
+  if (!value) return null;
+  const normalized = String(value).includes(' ') ? String(value).replace(' ', 'T') : String(value);
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function validateBannerPayload(payload) {
+  const title = (payload.title ?? '').toString().trim();
+  const image_url = (payload.image_url ?? '').toString().trim();
+  const novel_id = payload.novel_id === null || payload.novel_id === undefined || payload.novel_id === '' ? null : Number(payload.novel_id);
+  const link_url = payload.link_url === null || payload.link_url === undefined ? '' : String(payload.link_url).trim();
+
+  if (!title) return 'title 必填';
+  if (!image_url) return 'image_url 必填';
+  const hasNovel = novel_id && Number.isFinite(novel_id) && novel_id > 0;
+  const hasLink = !!link_url;
+  if (!hasNovel && !hasLink) return 'novel_id 与 link_url 至少填一个';
+
+  const start = parseDateTimeForValidation(payload.start_date);
+  const end = parseDateTimeForValidation(payload.end_date);
+  if (payload.start_date && !start) return 'start_date 格式不合法';
+  if (payload.end_date && !end) return 'end_date 格式不合法';
+  if (start && end && start.getTime() > end.getTime()) return 'start_date 不能大于 end_date';
+
+  return '';
+}
+
+// GET /api/admin/homepage/banners
+router.get('/homepage/banners', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    db = await mysql.createConnection(dbConfig);
+    const [rows] = await db.execute(
+      `
+        SELECT
+          hb.id, hb.novel_id, hb.title, hb.subtitle, hb.image_url, hb.link_url,
+          hb.display_order, hb.is_active, hb.start_date, hb.end_date, hb.created_at, hb.updated_at,
+          n.title AS novel_title
+        FROM homepage_banners hb
+        LEFT JOIN novel n ON n.id = hb.novel_id
+        ORDER BY hb.display_order ASC, hb.id ASC
+      `
+    );
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('获取 homepage_banners 失败:', error);
+    res.status(500).json({ success: false, message: '获取 Banner 失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// POST /api/admin/homepage/banners
+router.post('/homepage/banners', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const payload = req.body || {};
+    const msg = validateBannerPayload(payload);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    const title = String(payload.title).trim();
+    const subtitle = payload.subtitle ? String(payload.subtitle).trim() : null;
+    const image_url = String(payload.image_url).trim();
+    const novel_id = payload.novel_id === null || payload.novel_id === undefined || payload.novel_id === '' ? null : Number(payload.novel_id);
+    const link_url = payload.link_url ? String(payload.link_url).trim() : null;
+    const display_order = Number.isFinite(Number(payload.display_order)) ? Number(payload.display_order) : 0;
+    const is_active = payload.is_active === 0 || payload.is_active === '0' || payload.is_active === false ? 0 : 1;
+    const start_date = payload.start_date ? payload.start_date : null;
+    const end_date = payload.end_date ? payload.end_date : null;
+
+    db = await mysql.createConnection(dbConfig);
+
+    // 若传了 novel_id，校验必须是 published 小说
+    if (novel_id) {
+      const [novels] = await db.execute('SELECT id FROM novel WHERE id = ? AND review_status = ?', [novel_id, 'published']);
+      if (novels.length === 0) {
+        return res.status(400).json({ success: false, message: 'novel_id 不存在或非 published' });
+      }
+    }
+
+    const [result] = await db.execute(
+      `
+        INSERT INTO homepage_banners
+          (novel_id, title, subtitle, image_url, link_url, display_order, is_active, start_date, end_date)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [novel_id, title, subtitle, image_url, link_url, display_order, is_active, start_date, end_date]
+    );
+
+    res.json({ success: true, message: '创建成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('创建 homepage_banners 失败:', error);
+    res.status(500).json({ success: false, message: '创建 Banner 失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// PUT /api/admin/homepage/banners/:id（支持部分更新）
+router.put('/homepage/banners/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const { id } = req.params;
+    const bannerId = Number(id);
+    if (!Number.isFinite(bannerId) || bannerId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    const [existingRows] = await db.execute('SELECT * FROM homepage_banners WHERE id = ?', [bannerId]);
+    if (existingRows.length === 0) return res.status(404).json({ success: false, message: 'Banner 不存在' });
+    const existing = existingRows[0];
+
+    const patch = req.body || {};
+    const merged = {
+      title: patch.title !== undefined ? patch.title : existing.title,
+      subtitle: patch.subtitle !== undefined ? patch.subtitle : existing.subtitle,
+      image_url: patch.image_url !== undefined ? patch.image_url : existing.image_url,
+      novel_id: patch.novel_id !== undefined ? patch.novel_id : existing.novel_id,
+      link_url: patch.link_url !== undefined ? patch.link_url : existing.link_url,
+      display_order: patch.display_order !== undefined ? patch.display_order : existing.display_order,
+      is_active: patch.is_active !== undefined ? patch.is_active : existing.is_active,
+      start_date: patch.start_date !== undefined ? patch.start_date : existing.start_date,
+      end_date: patch.end_date !== undefined ? patch.end_date : existing.end_date
+    };
+
+    const msg = validateBannerPayload(merged);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    const updates = [];
+    const params = [];
+    const allowFields = ['title', 'subtitle', 'image_url', 'novel_id', 'link_url', 'display_order', 'is_active', 'start_date', 'end_date'];
+    allowFields.forEach((f) => {
+      if (patch[f] !== undefined) {
+        updates.push(`${f} = ?`);
+        if (f === 'subtitle' || f === 'link_url' || f === 'start_date' || f === 'end_date') {
+          params.push(patch[f] === '' ? null : patch[f]);
+        } else if (f === 'novel_id') {
+          params.push(patch[f] === '' ? null : patch[f]);
+        } else if (f === 'is_active') {
+          params.push(patch[f] === 0 || patch[f] === '0' || patch[f] === false ? 0 : 1);
+        } else if (f === 'display_order') {
+          params.push(Number.isFinite(Number(patch[f])) ? Number(patch[f]) : 0);
+        } else {
+          params.push(patch[f]);
+        }
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.json({ success: true, message: '无更新内容' });
+    }
+
+    // 若更新 novel_id，则校验必须是 published 或 null
+    if (patch.novel_id !== undefined) {
+      const novelIdNum = patch.novel_id === null || patch.novel_id === '' ? null : Number(patch.novel_id);
+      if (novelIdNum) {
+        const [novels] = await db.execute('SELECT id FROM novel WHERE id = ? AND review_status = ?', [novelIdNum, 'published']);
+        if (novels.length === 0) {
+          return res.status(400).json({ success: false, message: 'novel_id 不存在或非 published' });
+        }
+      }
+    }
+
+    params.push(bannerId);
+    await db.execute(`UPDATE homepage_banners SET ${updates.join(', ')} WHERE id = ?`, params);
+
+    res.json({ success: true, message: '更新成功' });
+  } catch (error) {
+    console.error('更新 homepage_banners 失败:', error);
+    res.status(500).json({ success: false, message: '更新 Banner 失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// DELETE /api/admin/homepage/banners/:id
+router.delete('/homepage/banners/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const bannerId = Number(req.params.id);
+    if (!Number.isFinite(bannerId) || bannerId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    const [result] = await db.execute('DELETE FROM homepage_banners WHERE id = ?', [bannerId]);
+    res.json({ success: true, message: '删除成功', data: { affectedRows: result.affectedRows } });
+  } catch (error) {
+    console.error('删除 homepage_banners 失败:', error);
+    res.status(500).json({ success: false, message: '删除 Banner 失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 首页公告管理（Admin） ====================
+
+let __announcementsContentFormatEnsured = false;
+
+async function ensureHomepageAnnouncementsContentFormat(db) {
+  if (__announcementsContentFormatEnsured) return;
+  try {
+    const [rows] = await db.execute(
+      `
+        SELECT COUNT(*) AS cnt
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'homepage_announcements'
+          AND COLUMN_NAME = 'content_format'
+      `
+    );
+    const cnt = Number(rows?.[0]?.cnt || 0);
+    if (cnt === 0) {
+      await db.execute(
+        `
+          ALTER TABLE homepage_announcements
+          ADD COLUMN content_format ENUM('markdown','html') NOT NULL DEFAULT 'markdown'
+          AFTER content
+        `
+      );
+    }
+    __announcementsContentFormatEnsured = true;
+  } catch (e) {
+    // 若表不存在或权限不足，会在实际 CRUD 抛错；这里不强制中断
+    console.warn('[admin] ensure homepage_announcements.content_format failed:', e?.message || e);
+  }
+}
+
+function normalizeAnnouncementFormat(v) {
+  const raw = (v ?? '').toString().trim().toLowerCase();
+  if (!raw) return 'markdown';
+  if (raw === 'markdown' || raw === 'html') return raw;
+  return '';
+}
+
+function normalizeDateTimeNullable(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).trim();
+  // datetime-local: YYYY-MM-DDTHH:mm
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s.replace('T', ' ') + ':00';
+  // ISO-like with seconds
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s.replace('T', ' ').replace('Z', '');
+  // mysql datetime string or other: try Date parse for validation only
+  return s;
+}
+
+function validateAnnouncementPayload(payload) {
+  const title = (payload.title ?? '').toString().trim();
+  const content = (payload.content ?? '').toString().trim();
+  const format = normalizeAnnouncementFormat(payload.content_format);
+  if (!title) return 'title 必填';
+  if (!content) return 'content 必填';
+  if (!format) return 'content_format 只能为 markdown/html';
+
+  const start = parseDateTimeForValidation(payload.start_date);
+  const end = parseDateTimeForValidation(payload.end_date);
+  if (payload.start_date && !start) return 'start_date 格式不合法';
+  if (payload.end_date && !end) return 'end_date 格式不合法';
+  if (start && end && start.getTime() > end.getTime()) return 'start_date 不能大于 end_date';
+
+  return '';
+}
+
+// GET /api/admin/homepage-announcements
+router.get('/homepage-announcements', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    db = await mysql.createConnection(dbConfig);
+    await ensureHomepageAnnouncementsContentFormat(db);
+
+    const [rows] = await db.execute(
+      `
+        SELECT
+          id, title, content, content_format, link_url, display_order, is_active,
+          start_date, end_date, target_audience, created_at, updated_at
+        FROM homepage_announcements
+        ORDER BY display_order ASC, id DESC
+      `
+    );
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('获取 homepage_announcements 失败:', error);
+    res.status(500).json({ success: false, message: '获取公告失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// POST /api/admin/homepage-announcements
+router.post('/homepage-announcements', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const payload = req.body || {};
+    const msg = validateAnnouncementPayload(payload);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    const title = String(payload.title).trim();
+    const content = String(payload.content).trim();
+    const content_format = normalizeAnnouncementFormat(payload.content_format) || 'markdown';
+    const link_url = payload.link_url ? String(payload.link_url).trim() : null;
+    const display_order = Number.isFinite(Number(payload.display_order)) ? Number(payload.display_order) : 0;
+    const is_active = payload.is_active === 0 || payload.is_active === '0' || payload.is_active === false ? 0 : 1;
+    const start_date = normalizeDateTimeNullable(payload.start_date);
+    const end_date = normalizeDateTimeNullable(payload.end_date);
+    const target_audience = payload.target_audience === 'writer' ? 'writer' : 'reader';
+
+    db = await mysql.createConnection(dbConfig);
+    await ensureHomepageAnnouncementsContentFormat(db);
+
+    const [result] = await db.execute(
+      `
+        INSERT INTO homepage_announcements
+          (title, content, content_format, link_url, display_order, is_active, start_date, end_date, target_audience)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [title, content, content_format, link_url, display_order, is_active, start_date, end_date, target_audience]
+    );
+
+    res.json({ success: true, message: '创建成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('创建 homepage_announcements 失败:', error);
+    res.status(500).json({ success: false, message: '创建公告失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// PUT /api/admin/homepage-announcements/:id（支持部分更新）
+router.put('/homepage-announcements/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const announcementId = Number(req.params.id);
+    if (!Number.isFinite(announcementId) || announcementId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    await ensureHomepageAnnouncementsContentFormat(db);
+
+    const [existingRows] = await db.execute('SELECT * FROM homepage_announcements WHERE id = ?', [announcementId]);
+    if (existingRows.length === 0) return res.status(404).json({ success: false, message: '公告不存在' });
+    const existing = existingRows[0];
+
+    const patch = req.body || {};
+    const merged = {
+      title: patch.title !== undefined ? patch.title : existing.title,
+      content: patch.content !== undefined ? patch.content : existing.content,
+      content_format: patch.content_format !== undefined ? patch.content_format : existing.content_format,
+      link_url: patch.link_url !== undefined ? patch.link_url : existing.link_url,
+      display_order: patch.display_order !== undefined ? patch.display_order : existing.display_order,
+      is_active: patch.is_active !== undefined ? patch.is_active : existing.is_active,
+      start_date: patch.start_date !== undefined ? patch.start_date : existing.start_date,
+      end_date: patch.end_date !== undefined ? patch.end_date : existing.end_date,
+      target_audience: patch.target_audience !== undefined ? patch.target_audience : (existing.target_audience || 'reader')
+    };
+
+    const msg = validateAnnouncementPayload(merged);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    const allowFields = ['title', 'content', 'content_format', 'link_url', 'display_order', 'is_active', 'start_date', 'end_date', 'target_audience'];
+    const updates = [];
+    const params = [];
+
+    allowFields.forEach((f) => {
+      if (patch[f] !== undefined) {
+        updates.push(`${f} = ?`);
+        if (f === 'link_url') {
+          params.push(patch[f] === '' ? null : String(patch[f]).trim());
+        } else if (f === 'start_date' || f === 'end_date') {
+          params.push(patch[f] === '' ? null : normalizeDateTimeNullable(patch[f]));
+        } else if (f === 'content_format') {
+          params.push(normalizeAnnouncementFormat(patch[f]) || 'markdown');
+        } else if (f === 'is_active') {
+          params.push(patch[f] === 0 || patch[f] === '0' || patch[f] === false ? 0 : 1);
+        } else if (f === 'display_order') {
+          params.push(Number.isFinite(Number(patch[f])) ? Number(patch[f]) : 0);
+        } else if (f === 'target_audience') {
+          params.push(patch[f] === 'writer' ? 'writer' : 'reader');
+        } else {
+          params.push(patch[f]);
+        }
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.json({ success: true, message: '无更新内容' });
+    }
+
+    params.push(announcementId);
+    await db.execute(`UPDATE homepage_announcements SET ${updates.join(', ')} WHERE id = ?`, params);
+
+    res.json({ success: true, message: '更新成功' });
+  } catch (error) {
+    console.error('更新 homepage_announcements 失败:', error);
+    res.status(500).json({ success: false, message: '更新公告失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// DELETE /api/admin/homepage-announcements/:id
+router.delete('/homepage-announcements/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const announcementId = Number(req.params.id);
+    if (!Number.isFinite(announcementId) || announcementId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    await ensureHomepageAnnouncementsContentFormat(db);
+    const [result] = await db.execute('DELETE FROM homepage_announcements WHERE id = ?', [announcementId]);
+    res.json({ success: true, message: '删除成功', data: { affectedRows: result.affectedRows } });
+  } catch (error) {
+    console.error('删除 homepage_announcements 失败:', error);
+    res.status(500).json({ success: false, message: '删除公告失败', error: error.message });
   } finally {
     if (db) await db.end();
   }
@@ -12935,6 +13423,10 @@ const ALL_MENU_KEYS = [
   'chapter-approval',
   // 底部独立菜单
   'admin-payout-account',
+  'admin-banner-management',
+  'announcement-management',
+  'admin-legal-docs',
+  'admin-inbox',
 ];
 
 // 获取当前登录管理员可见菜单 key 列表
@@ -13047,6 +13539,286 @@ router.post('/menu-permissions/role/:role', authenticateAdmin, requireRole('supe
       message: '保存菜单权限失败',
       error: error.message
     });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// ==================== 站点政策文档管理接口 ====================
+
+// 允许的 doc_key 值
+const ALLOWED_DOC_KEYS = ['terms_of_service', 'privacy_policy', 'cookie_policy', 'writer_contract_policy'];
+
+// GET /api/admin/legal-docs?doc_key=&language=&status=
+router.get('/legal-docs', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const { doc_key, language, status } = req.query;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    let sql = `
+      SELECT 
+        id, doc_key, language, title, version, content_md, status, is_current,
+        effective_at, created_by, updated_by, created_at, updated_at
+      FROM site_legal_documents
+      WHERE 1=1
+    `;
+    const params = [];
+    
+    if (doc_key) {
+      sql += ' AND doc_key = ?';
+      params.push(doc_key);
+    }
+    if (language) {
+      sql += ' AND language = ?';
+      params.push(language);
+    }
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    
+    sql += ' ORDER BY doc_key ASC, language ASC, is_current DESC, effective_at DESC, updated_at DESC';
+    
+    const [rows] = await db.execute(sql, params);
+    
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('获取政策文档列表失败:', error);
+    res.status(500).json({ success: false, message: '获取政策文档列表失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// POST /api/admin/legal-docs
+router.post('/legal-docs', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const { doc_key, language, title, version, content_md, effective_at } = req.body || {};
+    
+    // 校验必填字段
+    if (!doc_key || !ALLOWED_DOC_KEYS.includes(doc_key)) {
+      return res.status(400).json({ success: false, message: 'doc_key 必须是 terms_of_service、privacy_policy、cookie_policy 或 writer_contract_policy' });
+    }
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'title 不能为空' });
+    }
+    if (!version || !version.trim()) {
+      return res.status(400).json({ success: false, message: 'version 不能为空' });
+    }
+    if (!content_md || !content_md.trim()) {
+      return res.status(400).json({ success: false, message: 'content_md 不能为空' });
+    }
+    
+    const lang = language || 'en';
+    const effectiveAt = effective_at ? new Date(effective_at) : null;
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    const [result] = await db.execute(
+      `
+        INSERT INTO site_legal_documents
+          (doc_key, language, title, version, content_md, status, is_current, effective_at, created_by)
+        VALUES
+          (?, ?, ?, ?, ?, 'draft', 0, ?, ?)
+      `,
+      [doc_key, lang, title.trim(), version.trim(), content_md.trim(), effectiveAt, req.admin.adminId]
+    );
+    
+    res.json({ success: true, message: '创建成功', data: { id: result.insertId } });
+  } catch (error) {
+    console.error('创建政策文档失败:', error);
+    res.status(500).json({ success: false, message: '创建政策文档失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// PUT /api/admin/legal-docs/:id
+router.put('/legal-docs/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const docId = Number(req.params.id);
+    if (!Number.isFinite(docId) || docId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 查询现有记录
+    const [existingRows] = await db.execute('SELECT * FROM site_legal_documents WHERE id = ?', [docId]);
+    if (existingRows.length === 0) {
+      return res.status(404).json({ success: false, message: '政策文档不存在' });
+    }
+    const existing = existingRows[0];
+    
+    // 如果状态是 published，只允许改为 archived，不允许修改正文
+    if (existing.status === 'published') {
+      const { status } = req.body || {};
+      if (status && status !== 'archived' && status !== 'published') {
+        return res.status(400).json({ success: false, message: '已发布的版本只能改为 archived，不允许修改正文' });
+      }
+      // 如果只是改状态为 archived，允许
+      if (status === 'archived') {
+        await db.execute('UPDATE site_legal_documents SET status = ?, updated_by = ? WHERE id = ?', 
+          ['archived', req.admin.adminId, docId]);
+        return res.json({ success: true, message: '更新成功' });
+      }
+      // 如果保持 published，检查是否有其他字段修改
+      const patch = req.body || {};
+      const hasContentChange = patch.title !== undefined || patch.content_md !== undefined || 
+                               patch.version !== undefined || patch.effective_at !== undefined;
+      if (hasContentChange) {
+        return res.status(400).json({ success: false, message: '已发布的版本不允许修改正文内容' });
+      }
+    }
+    
+    // 允许修改的字段
+    const patch = req.body || {};
+    const updates = [];
+    const params = [];
+    
+    if (patch.title !== undefined) {
+      if (!patch.title || !patch.title.trim()) {
+        return res.status(400).json({ success: false, message: 'title 不能为空' });
+      }
+      updates.push('title = ?');
+      params.push(patch.title.trim());
+    }
+    if (patch.content_md !== undefined) {
+      if (!patch.content_md || !patch.content_md.trim()) {
+        return res.status(400).json({ success: false, message: 'content_md 不能为空' });
+      }
+      updates.push('content_md = ?');
+      params.push(patch.content_md.trim());
+    }
+    if (patch.version !== undefined) {
+      if (!patch.version || !patch.version.trim()) {
+        return res.status(400).json({ success: false, message: 'version 不能为空' });
+      }
+      updates.push('version = ?');
+      params.push(patch.version.trim());
+    }
+    if (patch.language !== undefined) {
+      updates.push('language = ?');
+      params.push(patch.language);
+    }
+    if (patch.effective_at !== undefined) {
+      updates.push('effective_at = ?');
+      params.push(patch.effective_at ? new Date(patch.effective_at) : null);
+    }
+    if (patch.status !== undefined) {
+      if (!['draft', 'published', 'archived'].includes(patch.status)) {
+        return res.status(400).json({ success: false, message: 'status 必须是 draft、published 或 archived' });
+      }
+      updates.push('status = ?');
+      params.push(patch.status);
+    }
+    
+    if (updates.length === 0) {
+      return res.json({ success: true, message: '无变更' });
+    }
+    
+    updates.push('updated_by = ?');
+    params.push(req.admin.adminId);
+    params.push(docId);
+    
+    await db.execute(
+      `UPDATE site_legal_documents SET ${updates.join(', ')} WHERE id = ?`,
+      params
+    );
+    
+    res.json({ success: true, message: '更新成功' });
+  } catch (error) {
+    console.error('更新政策文档失败:', error);
+    res.status(500).json({ success: false, message: '更新政策文档失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// POST /api/admin/legal-docs/:id/set-current
+router.post('/legal-docs/:id/set-current', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const docId = Number(req.params.id);
+    if (!Number.isFinite(docId) || docId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 查询记录
+    const [rows] = await db.execute('SELECT * FROM site_legal_documents WHERE id = ?', [docId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '政策文档不存在' });
+    }
+    const doc = rows[0];
+    
+    // 必须已发布才能设为当前
+    if (doc.status !== 'published') {
+      return res.status(400).json({ success: false, message: '只有已发布的版本才能设为当前生效版本' });
+    }
+    
+    // 使用事务确保同一 (doc_key, language) 只有一个 is_current=1
+    await db.beginTransaction();
+    try {
+      // 先清零同 doc_key + language 的所有 is_current
+      await db.execute(
+        'UPDATE site_legal_documents SET is_current = 0 WHERE doc_key = ? AND language = ?',
+        [doc.doc_key, doc.language]
+      );
+      
+      // 设置当前记录为 current
+      await db.execute(
+        'UPDATE site_legal_documents SET is_current = 1, updated_by = ? WHERE id = ?',
+        [req.admin.adminId, docId]
+      );
+      
+      await db.commit();
+      res.json({ success: true, message: '设置成功' });
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('设置当前生效版本失败:', error);
+    res.status(500).json({ success: false, message: '设置当前生效版本失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// DELETE /api/admin/legal-docs/:id
+router.delete('/legal-docs/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const docId = Number(req.params.id);
+    if (!Number.isFinite(docId) || docId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+    
+    db = await mysql.createConnection(dbConfig);
+    
+    // 查询记录状态
+    const [rows] = await db.execute('SELECT status FROM site_legal_documents WHERE id = ?', [docId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '政策文档不存在' });
+    }
+    
+    // 只有 draft 才能删除
+    if (rows[0].status !== 'draft') {
+      return res.status(400).json({ success: false, message: '只能删除草稿状态的文档' });
+    }
+    
+    const [result] = await db.execute('DELETE FROM site_legal_documents WHERE id = ?', [docId]);
+    res.json({ success: true, message: '删除成功', data: { affectedRows: result.affectedRows } });
+  } catch (error) {
+    console.error('删除政策文档失败:', error);
+    res.status(500).json({ success: false, message: '删除政策文档失败', error: error.message });
   } finally {
     if (db) await db.end();
   }

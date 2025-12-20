@@ -8,7 +8,7 @@ const { segmentChapters } = require('./chapterSegmentation');
 const { translateChapterText, translateChapterTitle } = require('./translationModel');
 const { buildChapterImportConfig } = require('../services/aiChapterImportConfig');
 const { buildChapterRowFromDraft } = require('../services/aiChapterImportService');
-const { runChapterPipeline } = require('./langchain/chapterTranslationPipeline');
+const { runChapterPipeline, batchTranslateTitles } = require('./langchain/chapterTranslationPipeline');
 const { getGlobalRateLimiter } = require('./langchain/rateLimiter');
 // 注意：翻译导入的章节默认为草稿状态，不记录字数统计，所以这里不需要导入 authorDailyWordCountService
 
@@ -107,6 +107,7 @@ async function createTranslationTaskFromText({ novelId, sourceText, adminId, tar
 
 /**
  * 执行翻译任务
+ * @deprecated 此方法已废弃，请使用 runNovelTranslationWorkflow 代替
  * @param {number} taskId - 任务ID
  * @param {Object} [importConfig] - 导入配置（可选，如果任务创建时已保存则不需要）
  * @returns {Promise<void>}
@@ -466,7 +467,118 @@ async function createTranslationTaskFromImportBatch({ batchId, adminId }) {
 }
 
 /**
+ * 为某个 translation_task 的所有章节，批量生成英文标题
+ * 仅处理 status = 'pending' 或 title 为空的记录，避免重复翻译
+ * 
+ * @param {number} taskId - 翻译任务ID
+ * @param {object} [options] - 配置选项
+ * @param {number} [options.maxCharsPerBatch] - 每批最大字符数，默认 8000
+ * @param {number} [options.maxItemsPerBatch] - 每批最大条数，默认 50
+ * @returns {Promise<void>}
+ */
+async function preTranslateTitlesForTask(taskId, options = {}) {
+  let db;
+  try {
+    db = await mysql.createConnection(dbConfig);
+
+    // 1. 查出所有需要翻译标题的章节翻译记录
+    // 注意：chapter_translation.title 在创建时存的是中文标题（从 novel_import_chapter 复制过来的）
+    // 我们需要从 novel_import_chapter 获取原始中文标题（raw_title 或 clean_title）
+    // 查询条件：status = 'pending' 且 title 看起来像中文（包含中文字符）或为空
+    const [rows] = await db.execute(
+      `SELECT ct.id, ct.chapter_number, ct.title,
+              nic.raw_title, nic.clean_title
+       FROM chapter_translation ct
+       INNER JOIN translation_task tt ON ct.task_id = tt.id
+       INNER JOIN novel_import_batch nib ON tt.novel_id = nib.novel_id 
+         AND tt.created_by_admin_id = nib.created_by_admin_id
+         AND nib.status = 'translating'
+       INNER JOIN novel_import_chapter nic ON nib.id = nic.batch_id 
+         AND ct.chapter_number = nic.chapter_number
+       WHERE ct.task_id = ? 
+         AND ct.status = 'pending'
+         AND (ct.title IS NULL OR ct.title = '' OR ct.title REGEXP '[\\u4e00-\\u9fa5]')
+       ORDER BY ct.chapter_number ASC`,
+      [taskId]
+    );
+
+    if (!rows.length) {
+      console.log(`[preTranslateTitlesForTask] Task ${taskId}: no titles to translate`);
+      return;
+    }
+
+    console.log(`[preTranslateTitlesForTask] Task ${taskId}: found ${rows.length} titles to translate`);
+
+    // 2. 组装 batchTranslateTitles 需要的 items
+    // 优先使用 novel_import_chapter 的 clean_title，其次 raw_title，最后用 chapter_translation.title
+    const items = rows.map((row, index) => {
+      const chineseTitle = row.clean_title || row.raw_title || row.title || '';
+      return {
+        index: index, // 使用数组下标作为 index
+        chapterTranslationId: row.id,
+        chapterNumber: row.chapter_number,
+        chineseTitle: chineseTitle.trim(),
+      };
+    }).filter(it => it.chineseTitle && it.chineseTitle.length > 0);
+
+    if (!items.length) {
+      console.log(`[preTranslateTitlesForTask] Task ${taskId}: no valid chinese titles`);
+      return;
+    }
+
+    // 3. 调用批量标题翻译工具
+    const translatedList = await batchTranslateTitles(
+      items.map(it => ({
+        index: it.index,
+        chineseTitle: it.chineseTitle,
+      })),
+      {
+        maxCharsPerBatch: options.maxCharsPerBatch ?? 8000,
+        maxItemsPerBatch: options.maxItemsPerBatch ?? 50,
+      }
+    );
+
+    // 4. 把结果按 index 对应回 rows
+    const byIndex = new Map();
+    for (const item of translatedList) {
+      byIndex.set(item.index, item.translatedTitle);
+    }
+
+    // 5. 批量更新 chapter_translation.title
+    await db.beginTransaction();
+    try {
+      let updateCount = 0;
+      for (const it of items) {
+        const translatedTitle = byIndex.get(it.index);
+        if (!translatedTitle) {
+          console.warn(`[preTranslateTitlesForTask] No translation result for chapter ${it.chapterNumber} (index ${it.index})`);
+          continue;
+        }
+
+        await db.execute(
+          'UPDATE chapter_translation SET title = ? WHERE id = ?',
+          [translatedTitle, it.chapterTranslationId]
+        );
+        updateCount++;
+      }
+      await db.commit();
+      console.log(`[preTranslateTitlesForTask] Task ${taskId}: translated ${updateCount}/${items.length} titles`);
+    } catch (err) {
+      await db.rollback();
+      throw err;
+    }
+
+  } catch (error) {
+    console.error(`[preTranslateTitlesForTask] Task ${taskId} error:`, error);
+    throw error;
+  } finally {
+    if (db) await db.end();
+  }
+}
+
+/**
  * 运行翻译任务（基于导入批次，使用 LangChain 流水线）
+ * @deprecated 此方法已废弃，请使用 runNovelTranslationWorkflow 代替
  * @param {number} taskId - 任务ID
  * @param {Object} [importConfig] - 导入配置（可选）
  * @returns {Promise<void>}
@@ -517,6 +629,18 @@ async function runTranslationTaskFromImportBatch(taskId, importConfig) {
       ['running', taskId]
     );
 
+    // 4.5 阶段 1：批量翻译所有章节标题（在开始正文翻译之前）
+    try {
+      await preTranslateTitlesForTask(taskId, {
+        maxCharsPerBatch: 8000,
+        maxItemsPerBatch: 50,
+      });
+      console.log(`[TranslationTaskService] Task ${taskId}: batch title translation completed`);
+    } catch (error) {
+      console.error(`[TranslationTaskService] Task ${taskId}: batch title translation failed, continuing with per-chapter translation:`, error.message);
+      // 不中断整个任务，继续执行（标题会在 runChapterPipeline 中逐个翻译）
+    }
+
     // 5. 获取所有待处理的章节翻译
     const [chapterTranslations] = await db.execute(
       `SELECT * FROM chapter_translation 
@@ -550,12 +674,20 @@ async function runTranslationTaskFromImportBatch(taskId, importConfig) {
         const importChapter = importChapters[0];
 
         // 7.2 通过速率限制器调度调用 LangChain 流水线
+        // 阶段 2：复用已批量翻译的标题（如果存在）
+        // chapter_translation.title 如果已经是英文（不包含中文字符），则复用
+        const existingEnglishTitle = chapterTranslation.title && 
+          !/[\\u4e00-\\u9fa5]/.test(chapterTranslation.title) 
+          ? chapterTranslation.title 
+          : null;
+
         const pipelineResult = await rateLimiter.schedule(async () => {
           return await runChapterPipeline({
             raw_title: importChapter.raw_title,
             raw_content: importChapter.raw_content,
             clean_title: importChapter.clean_title,
             clean_content: importChapter.clean_content,
+            existingEnglishTitle: existingEnglishTitle, // 传入已翻译的标题，避免重复调用
           });
         });
 

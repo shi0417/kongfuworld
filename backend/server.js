@@ -57,6 +57,10 @@ const missionV2Routes = require('./routes/mission_v2');
 const readingWithMissionRoutes = require('./routes/reading_with_mission');
 const dailyCheckinWithMission = require('./daily_checkin_with_mission');
 
+// 导入作品数据评价系统路由
+const analyticsRoutes = require('./routes/analytics');
+const rankingsRoutes = require('./routes/rankings');
+
 
 const app = express();
 
@@ -122,6 +126,31 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Optional JWT 验证中间件（不影响未登录访问）
+// - 有 Authorization Bearer token：尝试校验，成功则 req.user=user
+// - token 缺失或无效：不返回 401/403，req.user 置空并继续
+const optionalAuth = (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+    jwt.verify(token, 'your-secret-key', (err, user) => {
+      if (err) {
+        req.user = null;
+        return next();
+      }
+      req.user = user;
+      return next();
+    });
+  } catch (e) {
+    req.user = null;
+    return next();
+  }
+};
+
 // 静态托管 avatars 目录
 app.use('/avatars', express.static(path.join(__dirname, '../avatars')));
 
@@ -148,6 +177,10 @@ app.use('/api/admin', adminRoutes);
 const adminAiTranslationRoutes = require('./routes/adminAiTranslation');
 app.use('/api/admin/ai-translation', adminAiTranslationRoutes);
 
+// 政策文档公开路由
+const legalRoutes = require('./routes/legal');
+app.use('/api/legal', legalRoutes);
+
 // 个人信息路由
 const personalInfoRoutes = require('./routes/personalInfo');
 app.use('/api/personal-info', personalInfoRoutes);
@@ -156,9 +189,21 @@ app.use('/api/personal-info', personalInfoRoutes);
 const commentManagementRoutes = require('./routes/commentManagement');
 app.use('/api/comment-management', authenticateToken, commentManagementRoutes);
 
+// 管理员站内信路由
+const adminInboxRoutes = require('./routes/adminInbox');
+app.use('/api/admin/inbox', adminInboxRoutes);
+
 // 作者路由（收入管理、推广链接等）
 const writerRoutes = require('./routes/writer');
 app.use('/api/writer', writerRoutes);
+
+// 作者站内信路由
+const writerInboxRoutes = require('./routes/writerInbox');
+app.use('/api/writer/inbox', writerInboxRoutes);
+
+// Inbox v2（Stage 2 scaffold，仅骨架；不影响 v1 行为）
+const inboxV2Routes = require('./routes/inboxV2');
+app.use('/api/inbox', inboxV2Routes);
 
 // 作者路由（卷轴管理等）
 const authorRoutes = require('./routes/author');
@@ -224,6 +269,11 @@ const db = mysql.createPool({
 // 初始化点赞/点踩服务
 const likeDislikeService = new LikeDislikeService(db);
 
+// 公告详情页 + 公告评论（public news）
+// ⚠️ 必须在 db 初始化之后挂载，否则会出现 "Cannot access 'db' before initialization"
+const createPublicNewsRouter = require('./routes/publicNews');
+app.use('/api', createPublicNewsRouter(db.promise()));
+
 // 测试数据库连接
 db.getConnection((err, connection) => {
   if (err) {
@@ -277,6 +327,9 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5M
 app.post('/api/novel/find-similar', findSimilarNovelsAPI);
 app.get('/api/novels', getAllNovelsAPI);
 app.post('/api/novels/search', searchNovelsAPI);
+// Public Series/Novels 列表页接口（不影响旧的 /api/novels 与 /api/novels/search）
+const createPublicSeriesRouter = require('./routes/publicSeries');
+app.use('/api', createPublicSeriesRouter(db.promise()));
 app.get('/api/novel/:novelId/info', getNovelInfoAPI);
 app.get('/api/novel/:novelId/chapters', getNovelChaptersAPI);
 app.post('/api/novel/parse-chapters', novelUpload.single('file'), parseChaptersAPI);
@@ -1779,6 +1832,297 @@ app.put('/api/novels/:novelId/chapters/volume-id', (req, res) => {
 
 // ==================== 首页相关API ====================
 
+// ---- Homepage V2 内存缓存（最小实现）----
+// 说明：仅用于 /api/homepage/all 的整体缓存；TTL 到期自动刷新。
+const __homepageAllCache = {
+  expiresAt: 0,
+  payload: null
+};
+const HOMEPAGE_ALL_TTL_MS = 90 * 1000; // 60~120s 推荐区间内的默认值
+
+// Helper: 将 genre_id_1/genre_id_2 摊平成 (novel_id, genre_id) 的派生表，避免 OR JOIN 爆炸
+// 注意：此 SQL 会被 /api/homepage/all 及 Because You Read 复用
+const HOMEPAGE_GENRE_MAP_DERIVED_SQL = `
+  (
+    SELECT novel_id, genre_id_1 AS genre_id
+    FROM novel_genre_relation
+    WHERE genre_id_1 IS NOT NULL
+    UNION ALL
+    SELECT novel_id, genre_id_2 AS genre_id
+    FROM novel_genre_relation
+    WHERE genre_id_2 IS NOT NULL
+  ) ngr
+`;
+
+// ---- Because You Read 用户级小缓存（避免串用户）----
+const __becauseYouReadCache = new Map(); // userId -> { expiresAt, payload }
+const BECAUSE_YOU_READ_TTL_MS = 60 * 1000;
+
+function getBecauseYouReadCache(userId) {
+  const hit = __becauseYouReadCache.get(String(userId));
+  if (hit && hit.payload && Date.now() < hit.expiresAt) return hit.payload;
+  return null;
+}
+
+function setBecauseYouReadCache(userId, payload) {
+  __becauseYouReadCache.set(String(userId), {
+    expiresAt: Date.now() + BECAUSE_YOU_READ_TTL_MS,
+    payload
+  });
+}
+
+function isHomepageCacheValid() {
+  return __homepageAllCache.payload && Date.now() < __homepageAllCache.expiresAt;
+}
+
+function setHomepageCache(payload) {
+  __homepageAllCache.payload = payload;
+  __homepageAllCache.expiresAt = Date.now() + HOMEPAGE_ALL_TTL_MS;
+}
+
+// ---- Homepage Promotions（只读查询）----
+// 重要：禁止在首页链路调用任何会创建 Stripe coupon 或写回 pricing_promotion 的逻辑。
+function fetchHomepagePromotions(db, limit = 2) {
+  const safeLimit = Number.isFinite(Number(limit)) ? Math.floor(Number(limit)) : 2;
+  const clampedLimit = Math.max(0, Math.min(2, safeLimit));
+  if (clampedLimit <= 0) return Promise.resolve([]);
+
+  return new Promise((resolve) => {
+    const sql = `
+      SELECT
+        pp.id AS promotion_id,
+        pp.novel_id,
+        pp.promotion_type,
+        pp.discount_value,
+        pp.start_at,
+        pp.end_at,
+        pp.status,
+        n.title AS novel_title,
+        n.author AS novel_author,
+        n.cover AS novel_cover,
+        n.status AS novel_status,
+        n.chapters AS novel_chapters
+      FROM pricing_promotion pp
+      INNER JOIN novel n ON n.id = pp.novel_id
+      WHERE pp.status = 'active'
+        AND pp.start_at <= NOW()
+        AND (pp.end_at IS NULL OR pp.end_at >= NOW())
+        AND pp.promotion_type IN ('discount')
+        AND n.review_status = 'published'
+      ORDER BY pp.discount_value ASC, pp.end_at ASC, pp.id DESC
+      LIMIT ?
+    `;
+
+    db.query(sql, [clampedLimit], (err, results) => {
+      if (err) {
+        console.error('[homepage] promotions query failed:', err);
+        return resolve([]);
+      }
+
+      const rows = Array.isArray(results) ? results : [];
+      const mapped = rows.map((r) => {
+        const discountValue = Number.parseFloat(r.discount_value);
+        const safeDiscountValue = Number.isFinite(discountValue) ? discountValue : 1;
+        const discountPercentage = Math.round((1 - safeDiscountValue) * 100);
+
+        return {
+          promotion: {
+            id: Number(r.promotion_id),
+            promotion_type: 'discount',
+            discount_value: safeDiscountValue,
+            discount_percentage: discountPercentage,
+            start_at: r.start_at,
+            end_at: r.end_at ?? null,
+            status: 'active',
+          },
+          novel: {
+            id: Number(r.novel_id),
+            title: r.novel_title,
+            author: r.novel_author ?? null,
+            cover: r.novel_cover ?? null,
+            status: r.novel_status ?? null,
+            chapters: r.novel_chapters ?? null,
+          },
+        };
+      });
+
+      resolve(mapped);
+    });
+  });
+}
+
+// 计算 Because You Read（用户维度；不进入公共缓存）
+function computeBecauseYouReadForUser(db, userId, baseBecauseYouRead, genreMapDerivedSql) {
+  const safeBase = baseBecauseYouRead || { continue_reading: [], recommendations: [], view_all_url: '/series?sort=based_on_you' };
+  const GENRE_MAP_SQL = genreMapDerivedSql || HOMEPAGE_GENRE_MAP_DERIVED_SQL;
+
+  const queryAsync = (sql, params = []) =>
+    new Promise((resolve, reject) => {
+      db.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+  return (async () => {
+    const result = {
+      continue_reading: [],
+      recommendations: [],
+      view_all_url: safeBase.view_all_url || '/series?sort=based_on_you'
+    };
+
+    // 1) continue_reading：最近 30 天，按 novel 聚合取每本书最后阅读章节（排除 bookmark_closed=1）
+    try {
+      const continueRows = await queryAsync(
+        `
+          SELECT
+            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status, n.chapters,
+            latest.chapter_id AS last_read_chapter_id,
+            c.chapter_number AS last_read_chapter_number,
+            c.title AS last_read_chapter_title,
+            latest.read_at AS last_read_at
+          FROM (
+            SELECT
+              c.novel_id,
+              rl.chapter_id,
+              rl.read_at,
+              rl.id AS reading_log_id,
+              ROW_NUMBER() OVER (PARTITION BY c.novel_id ORDER BY rl.read_at DESC, rl.id DESC) AS rn
+            FROM reading_log rl
+            INNER JOIN chapter c ON rl.chapter_id = c.id
+            INNER JOIN novel n2 ON n2.id = c.novel_id
+            LEFT JOIN bookmark b ON b.user_id = rl.user_id AND b.novel_id = c.novel_id
+            WHERE rl.user_id = ?
+              AND rl.read_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND n2.review_status = 'published'
+              AND (b.bookmark_closed IS NULL OR b.bookmark_closed = 0)
+          ) latest
+          INNER JOIN novel n ON n.id = latest.novel_id
+          INNER JOIN chapter c ON c.id = latest.chapter_id
+          WHERE latest.rn = 1
+          ORDER BY latest.read_at DESC
+          LIMIT 6
+        `,
+        [userId]
+      );
+
+      result.continue_reading = Array.isArray(continueRows) ? continueRows : [];
+    } catch (e) {
+      // 不影响首页公共块
+      result.continue_reading = [];
+    }
+
+    // 2) recommendations：无 reading_log 种子则返回空（不做全站兜底）
+    let seedNovels = [];
+    try {
+      seedNovels = await queryAsync(
+        `
+          SELECT DISTINCT c.novel_id
+          FROM reading_log rl
+          INNER JOIN chapter c ON rl.chapter_id = c.id
+          INNER JOIN novel n ON n.id = c.novel_id
+          LEFT JOIN bookmark b ON b.user_id = rl.user_id AND b.novel_id = c.novel_id
+          WHERE rl.user_id = ?
+            AND rl.read_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            AND n.review_status = 'published'
+            AND (b.bookmark_closed IS NULL OR b.bookmark_closed = 0)
+        `,
+        [userId]
+      );
+    } catch (e) {
+      seedNovels = [];
+    }
+
+    const seedNovelIds = Array.isArray(seedNovels) ? seedNovels.map((r) => r.novel_id).filter(Boolean) : [];
+    if (seedNovelIds.length === 0) {
+      result.recommendations = [];
+      return result;
+    }
+
+    // 2a) 抽取 top5 genre_id（复用 GENRE_MAP_DERIVED_SQL）
+    let topGenres = [];
+    try {
+      topGenres = await queryAsync(
+        `
+          SELECT ngr.genre_id, COUNT(*) AS cnt
+          FROM ${GENRE_MAP_SQL}
+          INNER JOIN (
+            SELECT DISTINCT c.novel_id
+            FROM reading_log rl
+            INNER JOIN chapter c ON rl.chapter_id = c.id
+            INNER JOIN novel n ON n.id = c.novel_id
+            LEFT JOIN bookmark b ON b.user_id = rl.user_id AND b.novel_id = c.novel_id
+            WHERE rl.user_id = ?
+              AND rl.read_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND n.review_status = 'published'
+              AND (b.bookmark_closed IS NULL OR b.bookmark_closed = 0)
+          ) seeds ON seeds.novel_id = ngr.novel_id
+          GROUP BY ngr.genre_id
+          ORDER BY cnt DESC
+          LIMIT 5
+        `,
+        [userId]
+      );
+    } catch (e) {
+      topGenres = [];
+    }
+
+    const genreIds = Array.isArray(topGenres) ? topGenres.map((g) => g.genre_id).filter(Boolean) : [];
+    if (genreIds.length === 0) {
+      result.recommendations = [];
+      return result;
+    }
+
+    // 2b/2c) 在这些 genre 内按 weekly_views 取 12 本，排除已读(90d)/已收藏/bookmark_closed=1
+    try {
+      const genrePlaceholders = genreIds.map(() => '?').join(',');
+      const recRows = await queryAsync(
+        `
+          SELECT
+            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status, n.chapters,
+            COALESCE(SUM(ns.views), 0) AS weekly_views
+          FROM novel n
+          INNER JOIN ${GENRE_MAP_SQL} ON ngr.novel_id = n.id
+          LEFT JOIN novel_statistics ns
+            ON ns.novel_id = n.id AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+          LEFT JOIN (
+            SELECT DISTINCT c.novel_id
+            FROM reading_log rl
+            INNER JOIN chapter c ON rl.chapter_id = c.id
+            WHERE rl.user_id = ?
+              AND rl.read_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+          ) ur ON ur.novel_id = n.id
+          LEFT JOIN (
+            SELECT DISTINCT novel_id
+            FROM favorite
+            WHERE user_id = ? AND favorite_status = 1
+          ) uf ON uf.novel_id = n.id
+          LEFT JOIN (
+            SELECT DISTINCT novel_id
+            FROM bookmark
+            WHERE user_id = ? AND bookmark_closed = 1
+          ) ub ON ub.novel_id = n.id
+          WHERE n.review_status = 'published'
+            AND ngr.genre_id IN (${genrePlaceholders})
+            AND ur.novel_id IS NULL
+            AND uf.novel_id IS NULL
+            AND ub.novel_id IS NULL
+          GROUP BY n.id
+          ORDER BY weekly_views DESC, n.rating DESC, n.reviews DESC
+          LIMIT 12
+        `,
+        [userId, userId, userId, ...genreIds]
+      );
+
+      result.recommendations = Array.isArray(recRows) ? recRows : [];
+    } catch (e) {
+      result.recommendations = [];
+    }
+
+    return result;
+  })();
+}
+
 // 1. 获取首页推荐小说
 // Featured novels: only link to published novels
 app.get('/api/homepage/featured-novels/:section', (req, res) => {
@@ -1988,12 +2332,101 @@ app.post('/api/admin/homepage/featured-novels', (req, res) => {
 
 // 9. 获取所有首页数据（组合接口）
 // Combined homepage data endpoint: all novel lists only include published novels
-app.get('/api/homepage/all', async (req, res) => {
+app.get('/api/homepage/all', optionalAuth, async (req, res) => {
   try {
+    const userId = req.user?.userId;
+    const baseBecauseYouRead = {
+      continue_reading: [],
+      recommendations: [],
+      view_all_url: '/series?sort=based_on_you'
+    };
+    const GENRE_MAP_DERIVED_SQL = HOMEPAGE_GENRE_MAP_DERIVED_SQL;
+
+    // 如果公共缓存命中：直接返回公共块；若有 userId，则在返回前覆盖 because_you_read（不写入公共缓存）
+    if (isHomepageCacheValid()) {
+      const cached = __homepageAllCache.payload;
+      if (!userId) {
+        // 确保字段稳定（老缓存可能不含 because_you_read）
+        if (cached?.data?.v2 && !cached.data.v2.because_you_read) {
+          const patched = {
+            ...cached,
+            data: {
+              ...cached.data,
+              v2: {
+                ...cached.data.v2,
+                because_you_read: baseBecauseYouRead
+              }
+            }
+          };
+          return res.json(patched);
+        }
+        return res.json(cached);
+      }
+
+      // userId 存在：按用户取 because_you_read（带 60s 小缓存）
+      let byr = getBecauseYouReadCache(userId);
+      if (!byr) {
+        byr = await computeBecauseYouReadForUser(db, userId, baseBecauseYouRead, GENRE_MAP_DERIVED_SQL);
+        setBecauseYouReadCache(userId, byr);
+      }
+
+      const patched = {
+        ...cached,
+        data: {
+          ...cached.data,
+          v2: {
+            ...(cached.data?.v2 || {}),
+            because_you_read: byr
+          }
+        }
+      };
+      return res.json(patched);
+    }
+
     const { limit = 6 } = req.query;
+
+    // Helper: 最新章节（每本书取 1 章，按 created_at DESC, id DESC 解决同秒冲突）
+    const LATEST_CHAPTER_DERIVED_SQL = `
+      (
+        SELECT c.*
+        FROM chapter c
+        INNER JOIN (
+          SELECT novel_id, MAX(created_at) AS max_created_at
+          FROM chapter
+          GROUP BY novel_id
+        ) t ON t.novel_id = c.novel_id AND t.max_created_at = c.created_at
+        INNER JOIN (
+          SELECT novel_id, created_at, MAX(id) AS max_id
+          FROM chapter
+          GROUP BY novel_id, created_at
+        ) t2 ON t2.novel_id = c.novel_id AND t2.created_at = c.created_at AND t2.max_id = c.id
+      ) lc
+    `;
+
+    // Helper: 判断 novel.created_at 是否存在（不同环境兼容）
+    const novelHasCreatedAtPromise = new Promise((resolve) => {
+      db.query(`SHOW COLUMNS FROM novel LIKE 'created_at'`, (err, results) => {
+        if (err) return resolve(false);
+        resolve(Array.isArray(results) && results.length > 0);
+      });
+    });
     
     // 并行获取所有数据
-    const [bannersResult, popularResult, newReleasesResult, topSeriesResult, configResult] = await Promise.all([
+    const [
+      bannersResult,
+      popularResult,
+      newReleasesResult,
+      topSeriesResult,
+      configResult,
+      novelHasCreatedAt,
+      heroResult,
+      announcementsResult,
+      promotionsResult,
+      trendingTabsResult,
+      newBooksResult,
+      recentUpdatesResult,
+      championFeaturedResult
+    ] = await Promise.all([
       new Promise((resolve, reject) => {
         db.query(`
           SELECT 
@@ -2073,19 +2506,329 @@ app.get('/api/homepage/all', async (req, res) => {
           if (err) reject(err);
           else resolve(results);
         });
+      }),
+
+      // novel.created_at 是否存在
+      novelHasCreatedAtPromise,
+
+      // v2.hero: banners + novel详情 + latest chapter（避免 N+1）
+      new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT
+              hb.id AS banner_id,
+              hb.title AS banner_title,
+              hb.subtitle AS banner_subtitle,
+              hb.image_url,
+              hb.link_url,
+              n.id AS novel_id,
+              n.title AS novel_title,
+              n.author,
+              n.translator,
+              n.cover,
+              n.status,
+              n.description,
+              n.chapters,
+              lc.id AS latest_chapter_id,
+              lc.chapter_number AS latest_chapter_number,
+              lc.title AS latest_chapter_title,
+              lc.created_at AS latest_chapter_created_at
+            FROM homepage_banners hb
+            LEFT JOIN novel n ON hb.novel_id = n.id
+            LEFT JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
+            WHERE hb.is_active = 1
+              AND (hb.start_date IS NULL OR hb.start_date <= NOW())
+              AND (hb.end_date IS NULL OR hb.end_date >= NOW())
+              AND (hb.novel_id IS NULL OR n.review_status = 'published')
+            ORDER BY hb.display_order ASC
+          `,
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
+      }),
+
+      // v2.announcements: homepage_announcements（允许表不存在时返回空）
+      // 只返回读者端公告，限制2条
+      new Promise((resolve) => {
+        db.query(
+          `
+            SELECT id, title, content, link_url, display_order, created_at
+            FROM homepage_announcements
+            WHERE is_active = 1
+              AND target_audience = 'reader'
+              AND (start_date IS NULL OR start_date <= NOW())
+              AND (end_date IS NULL OR end_date >= NOW())
+            ORDER BY display_order ASC, created_at DESC
+            LIMIT 2
+          `,
+          (err, results) => {
+            if (err) return resolve([]); // 不阻断旧首页
+            resolve(results);
+          }
+        );
+      }),
+
+      // v2.promotions: pricing_promotion（只读；失败不影响首页）
+      fetchHomepagePromotions(db, 2).catch((e) => {
+        console.error('[homepage] fetchHomepagePromotions failed:', e);
+        return [];
+      }),
+
+      // v2.trending.tabs: 热门 genre（按已发布小说数排序）
+      new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT g.id, g.slug, g.name, g.chinese_name, COUNT(*) AS novel_count
+            FROM genre g
+            JOIN ${GENRE_MAP_DERIVED_SQL} ON ngr.genre_id = g.id
+            JOIN novel n ON n.id = ngr.novel_id AND n.review_status = 'published'
+            WHERE g.is_active = 1
+            GROUP BY g.id
+            ORDER BY novel_count DESC
+            LIMIT 6
+          `,
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
+      }),
+
+      // v2.new_books: 真正新书（created_at 存在则按 created_at，否则按首章时间）
+      new Promise((resolve, reject) => {
+        // 先占位，下面根据 novelHasCreatedAt 再二次查询（保持并行结构）
+        resolve([]);
+      }),
+
+      // v2.recent_updates: 最新章节列表（每本 1 条，避免同秒冲突）
+      new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT
+              n.id AS novel_id,
+              n.title AS novel_title,
+              n.cover,
+              n.translator,
+              lc.id AS chapter_id,
+              lc.chapter_number,
+              lc.title AS chapter_title,
+              lc.created_at AS chapter_created_at
+            FROM novel n
+            JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
+            WHERE n.review_status = 'published'
+            ORDER BY lc.created_at DESC, lc.id DESC
+            LIMIT 20
+          `,
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
+      }),
+
+      // v2.champion.items: 优先 featured(recommended)，fallback 用 topSeries
+      new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT
+              n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
+              hfn.display_order, hfn.section_type
+            FROM homepage_featured_novels hfn
+            JOIN novel n ON hfn.novel_id = n.id
+            WHERE hfn.section_type = 'recommended'
+              AND hfn.is_active = 1
+              AND (hfn.start_date IS NULL OR hfn.start_date <= NOW())
+              AND (hfn.end_date IS NULL OR hfn.end_date >= NOW())
+              AND n.review_status = 'published'
+            ORDER BY hfn.display_order ASC
+            LIMIT 6
+          `,
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
       })
     ]);
 
-    res.json({
+    // new_books 二次查询（依赖 novelHasCreatedAt，不改变旧 SQL 口径）
+    const newBooksFinal = await new Promise((resolve, reject) => {
+      if (novelHasCreatedAt) {
+        db.query(
+          `
+            SELECT id, title, author, translator, description, chapters, status, cover, rating, reviews, created_at
+            FROM novel
+            WHERE review_status = 'published'
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+          `,
+          [parseInt(limit)],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
+      } else {
+        // fallback：按首章时间（MIN(chapter.created_at)）排序
+        db.query(
+          `
+            SELECT
+              n.id, n.title, n.author, n.translator, n.description, n.chapters, n.status, n.cover, n.rating, n.reviews,
+              MIN(c.created_at) AS first_chapter_created_at
+            FROM novel n
+            JOIN chapter c ON c.novel_id = n.id
+            WHERE n.review_status = 'published'
+            GROUP BY n.id
+            ORDER BY first_chapter_created_at DESC, n.id DESC
+            LIMIT ?
+          `,
+          [parseInt(limit)],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+          }
+        );
+      }
+    });
+
+    // trending.items_by_tab + popular_genres.items_by_tab（按 tab 并行查；tab 数量固定 6，避免复杂 OR JOIN）
+    const trendingTabs = Array.isArray(trendingTabsResult) ? trendingTabsResult : [];
+    const trendingItemsByTabEntries = await Promise.all(
+      trendingTabs.map((g) => new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT
+              n.id, n.title, n.author, n.cover, n.status, n.rating, n.reviews, n.chapters,
+              COALESCE(SUM(ns.views), 0) AS weekly_views
+            FROM novel n
+            JOIN ${GENRE_MAP_DERIVED_SQL} ON ngr.novel_id = n.id AND ngr.genre_id = ?
+            LEFT JOIN novel_statistics ns ON ns.novel_id = n.id AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            WHERE n.review_status = 'published'
+            GROUP BY n.id
+            ORDER BY weekly_views DESC, n.rating DESC, n.reviews DESC
+            LIMIT 5
+          `,
+          [g.id],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve([g.slug, results]);
+          }
+        );
+      }))
+    );
+
+    const trendingItemsByTab = Object.fromEntries(trendingItemsByTabEntries);
+
+    // popular_genres: 复用 trendingTabs（若不足则按现有数量）
+    const popularGenresTabs = trendingTabs;
+    const popularGenresItemsByTabEntries = await Promise.all(
+      popularGenresTabs.map((g) => new Promise((resolve, reject) => {
+        db.query(
+          `
+            SELECT
+              n.id, n.title, n.author, n.cover, n.status, n.rating, n.reviews, n.chapters,
+              COALESCE(SUM(ns.views), 0) AS weekly_views
+            FROM novel n
+            JOIN ${GENRE_MAP_DERIVED_SQL} ON ngr.novel_id = n.id AND ngr.genre_id = ?
+            LEFT JOIN novel_statistics ns ON ns.novel_id = n.id AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            WHERE n.review_status = 'published'
+            GROUP BY n.id
+            ORDER BY weekly_views DESC, n.rating DESC, n.reviews DESC
+            LIMIT 6
+          `,
+          [g.id],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve([g.slug, results]);
+          }
+        );
+      }))
+    );
+
+    const popularGenresItemsByTab = Object.fromEntries(popularGenresItemsByTabEntries);
+
+    // champion fallback：若无 featured，则 fallback topSeriesResult（旧字段保持不变）
+    const championItems = (Array.isArray(championFeaturedResult) && championFeaturedResult.length > 0)
+      ? championFeaturedResult
+      : (Array.isArray(topSeriesResult) ? topSeriesResult.slice(0, 6) : []);
+
+    const payload = {
       success: true,
       data: {
+        // 旧字段原样保留
         banners: bannersResult,
         popularNovels: popularResult,
         newReleases: newReleasesResult,
         topSeries: topSeriesResult,
-        config: configResult
+        config: configResult,
+        // 新增 v2
+        v2: {
+          hero: {
+            items: heroResult || []
+          },
+          announcements: {
+            items: announcementsResult || [],
+            view_all_url: '/announcements'
+          },
+          promotions: {
+            items: promotionsResult || [],
+            view_all_url: ''
+          },
+          popular_this_week: {
+            items: popularResult || [],
+            view_all_url: '/series?sort=popular_week'
+          },
+          trending: {
+            tabs: trendingTabs,
+            items_by_tab: trendingItemsByTab,
+            view_all_url: '/series?sort=trending'
+          },
+          new_books: {
+            items: newBooksFinal || [],
+            view_all_url: '/series?sort=new'
+          },
+          popular_genres: {
+            tabs: popularGenresTabs,
+            items_by_tab: popularGenresItemsByTab
+          },
+          champion: {
+            cta_url: '/champion',
+            items: championItems
+          },
+          recent_updates: {
+            items: recentUpdatesResult || [],
+            view_all_url: '/updates'
+          },
+          // Because You Read（默认空，避免未登录/无种子时破坏结构）
+          because_you_read: baseBecauseYouRead
+        }
       }
-    });
+    };
+
+    setHomepageCache(payload);
+    // 如果有 userId：返回前覆盖 because_you_read（不写入公共缓存）
+    if (userId) {
+      let byr = getBecauseYouReadCache(userId);
+      if (!byr) {
+        byr = await computeBecauseYouReadForUser(db, userId, baseBecauseYouRead, GENRE_MAP_DERIVED_SQL);
+        setBecauseYouReadCache(userId, byr);
+      }
+      const patched = {
+        ...payload,
+        data: {
+          ...payload.data,
+          v2: {
+            ...payload.data.v2,
+            because_you_read: byr
+          }
+        }
+      };
+      return res.json(patched);
+    }
+
+    return res.json(payload);
 
   } catch (error) {
     console.error('Failed to get homepage data:', error);
@@ -3191,6 +3934,10 @@ app.use('/api/reading-mission', readingWithMissionRoutes);
 const chapterUnlockRoutes = require('./routes/chapter_unlock');
 app.use('/api/chapter-unlock', chapterUnlockRoutes);
 
+// 作品数据评价系统路由
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/rankings', rankingsRoutes);
+
 // Key交易记录路由
 const keyTransactionRoutes = require('./routes/key_transaction');
 app.use('/api/key-transaction', keyTransactionRoutes);
@@ -3202,6 +3949,10 @@ app.use('/api/time-unlock', timeUnlockRoutes);
 // 阅读时间追踪路由
 const readingTimingRoutes = require('./routes/reading_timing');
 app.use('/api/reading-timing', readingTimingRoutes);
+
+// 章节点赞/点踩路由
+const chapterLikeRoutes = require('./routes/chapter_like');
+app.use('/api/chapter-like', chapterLikeRoutes);
 
 // API文档页面
 app.get('/api', (req, res) => {
@@ -4787,6 +5538,12 @@ const scheduledReleaseService = require('./services/scheduledReleaseService');
 
 // 启动定时发布任务（每小时整点执行）
 scheduledReleaseService.startScheduledReleaseTask();
+
+// 导入作品数据统计服务
+const novelAnalyticsService = require('./services/novelAnalyticsService');
+
+// 启动每日统计定时任务（每天凌晨3点执行）
+novelAnalyticsService.startDailyStatsTask();
 
 app.listen(5000, () => {
   console.log('Server running on http://localhost:5000');

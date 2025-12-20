@@ -18,11 +18,23 @@ import DailyRewards from './pages/DailyRewards';
 import Bookmarks from './pages/Bookmarks';
 import EmailVerification from './pages/EmailVerification';
 import WritersZone from './pages/WritersZone';
+import Inbox from './pages/WritersZone/Inbox';
+import InboxV2 from './pages/WritersZone/InboxV2';
 import CreateNovel from './pages/CreateNovel';
 import NovelManage from './pages/NovelManage';
 import ChapterWriter from './pages/ChapterWriter';
 import AdminPanel from './pages/AdminPanel';
+import AdminInboxV2 from './pages/AdminPanel/InboxV2';
 import AdminRegister from './pages/AdminRegister';
+import Series from './pages/Series';
+import Forum from './pages/Forum';
+import Resources from './pages/Resources';
+import Updates from './pages/Updates';
+import AnnouncementsPage from './pages/AnnouncementsPage';
+import NewsDetail from './pages/NewsDetail';
+import NewsList from './pages/NewsList';
+import LegalDocumentPage from './pages/LegalDocumentPage';
+import ContractPolicyPage from './pages/ContractPolicyPage';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -52,11 +64,24 @@ function App() {
         <Route path="/bookmarks" element={<Bookmarks />} />
         <Route path="/email-verification" element={<EmailVerification />} />
         <Route path="/writers-zone" element={<WritersZone />} />
+        <Route path="/writers-zone/inbox" element={<Inbox />} />
+        <Route path="/writers-zone/inbox-v2" element={<InboxV2 />} />
         <Route path="/create-novel" element={<CreateNovel />} />
         <Route path="/novel-manage/:novelId" element={<NovelManage />} />
         <Route path="/novel-upload" element={<ChapterWriter />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin/inbox-v2" element={<AdminInboxV2 />} />
         <Route path="/admin-register" element={<AdminRegister />} />
+        {/* Home V2 相关占位页：避免 NavBar 404，并支撑 View All 跳转 */}
+        <Route path="/series" element={<Series />} />
+        <Route path="/forum" element={<Forum />} />
+        <Route path="/resources" element={<Resources />} />
+        <Route path="/updates" element={<Updates />} />
+        <Route path="/announcements" element={<AnnouncementsPage />} />
+        <Route path="/news" element={<NewsList />} />
+        <Route path="/news/:id" element={<NewsDetail />} />
+        <Route path="/legal/:docKey" element={<LegalDocumentPage />} />
+        <Route path="/contract-policy" element={<ContractPolicyPage />} />
         </Routes>
       </Router>
     </GoogleOAuthProvider>

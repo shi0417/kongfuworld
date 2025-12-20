@@ -1,0 +1,168 @@
+{
+  "project": {
+    "name": "wuxiaworld-clone",
+    "version": "1.0.0",
+    "frontend": {
+      "framework": "React",
+      "version": "^19.1.0",
+      "port": 3000,
+      "buildTool": "react-scripts",
+      "typescript": true
+    },
+    "backend": {
+      "framework": "Express",
+      "version": "^4.18.2",
+      "port": 5000,
+      "runtime": "Node.js"
+    },
+    "structure": {
+      "frontend": "D:\\project\\wuxiaworld-clone\\frontend",
+      "backend": "D:\\project\\wuxiaworld-clone\\backend"
+    },
+    "services": {
+      "frontend": {
+        "url": "http://localhost:3000",
+        "status": 200,
+        "running": true,
+        "responseTime": 71
+      },
+      "backend": {
+        "url": "http://localhost:5000",
+        "status": 404,
+        "running": false,
+        "responseTime": 6
+      }
+    }
+  },
+  "performance": {
+    "homepage": {
+      "mobile": {
+        "performance": 47,
+        "accessibility": 95,
+        "bestPractices": 100,
+        "seo": 100,
+        "metrics": {
+          "lcp": 24491.926999999996,
+          "fid": 1618,
+          "cls": 0,
+          "fcp": 1237.0520000000001,
+          "ttfb": 2.5120000000000005
+        }
+      }
+    }
+  },
+  "seo": {
+    "robotsTxt": true,
+    "sitemapXml": false,
+    "issues": [
+      "缺少 sitemap.xml"
+    ]
+  },
+  "accessibility": {},
+  "security": {
+    "frontend": {
+      "headers": {
+        "x-powered-by": "Express",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "*",
+        "access-control-allow-headers": "*",
+        "content-type": "text/html; charset=utf-8",
+        "accept-ranges": "bytes",
+        "content-length": "1695",
+        "etag": "W/\"69f-Uxlwx/kuUlzWt1klak4J1vSbSWA\"",
+        "vary": "Accept-Encoding",
+        "date": "Tue, 16 Dec 2025 09:37:25 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "missing": [
+        "HSTS",
+        "CSP",
+        "X-Content-Type-Options",
+        "X-Frame-Options",
+        "Referrer-Policy",
+        "Permissions-Policy"
+      ],
+      "score": "0"
+    },
+    "backend": {
+      "headers": {
+        "x-powered-by": "Express",
+        "access-control-allow-origin": "*",
+        "content-security-policy": "default-src 'none'",
+        "x-content-type-options": "nosniff",
+        "content-type": "text/html; charset=utf-8",
+        "content-length": "139",
+        "date": "Tue, 16 Dec 2025 09:37:25 GMT",
+        "connection": "keep-alive",
+        "keep-alive": "timeout=5"
+      },
+      "missing": [
+        "HSTS",
+        "X-Frame-Options",
+        "Referrer-Policy",
+        "Permissions-Policy"
+      ],
+      "score": "33"
+    }
+  },
+  "dependencies": {
+    "error": "Command failed: npm audit --json"
+  },
+  "crawl": {},
+  "e2e": {},
+  "issues": [
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: HSTS",
+      "description": "前端响应中缺少 HSTS 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 HSTS"
+    },
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: CSP",
+      "description": "前端响应中缺少 CSP 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 CSP"
+    },
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: X-Content-Type-Options",
+      "description": "前端响应中缺少 X-Content-Type-Options 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 X-Content-Type-Options"
+    },
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: X-Frame-Options",
+      "description": "前端响应中缺少 X-Frame-Options 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 X-Frame-Options"
+    },
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: Referrer-Policy",
+      "description": "前端响应中缺少 Referrer-Policy 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 Referrer-Policy"
+    },
+    {
+      "severity": "P1",
+      "category": "Security",
+      "issue": "前端缺失安全头: Permissions-Policy",
+      "description": "前端响应中缺少 Permissions-Policy 安全头",
+      "recommendation": "在 Express 中间件或 Web 服务器配置中添加 Permissions-Policy"
+    },
+    {
+      "severity": "P2",
+      "category": "SEO",
+      "issue": "缺少 sitemap.xml",
+      "description": "网站根目录缺少 sitemap.xml 文件",
+      "recommendation": "生成并部署 sitemap.xml 文件"
+    }
+  ],
+  "startTime": "2025-12-16T09:37:21.671Z",
+  "endTime": "2025-12-16T09:40:02.896Z",
+  "duration": 161225
+}

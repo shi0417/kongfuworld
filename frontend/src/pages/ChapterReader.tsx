@@ -61,6 +61,14 @@ const ChapterReader: React.FC = () => {
   // 使用认证Hook，无需手动管理用户状态（使用 useMemo 确保在所有地方都能正确访问）
   const user = useMemo(() => authUser || userData, [authUser, userData]);
   
+  // 章节点赞/点踩（chapter_like）
+  const [chapterLikeSummary, setChapterLikeSummary] = useState<{
+    like_count: number;
+    dislike_count: number;
+    user_status: null | 0 | 1;
+  }>({ like_count: 0, dislike_count: 0, user_status: null });
+  const [chapterLikeLoading, setChapterLikeLoading] = useState(false);
+  
   // 章节解锁状态 - 使用自定义 Hook
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [hasAutoOpenedUnlockModal, setHasAutoOpenedUnlockModal] = useState(false);
@@ -202,6 +210,59 @@ const ChapterReader: React.FC = () => {
       window.removeEventListener('pagehide', handleBeforeUnload);
     };
   }, [currentRecordId]);
+
+  // 加载章节点赞/点踩摘要
+  useEffect(() => {
+    if (!chapterId) return;
+    const loadSummary = async () => {
+      try {
+        setChapterLikeLoading(true);
+        const resp = await ApiService.get(`/chapter-like/${chapterId}/summary`);
+        if (resp && resp.success && resp.data) {
+          setChapterLikeSummary({
+            like_count: Number(resp.data.like_count || 0),
+            dislike_count: Number(resp.data.dislike_count || 0),
+            user_status:
+              resp.data.user_status === 0 || resp.data.user_status === 1 ? resp.data.user_status : null
+          });
+        }
+      } catch (e) {
+        console.error('加载章节点赞/点踩摘要失败:', e);
+      } finally {
+        setChapterLikeLoading(false);
+      }
+    };
+    loadSummary();
+  }, [chapterId]);
+
+  const handleChapterLikeAction = async (isLike: 0 | 1) => {
+    if (!chapterId) return;
+    try {
+      setChapterLikeLoading(true);
+      const resp = await ApiService.post(`/chapter-like/${chapterId}`, { is_like: isLike });
+      if (resp && resp.success && resp.data) {
+        setChapterLikeSummary({
+          like_count: Number(resp.data.like_count || 0),
+          dislike_count: Number(resp.data.dislike_count || 0),
+          user_status:
+            resp.data.user_status === 0 || resp.data.user_status === 1 ? resp.data.user_status : null
+        });
+      }
+    } catch (e: any) {
+      // ApiService 401 会清 token 并抛出 ApiError
+      const msg = e?.message ? String(e.message) : '操作失败';
+      if (String(msg).includes('认证失败') || String(msg).includes('登录')) {
+        alert('请先登录后再点赞/点踩');
+        const currentPath = `/novel/${novelId}/chapter/${chapterId}`;
+        navigate(`/login?redirect=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+      console.error('章节点赞/点踩失败:', e);
+      alert('操作失败，请稍后重试');
+    } finally {
+      setChapterLikeLoading(false);
+    }
+  };
 
   // 组件卸载时记录离开时间
   useEffect(() => {
@@ -1024,6 +1085,7 @@ const ChapterReader: React.FC = () => {
                         isOpen={showUnlockModal}
                         onClose={() => {}} // 不允许关闭
                         chapterId={parseInt(chapterId)}
+                        novelId={parseInt(novelId!)}
                         userId={user.id}
                         onUnlockSuccess={handleUnlockSuccess}
                       />
@@ -1040,6 +1102,7 @@ const ChapterReader: React.FC = () => {
         {/* 收藏按钮 */}
         {isAuthenticated && userData && (
           <div style={{ 
+            position: 'relative',
             display: 'flex', 
             justifyContent: 'center', 
             alignItems: 'center',
@@ -1056,6 +1119,49 @@ const ChapterReader: React.FC = () => {
                 console.log('收藏状态变化:', isFavorite);
               }}
             />
+
+            {/* 章节点赞（精简为单按钮，可再次点击取消） */}
+            <button
+              onClick={() => handleChapterLikeAction(1)}
+              disabled={chapterLikeLoading}
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '16px 28px',
+                border: '2px solid #444',
+                borderRadius: 30,
+                background: chapterLikeSummary.user_status === 1 ? '#1976d2' : '#2a2a2a',
+                color: '#fff',
+                fontSize: 18,
+                cursor: chapterLikeLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.3s ease',
+                userSelect: 'none',
+                fontWeight: 700,
+                opacity: chapterLikeLoading ? 0.7 : 1
+              }}
+              title={chapterLikeSummary.user_status === 1 ? '取消喜欢' : '我喜欢'}
+            >
+              <span style={{ fontSize: 18, fontWeight: 800 }}>I LIKE</span>
+              <span
+                style={{
+                  minWidth: 28,
+                  textAlign: 'center',
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.25)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  fontSize: 16,
+                  fontWeight: 800
+                }}
+              >
+                {chapterLikeSummary.like_count}
+              </span>
+            </button>
           </div>
         )}
 

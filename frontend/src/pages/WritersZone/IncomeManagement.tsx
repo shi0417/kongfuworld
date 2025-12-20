@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import ApiService from '../../services/ApiService';
 import styles from './IncomeManagement.module.css';
 
@@ -70,10 +71,27 @@ interface ReferralStats {
   }>;
 }
 
+// 获取 CSS 变量的辅助函数
+const getCSSVariable = (varName: string, fallback: string = ''): string => {
+  if (typeof window === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || fallback;
+};
+
 const IncomeManagement: React.FC = () => {
   const { user } = useAuth();
   const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'income' | 'referral' | 'settlement' | 'account'>('income');
+  
+  // 获取主题相关的 CSS 变量值
+  const themeStyles = {
+    textPrimary: getCSSVariable('--text-primary', '#333'),
+    textSecondary: getCSSVariable('--text-secondary', '#666'),
+    bgSecondary: getCSSVariable('--bg-secondary', 'white'),
+    bgTertiary: getCSSVariable('--bg-tertiary', '#f9f9f9'),
+    borderColor: getCSSVariable('--border-color', '#e0e0e0'),
+    hoverBg: getCSSVariable('--hover-bg', '#e9ecef'),
+  };
   
   // 切换Tab时重置分页
   const handleTabChange = (tab: 'income' | 'referral' | 'settlement' | 'account') => {
@@ -550,7 +568,7 @@ const IncomeManagement: React.FC = () => {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${styles[theme]}`}>
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${activeTab === 'income' ? styles.active : ''}`}
@@ -589,7 +607,7 @@ const IncomeManagement: React.FC = () => {
                 type="month"
                 value={incomeMonth}
                 onChange={(e) => setIncomeMonth(e.target.value)}
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
+                style={{ padding: '6px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
               />
             </div>
             <div className={styles.filterItem}>
@@ -597,7 +615,7 @@ const IncomeManagement: React.FC = () => {
               <select
                 value={selectedNovelId}
                 onChange={(e) => setSelectedNovelId(e.target.value)}
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
+                style={{ padding: '6px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
               >
                 <option value="all">{t('income.authorIncome.allWorks')}</option>
                 {userNovels.map(novel => (
@@ -790,9 +808,9 @@ const IncomeManagement: React.FC = () => {
                 marginBottom: '20px', 
                 fontSize: '18px', 
                 fontWeight: '600', 
-                color: '#333',
+                color: themeStyles.textPrimary,
                 paddingBottom: '12px',
-                borderBottom: '2px solid #e0e0e0'
+                borderBottom: `2px solid ${themeStyles.borderColor}`
               }}>
                 {t('income.referralLinks.currentPlan')}
               </h3>
@@ -802,9 +820,9 @@ const IncomeManagement: React.FC = () => {
                 <div style={{
                   marginBottom: '20px',
                   padding: '16px',
-                  background: '#f8f9fa',
+                  background: themeStyles.bgTertiary,
                   borderRadius: '8px',
-                  border: '1px solid #e0e0e0'
+                  border: `1px solid ${themeStyles.borderColor}`
                 }}>
                   {/* 可点击的标题区域（红色框） */}
                   <div 
@@ -812,7 +830,7 @@ const IncomeManagement: React.FC = () => {
                     style={{ 
                       fontSize: '15px', 
                       fontWeight: '600', 
-                      color: '#333',
+                      color: themeStyles.textPrimary,
                       marginBottom: '8px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -824,7 +842,7 @@ const IncomeManagement: React.FC = () => {
                       userSelect: 'none'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#e9ecef';
+                      e.currentTarget.style.backgroundColor = themeStyles.hoverBg;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -853,7 +871,7 @@ const IncomeManagement: React.FC = () => {
                             marginLeft: '8px',
                             padding: '2px 8px',
                             background: '#ffc107',
-                            color: '#333',
+                            color: themeStyles.textPrimary,
                             borderRadius: '4px',
                             fontSize: '12px',
                             fontWeight: 'normal'
@@ -865,7 +883,7 @@ const IncomeManagement: React.FC = () => {
                     </div>
                     <div style={{ 
                       fontSize: '16px', 
-                      color: '#666'
+                      color: themeStyles.textSecondary
                     }}>
                       {referralPlans.reader_plan.levels.map((l, idx) => (
                         <span key={l.level}>
@@ -883,7 +901,7 @@ const IncomeManagement: React.FC = () => {
                     <div style={{
                       marginTop: '16px',
                       padding: '12px',
-                      background: 'white',
+                      background: themeStyles.bgSecondary,
                       borderRadius: '6px',
                       borderLeft: '4px solid #007bff',
                       animation: 'fadeIn 0.3s ease-in'
@@ -891,7 +909,7 @@ const IncomeManagement: React.FC = () => {
                       <div style={{
                         fontSize: '13px',
                         fontWeight: '600',
-                        color: '#333',
+                        color: themeStyles.textPrimary,
                         marginBottom: '8px'
                       }}>
                         {t('income.referralLinks.readerRuleTitle')}
@@ -901,7 +919,7 @@ const IncomeManagement: React.FC = () => {
                         return (
                           <div key={l.level} style={{
                             fontSize: '13px',
-                            color: '#666',
+                            color: themeStyles.textSecondary,
                             lineHeight: '1.8',
                             paddingLeft: '12px',
                             position: 'relative'
@@ -932,9 +950,9 @@ const IncomeManagement: React.FC = () => {
                 <div style={{
                   marginBottom: '20px',
                   padding: '16px',
-                  background: '#f8f9fa',
+                  background: themeStyles.bgTertiary,
                   borderRadius: '8px',
-                  border: '1px solid #e0e0e0'
+                  border: `1px solid ${themeStyles.borderColor}`
                 }}>
                   {/* 可点击的标题区域（红色框） */}
                   <div 
@@ -942,7 +960,7 @@ const IncomeManagement: React.FC = () => {
                     style={{ 
                       fontSize: '15px', 
                       fontWeight: '600', 
-                      color: '#333',
+                      color: themeStyles.textPrimary,
                       marginBottom: '8px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -954,7 +972,7 @@ const IncomeManagement: React.FC = () => {
                       userSelect: 'none'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#e9ecef';
+                      e.currentTarget.style.backgroundColor = themeStyles.hoverBg;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -983,7 +1001,7 @@ const IncomeManagement: React.FC = () => {
                             marginLeft: '8px',
                             padding: '2px 8px',
                             background: '#ffc107',
-                            color: '#333',
+                            color: themeStyles.textPrimary,
                             borderRadius: '4px',
                             fontSize: '12px',
                             fontWeight: 'normal'
@@ -995,7 +1013,7 @@ const IncomeManagement: React.FC = () => {
                     </div>
                     <div style={{ 
                       fontSize: '16px', 
-                      color: '#666'
+                      color: themeStyles.textSecondary
                     }}>
                       {referralPlans.author_plan.levels.map((l, idx) => (
                         <span key={l.level}>
@@ -1013,7 +1031,7 @@ const IncomeManagement: React.FC = () => {
                     <div style={{
                       marginTop: '16px',
                       padding: '12px',
-                      background: 'white',
+                      background: themeStyles.bgSecondary,
                       borderRadius: '6px',
                       borderLeft: '4px solid #28a745',
                       animation: 'fadeIn 0.3s ease-in'
@@ -1021,7 +1039,7 @@ const IncomeManagement: React.FC = () => {
                       <div style={{
                         fontSize: '13px',
                         fontWeight: '600',
-                        color: '#333',
+                        color: themeStyles.textPrimary,
                         marginBottom: '8px'
                       }}>
                         {t('income.referralLinks.authorRuleTitle')}
@@ -1031,7 +1049,7 @@ const IncomeManagement: React.FC = () => {
                         return (
                           <div key={l.level} style={{
                             fontSize: '13px',
-                            color: '#666',
+                            color: themeStyles.textSecondary,
                             lineHeight: '1.8',
                             paddingLeft: '12px',
                             position: 'relative'
@@ -1071,7 +1089,7 @@ const IncomeManagement: React.FC = () => {
                         type="text"
                         value={promotionLink}
                         readOnly
-                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                       />
                       <button
                         onClick={() => copyToClipboard(promotionLink)}
@@ -1089,7 +1107,7 @@ const IncomeManagement: React.FC = () => {
                         type="text"
                         value={promotionCode}
                         readOnly
-                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                       />
                       <button
                         onClick={() => copyToClipboard(promotionCode)}
@@ -1483,19 +1501,20 @@ const IncomeManagement: React.FC = () => {
                 >
                   <div
                     style={{
-                      background: 'white',
+                      background: themeStyles.bgSecondary,
                       padding: '24px',
                       borderRadius: '8px',
                       maxWidth: '600px',
                       width: '90%',
                       maxHeight: '80vh',
-                      overflow: 'auto'
+                      overflow: 'auto',
+                      color: themeStyles.textPrimary
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                      <h3>{t('income.settlement.detail.title')} - #{selectedPayoutDetail.payout.id}</h3>
-                      <button onClick={() => setSelectedPayoutDetail(null)} style={{ fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+                      <h3 style={{ color: themeStyles.textPrimary }}>{t('income.settlement.detail.title')} - #{selectedPayoutDetail.payout.id}</h3>
+                      <button onClick={() => setSelectedPayoutDetail(null)} style={{ fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer', color: themeStyles.textSecondary }}>×</button>
                     </div>
                     <div style={{ marginBottom: '15px' }}>
                       <p><strong>{t('income.settlement.detail.fields.month')}</strong> {selectedPayoutDetail.payout.month ? new Date(selectedPayoutDetail.payout.month).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' }) : '-'}</p>
@@ -1513,8 +1532,8 @@ const IncomeManagement: React.FC = () => {
                       )}
                     </div>
                     {selectedPayoutDetail.gateway_transaction && (
-                      <div style={{ marginBottom: '15px', marginTop: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
-                        <h4>{t('income.settlement.detail.gatewayInfoTitle')}</h4>
+                      <div style={{ marginBottom: '15px', marginTop: '20px', padding: '15px', backgroundColor: themeStyles.bgTertiary, borderRadius: '4px' }}>
+                        <h4 style={{ color: themeStyles.textPrimary }}>{t('income.settlement.detail.gatewayInfoTitle')}</h4>
                         <p><strong>{t('income.settlement.detail.gateway.fields.provider')}</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
                         <p><strong>{t('income.settlement.detail.gateway.fields.txId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id || '-'}</p>
                         <p><strong>{t('income.settlement.detail.gateway.fields.batchId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_batch_id || '-'}</p>
@@ -1531,7 +1550,7 @@ const IncomeManagement: React.FC = () => {
                     )}
                     {selectedPayoutDetail.gateway_transaction && (
                       <div>
-                        <h4>{t('income.settlement.detail.logTitle')}</h4>
+                        <h4 style={{ color: themeStyles.textPrimary }}>{t('income.settlement.detail.logTitle')}</h4>
                         <p><strong>{t('income.settlement.detail.log.fields.provider')}</strong> {selectedPayoutDetail.gateway_transaction.provider}</p>
                         <p><strong>{t('income.settlement.detail.log.fields.txId')}</strong> {selectedPayoutDetail.gateway_transaction.provider_tx_id}</p>
                         <p><strong>{t('income.settlement.detail.log.fields.status')}</strong> {selectedPayoutDetail.gateway_transaction.status}</p>
@@ -1550,8 +1569,14 @@ const IncomeManagement: React.FC = () => {
         <div className={styles.tabContent}>
           <>
             {/* 提示条 */}
-            <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f7ff', borderRadius: '8px', border: '1px solid #b3d9ff' }}>
-              <p style={{ margin: 0, color: '#0066cc' }}>
+            <div style={{ 
+              marginBottom: '20px', 
+              padding: '15px', 
+              background: theme === 'dark' ? 'rgba(0, 102, 204, 0.2)' : '#f0f7ff', 
+              borderRadius: '8px', 
+              border: `1px solid ${theme === 'dark' ? 'rgba(179, 217, 255, 0.3)' : '#b3d9ff'}` 
+            }}>
+              <p style={{ margin: 0, color: theme === 'dark' ? '#80bfff' : '#0066cc' }}>
                 <strong>{t('income.paymentAccount.tipLabel')}</strong> {t('income.paymentAccount.tipContent')}
               </p>
             </div>
@@ -1578,9 +1603,9 @@ const IncomeManagement: React.FC = () => {
             </div>
 
             {accountsLoading ? (
-              <div style={{ textAlign: 'center', padding: '40px' }}>{t('income.paymentAccount.loading')}</div>
+              <div style={{ textAlign: 'center', padding: '40px', color: themeStyles.textPrimary }}>{t('income.paymentAccount.loading')}</div>
             ) : payoutAccounts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: themeStyles.textSecondary }}>
                 <p style={{ fontSize: '16px', marginBottom: '10px' }}>{t('income.paymentAccount.emptyTitle')}</p>
                 <p style={{ fontSize: '14px' }}>{t('income.paymentAccount.emptyDesc')}</p>
               </div>
@@ -1591,10 +1616,10 @@ const IncomeManagement: React.FC = () => {
                     key={account.id}
                     style={{
                       padding: '20px',
-                      background: 'white',
+                      background: themeStyles.bgSecondary,
                       borderRadius: '8px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      border: account.is_default ? '2px solid #007bff' : '1px solid #e0e0e0',
+                      boxShadow: `0 2px 8px ${theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)'}`,
+                      border: account.is_default ? '2px solid #007bff' : `1px solid ${themeStyles.borderColor}`,
                       display: 'flex',
                       flexDirection: 'column'
                     }}
@@ -1602,14 +1627,14 @@ const IncomeManagement: React.FC = () => {
                     {/* 标题行 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 'bold' }}>
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 'bold', color: themeStyles.textPrimary }}>
                           {account.account_label}
                         </h4>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span style={{
                             padding: '4px 10px',
-                            background: '#f0f0f0',
-                            color: '#666',
+                            background: themeStyles.bgTertiary,
+                            color: themeStyles.textSecondary,
                             borderRadius: '4px',
                             fontSize: '12px'
                           }}>
@@ -1632,7 +1657,7 @@ const IncomeManagement: React.FC = () => {
                     </div>
 
                     {/* 内容区域 */}
-                    <div style={{ flex: 1, marginBottom: '15px', fontSize: '14px', color: '#666' }}>
+                    <div style={{ flex: 1, marginBottom: '15px', fontSize: '14px', color: themeStyles.textSecondary }}>
                       {(account.method === 'PayPal' || account.method === 'paypal') && (
                         <div>
                           <p style={{ margin: '4px 0' }}><strong>{t('income.paymentAccount.fields.paypalEmail')}</strong> {account.account_data?.email || '-'}</p>
@@ -1675,7 +1700,7 @@ const IncomeManagement: React.FC = () => {
                     </div>
 
                     {/* 操作按钮 */}
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', paddingTop: '15px', borderTop: '1px solid #f0f0f0' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', paddingTop: '15px', borderTop: `1px solid ${themeStyles.borderColor}` }}>
                       {!account.is_default && (
                         <button
                           onClick={() => setDefaultAccount(account.id)}
@@ -1759,18 +1784,19 @@ const IncomeManagement: React.FC = () => {
             >
               <div
                 style={{
-                  background: 'white',
+                  background: themeStyles.bgSecondary,
                   padding: '24px',
                   borderRadius: '8px',
                   maxWidth: '600px',
                   width: '90%',
                   maxHeight: '90vh',
-                  overflow: 'auto'
+                  overflow: 'auto',
+                  color: themeStyles.textPrimary
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0 }}>{editingAccount ? t('income.paymentAccount.modal.editTitle') : t('income.paymentAccount.modal.createTitle')}</h3>
+                  <h3 style={{ margin: 0, color: themeStyles.textPrimary }}>{editingAccount ? t('income.paymentAccount.modal.editTitle') : t('income.paymentAccount.modal.createTitle')}</h3>
                   <button
                     onClick={() => {
                       setShowAccountModal(false);
@@ -1782,18 +1808,25 @@ const IncomeManagement: React.FC = () => {
                         is_default: false
                       });
                     }}
-                    style={{ fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}
+                    style={{ fontSize: '24px', background: 'none', border: 'none', cursor: 'pointer', color: themeStyles.textSecondary }}
                   >
                     ×
                   </button>
                 </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '500px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.payMethod')}</label>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.payMethod')}</label>
                       <select
                         value={accountForm.method}
                         onChange={(e) => setAccountForm({ ...accountForm, method: e.target.value, account_data: {} })}
-                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          borderRadius: '4px', 
+                          border: `1px solid ${themeStyles.borderColor}`,
+                          background: themeStyles.bgSecondary,
+                          color: themeStyles.textPrimary
+                        }}
                       >
                         <option value="PayPal">PayPal</option>
                         <option value="Alipay">{t('income.settlement.payMethod.alipay')}</option>
@@ -1803,7 +1836,7 @@ const IncomeManagement: React.FC = () => {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.label')}</label>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.label')}</label>
                       <input
                         type="text"
                         value={accountForm.account_label}
@@ -1816,7 +1849,7 @@ const IncomeManagement: React.FC = () => {
                     {/* 根据支付方式显示不同的输入字段 */}
                     {accountForm.method === 'PayPal' && (
                       <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.paypalEmail')}</label>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.paypalEmail')}</label>
                         <input
                           type="email"
                           value={accountForm.account_data.email || ''}
@@ -1825,7 +1858,7 @@ const IncomeManagement: React.FC = () => {
                             account_data: { ...accountForm.account_data, email: e.target.value }
                           })}
                           placeholder={t('income.paymentAccount.modal.paypalEmailPlaceholder')}
-                          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                         />
                       </div>
                     )}
@@ -1833,7 +1866,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'Alipay' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.alipayAccount')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.alipayAccount')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.account || ''}
@@ -1842,11 +1875,11 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, account: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.alipayPlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.name || ''}
@@ -1855,7 +1888,7 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, name: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.realNamePlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                       </>
@@ -1864,7 +1897,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'WeChat' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.wechatIdRequired')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.wechatIdRequired')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.wechat_id || ''}
@@ -1873,11 +1906,11 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, wechat_id: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.wechatIdPlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.name || ''}
@@ -1886,11 +1919,11 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, name: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.realNamePlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.qrCodeUrlOptional')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.qrCodeUrlOptional')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.qrcode_url || ''}
@@ -1899,7 +1932,7 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, qrcode_url: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.qrCodeUrlPlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                       </>
@@ -1908,7 +1941,7 @@ const IncomeManagement: React.FC = () => {
                     {accountForm.method === 'Bank' && (
                       <>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankName')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.bankName')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.bank_name || ''}
@@ -1917,11 +1950,11 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, bank_name: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.bankNamePlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankAccountName')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.bankAccountName')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.account_name || ''}
@@ -1930,11 +1963,11 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, account_name: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.bankAccountNamePlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>{t('income.paymentAccount.modal.bankCardNumber')}</label>
+                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.bankCardNumber')}</label>
                           <input
                             type="text"
                             value={accountForm.account_data.card_number || ''}
@@ -1943,7 +1976,7 @@ const IncomeManagement: React.FC = () => {
                               account_data: { ...accountForm.account_data, card_number: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.bankCardNumberPlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
                       </>

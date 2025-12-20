@@ -1,0 +1,74 @@
+.titleCell {
+  max-width: 220px;
+}
+
+.title {
+  font-weight: 800;
+  color: #111;
+  line-height: 1.2;
+}
+
+.sub {
+  margin-top: 4px;
+  color: rgba(0,0,0,0.55);
+  font-size: 12px;
+}
+
+.previewCell {
+  max-width: 520px;
+  color: rgba(0,0,0,0.75);
+}
+
+.linkCell {
+  max-width: 220px;
+  word-break: break-all;
+}
+
+.link {
+  color: #1b76ff;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.timeCell {
+  color: rgba(0,0,0,0.75);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+}
+
+.tableRow[data-audience="reader"] {
+  background-color: #f0f7ff;
+}
+
+.tableRow[data-audience="writer"] {
+  background-color: #fff7e6;
+}
+
+.audienceBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.audienceBadge[data-audience="reader"] {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.audienceBadge[data-audience="writer"] {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+

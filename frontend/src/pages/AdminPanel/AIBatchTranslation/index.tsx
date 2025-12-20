@@ -121,6 +121,13 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
   const [expandedChapterId, setExpandedChapterId] = useState<number | null>(null);
   const [precheckLoading, setPrecheckLoading] = useState<boolean>(false);
   
+  // 标题统计相关状态
+  const [titleFilterPattern, setTitleFilterPattern] = useState<string>('第*章');
+  const [titleSortOrder, setTitleSortOrder] = useState<'asc' | 'desc' | null>(null);
+  
+  // 字数排序相关状态
+  const [wordCountSortOrder, setWordCountSortOrder] = useState<'asc' | 'desc' | null>(null);
+  
   // 初始化发布开始日期为今天
   useEffect(() => {
     if (!releaseStartDate) {
@@ -405,16 +412,36 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
 
       if (response.success) {
         setImportBatch(response.data.batch);
-        setChapterRows(response.data.chapters || []);
+        const chapters = response.data.chapters || [];
+        setChapterRows(chapters);
         setChangedChapterIds(new Set()); // 重置变更记录
+        
+        // 调试：检查章节数据
+        console.log(`[前端] 预览导入成功，共 ${chapters.length} 章`);
+        const chaptersWithIssues = chapters.filter((ch: ImportChapter) => ch.has_issue === 1 || ch.has_issue === true);
+        const chaptersWithMismatch = chapters.filter((ch: ImportChapter) => 
+          (ch.has_issue === 1 || ch.has_issue === true) && ch.issue_tags === 'chapter_number_mismatch'
+        );
+        console.log(`[前端] 有问题的章节数: ${chaptersWithIssues.length}, 章节号不一致的章节数: ${chaptersWithMismatch.length}`);
+        if (chaptersWithMismatch.length > 0) {
+          console.log(`[前端] 章节号不一致的章节:`, chaptersWithMismatch.map((ch: ImportChapter) => ({
+            id: ch.id,
+            chapter_number: ch.chapter_number,
+            raw_title: ch.raw_title,
+            has_issue: ch.has_issue,
+            issue_tags: ch.issue_tags,
+            issue_summary: ch.issue_summary
+          })));
+        }
+        
         // 默认选中所有非重复的章节
         const nonDuplicateIds = new Set<number>(
-          (response.data.chapters || [])
+          chapters
             .filter((ch: ImportChapter) => ch.status !== 'duplicate_existing')
             .map((ch: ImportChapter) => ch.id)
         );
         setSelectedChapterIds(nonDuplicateIds);
-        alert(`预览导入成功，共 ${response.data.chapters.length} 章`);
+        alert(`预览导入成功，共 ${chapters.length} 章`);
       } else {
         onError?.(response.message || '预览导入失败');
       }
@@ -639,7 +666,18 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
           setChapterRows(batchResponse.data.chapters || []);
         }
 
-        alert(`预检查完成，共 ${response.data.issueCount} 章存在疑似问题（总计 ${response.data.total} 章）`);
+        const { total, issueCount, suspectCount = 0, autoFixedCount = 0 } = response.data;
+        let message = `预检查完成，总计 ${total} 章`;
+        if (suspectCount > 0) {
+          message += `，其中 ${suspectCount} 章标题不合理`;
+        }
+        if (autoFixedCount > 0) {
+          message += `，${autoFixedCount} 章已自动修复（标题截断+正文前置）`;
+        }
+        if (issueCount > 0) {
+          message += `，${issueCount} 章存在其他问题`;
+        }
+        alert(message);
       } else {
         onError?.(response.message || '预检查失败');
       }
@@ -650,10 +688,115 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
     }
   };
 
+  // 统计标题字数（除去序号部分）
+  const calculateTitleLength = (title: string, pattern: string): number => {
+    if (!title) return 0;
+    
+    // 将用户输入的"第*章"转换为正则表达式
+    // 例如："第*章" -> /第.*?章/
+    // 构建正则表达式：将*替换为.*?，并转义其他特殊字符
+    let regexPattern = '';
+    for (let i = 0; i < pattern.length; i++) {
+      const char = pattern[i];
+      if (char === '*') {
+        regexPattern += '.*?';
+      } else if (/[.*+?^${}()|[\]\\]/.test(char)) {
+        regexPattern += '\\' + char;
+      } else {
+        regexPattern += char;
+      }
+    }
+    const regex = new RegExp(`^${regexPattern}`);
+    
+    // 移除匹配的序号部分
+    let remainingTitle = title.replace(regex, '');
+    
+    // 从第一个非空字符开始统计中文字符数
+    remainingTitle = remainingTitle.trim();
+    
+    // 统计中文字符数（包括中文标点）
+    const chineseCharRegex = /[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g;
+    const matches = remainingTitle.match(chineseCharRegex);
+    return matches ? matches.length : 0;
+  };
+
+  // 处理标题统计和排序
+  const handleTitleLengthCheck = () => {
+    if (!titleFilterPattern || !titleFilterPattern.trim()) {
+      onError?.('请输入章节标题检查过滤序号规格');
+      return;
+    }
+
+    // 计算每个标题的字数并添加临时属性
+    const chaptersWithLength = chapterRows.map(ch => {
+      const title = ch.clean_title || ch.raw_title || '';
+      const length = calculateTitleLength(title, titleFilterPattern.trim());
+      return { ...ch, _titleLength: length };
+    });
+
+    // 根据当前排序状态切换排序
+    let newSortOrder: 'asc' | 'desc' | null;
+    if (titleSortOrder === null) {
+      newSortOrder = 'desc'; // 首次点击：降序
+    } else if (titleSortOrder === 'desc') {
+      newSortOrder = 'asc'; // 第二次点击：升序
+    } else {
+      newSortOrder = null; // 第三次点击：取消排序
+    }
+
+    setTitleSortOrder(newSortOrder);
+
+    if (newSortOrder === null) {
+      // 取消排序，恢复原始顺序（按章节号排序）
+      const sorted = [...chaptersWithLength].sort((a, b) => a.chapter_number - b.chapter_number);
+      setChapterRows(sorted.map(({ _titleLength, ...ch }) => ch));
+    } else {
+      // 应用排序
+      const sorted = [...chaptersWithLength].sort((a, b) => {
+        if (newSortOrder === 'desc') {
+          return b._titleLength - a._titleLength; // 降序
+        } else {
+          return a._titleLength - b._titleLength; // 升序
+        }
+      });
+      setChapterRows(sorted.map(({ _titleLength, ...ch }) => ch));
+    }
+
+    // 重置到第一页
+    setCurrentPage(1);
+  };
+
   // 筛选和分页逻辑
-  const filteredChapters = showOnlyIssues
+  // 筛选章节
+  let filteredChapters = showOnlyIssues
     ? chapterRows.filter((c) => c.has_issue === 1 || c.has_issue === true)
     : chapterRows;
+
+  // 按字数排序
+  if (wordCountSortOrder !== null) {
+    filteredChapters = [...filteredChapters].sort((a, b) => {
+      if (wordCountSortOrder === 'desc') {
+        return (b.word_count || 0) - (a.word_count || 0); // 降序
+      } else {
+        return (a.word_count || 0) - (b.word_count || 0); // 升序
+      }
+    });
+  }
+
+  // 统计章节号不一致的章节（从所有章节中筛选，不受 showOnlyIssues 影响）
+  const chaptersWithMismatch = chapterRows.filter((ch) => {
+    const hasIssue = ch.has_issue === 1 || ch.has_issue === true;
+    const isMismatch = ch.issue_tags === 'chapter_number_mismatch';
+    const result = hasIssue && isMismatch;
+    // 调试日志
+    if (result) {
+      console.log(`[前端] 发现章节号不一致的章节: ID=${ch.id}, 章节号=${ch.chapter_number}, 标题="${ch.raw_title}", issue_tags="${ch.issue_tags}", issue_summary="${ch.issue_summary}"`);
+    }
+    return result;
+  });
+  
+  // 调试日志
+  console.log(`[前端] 章节号不一致统计: 总数=${chaptersWithMismatch.length}, 所有章节数=${chapterRows.length}, has_issue为true的章节数=${chapterRows.filter(ch => ch.has_issue === 1 || ch.has_issue === true).length}`);
 
   const totalChapters = filteredChapters.length;
   const totalPages = Math.max(1, Math.ceil(totalChapters / pageSize));
@@ -966,6 +1109,8 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                 setCurrentPage(1);
                 setExpandedChapterId(null);
                 setPrecheckLoading(false);
+                setTitleFilterPattern('第*章');
+                setTitleSortOrder(null);
                 if (pollingInterval) {
                   clearInterval(pollingInterval);
                   setPollingInterval(null);
@@ -1013,9 +1158,85 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                   </button>
                 </div>
               </div>
+              <div className={styles.toolbarRow} style={{ marginTop: '10px' }}>
+                <div className={styles.toolbarItem} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <label style={{ whiteSpace: 'nowrap' }}>章节标题检查过滤序号规格：</label>
+                  <input
+                    type="text"
+                    value={titleFilterPattern}
+                    onChange={(e) => setTitleFilterPattern(e.target.value)}
+                    placeholder="例如：第*章"
+                    style={{ width: '150px' }}
+                    className={styles.input}
+                  />
+                  <button
+                    onClick={handleTitleLengthCheck}
+                    className={styles.toolbarButton}
+                    disabled={loading}
+                    style={{ 
+                      backgroundColor: titleSortOrder === 'desc' ? '#28a745' : titleSortOrder === 'asc' ? '#17a2b8' : '#007bff',
+                      color: '#fff'
+                    }}
+                  >
+                    统计方法检查标题
+                    {titleSortOrder === 'desc' && ' (降序)'}
+                    {titleSortOrder === 'asc' && ' (升序)'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           
+          {/* 章节号不一致警告列表 */}
+          {chaptersWithMismatch.length > 0 && (
+            <div style={{ 
+              marginBottom: '20px', 
+              padding: '15px', 
+              backgroundColor: '#fff3cd', 
+              border: '2px solid #ffc107',
+              borderRadius: '5px'
+            }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>
+                ⚠️ 警告：发现 {chaptersWithMismatch.length} 个章节号不一致的问题
+              </h4>
+              <p style={{ margin: '0 0 10px 0', color: '#856404', fontSize: '14px' }}>
+                以下章节的数据库章节号与标题中提取的章节号不一致，可能是源文件错误。请检查源文件并修正后重新上传。
+              </p>
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#ffc107', position: 'sticky', top: 0 }}>
+                      <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>章节号</th>
+                      <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>标题</th>
+                      <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>字数</th>
+                      <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>问题说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chaptersWithMismatch
+                      .sort((a, b) => (a.word_count || 0) - (b.word_count || 0)) // 按字数排序
+                      .map((chapter) => (
+                        <tr key={chapter.id} style={{ backgroundColor: '#fff' }}>
+                          <td style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold', color: '#dc3545' }}>
+                            {chapter.chapter_number}
+                          </td>
+                          <td style={{ padding: '8px', border: '1px solid #ddd' }}>
+                            {chapter.raw_title || chapter.clean_title || '-'}
+                          </td>
+                          <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'right' }}>
+                            {chapter.word_count || 0}
+                          </td>
+                          <td style={{ padding: '8px', border: '1px solid #ddd', color: '#dc3545' }}>
+                            {chapter.issue_summary || chapter.issue_tags || '章节号不一致'}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* 批量操作工具条 */}
           <div className={styles.batchToolbar}>
             <div className={styles.toolbarSection}>
@@ -1126,7 +1347,26 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                     <th style={{ width: '150px' }}>中文正文</th>
                     <th style={{ width: '200px' }}>英文标题</th>
                     <th style={{ width: '150px' }}>英文正文</th>
-                    <th style={{ width: '80px' }}>字数</th>
+                    <th style={{ width: '80px', cursor: 'pointer' }}>
+                      <div
+                        onClick={() => {
+                          // 切换排序：null -> desc -> asc -> null
+                          if (wordCountSortOrder === null) {
+                            setWordCountSortOrder('desc');
+                          } else if (wordCountSortOrder === 'desc') {
+                            setWordCountSortOrder('asc');
+                          } else {
+                            setWordCountSortOrder(null);
+                          }
+                          setCurrentPage(1); // 重置到第一页
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        字数
+                        {wordCountSortOrder === 'desc' && ' ↓'}
+                        {wordCountSortOrder === 'asc' && ' ↑'}
+                      </div>
+                    </th>
                     <th style={{ width: '100px' }}>解锁价格</th>
                     <th style={{ width: '80px' }}>钥匙</th>
                     <th style={{ width: '100px' }}>发布日期</th>
@@ -1136,9 +1376,17 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                 </thead>
                 <tbody>
                   {pagedChapters.map((chapter) => {
-                    const rowBgColor = chapter.status === 'duplicate_existing' ? '#fff3cd' : (changedChapterIds.has(chapter.id) ? '#e7f3ff' : 'transparent');
-                    const totalCols = 13; // 表头总列数
                     const hasIssue = chapter.has_issue === 1 || chapter.has_issue === true;
+                    const isMismatch = chapter.issue_tags === 'chapter_number_mismatch';
+                    // 章节号不一致的章节用红色背景高亮
+                    const rowBgColor = isMismatch 
+                      ? '#ffebee' 
+                      : (chapter.status === 'duplicate_existing' 
+                        ? '#fff3cd' 
+                        : (changedChapterIds.has(chapter.id) 
+                          ? '#e7f3ff' 
+                          : 'transparent'));
+                    const totalCols = 13; // 表头总列数
                     
                     return (
                       <React.Fragment key={chapter.id ?? chapter.chapter_number}>
@@ -1239,13 +1487,37 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
                           <td colSpan={totalCols}>
                             <div className={styles.titleRowInner}>
                               <div className={styles.titleField}>
-                                <label>中文标题</label>
+                                <label>
+                                  中文标题
+                                  {chapter.issue_summary && chapter.issue_summary.includes('AI 已自动修复') && (
+                                    <span
+                                      style={{
+                                        marginLeft: '8px',
+                                        padding: '2px 6px',
+                                        backgroundColor: '#ffc107',
+                                        color: '#000',
+                                        borderRadius: '3px',
+                                        fontSize: '11px',
+                                        fontWeight: 'normal',
+                                        cursor: 'help',
+                                      }}
+                                      title={chapter.issue_summary}
+                                    >
+                                      AI 已修复
+                                    </span>
+                                  )}
+                                </label>
                                 <input
                                   type="text"
                                   className={styles.titleInput}
                                   value={chapter.clean_title || chapter.raw_title || ''}
                                   onChange={(e) => updateChapterField(chapter.id, 'clean_title', e.target.value)}
                                   placeholder="中文标题"
+                                  style={{
+                                    borderColor: chapter.issue_summary && chapter.issue_summary.includes('AI 已自动修复')
+                                      ? '#ffc107'
+                                      : undefined,
+                                  }}
                                 />
                               </div>
                               <div className={styles.titleField}>

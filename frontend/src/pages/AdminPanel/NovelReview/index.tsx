@@ -353,6 +353,12 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
               已批准
             </button>
             <button
+              className={filterStatus === 'published' ? styles.active : ''}
+              onClick={() => setFilterStatus('published')}
+            >
+              已发布
+            </button>
+            <button
               className={filterStatus === 'rejected' ? styles.active : ''}
               onClick={() => setFilterStatus('rejected')}
             >
@@ -404,6 +410,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                           {novel.review_status === 'submitted' ? '已提交' :
                            novel.review_status === 'reviewing' ? '审核中' :
                            novel.review_status === 'approved' ? '已批准' :
+                           novel.review_status === 'published' ? '已发布' :
                            novel.review_status === 'rejected' ? '已拒绝' : novel.review_status}
                         </span>
                       </div>
@@ -537,6 +544,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                         {selectedNovel.review_status === 'submitted' ? '已提交' :
                          selectedNovel.review_status === 'reviewing' ? '审核中' :
                          selectedNovel.review_status === 'approved' ? '已批准' :
+                         selectedNovel.review_status === 'published' ? '已发布' :
                          selectedNovel.review_status === 'rejected' ? '已拒绝' : selectedNovel.review_status}
                       </span>
                     </div>

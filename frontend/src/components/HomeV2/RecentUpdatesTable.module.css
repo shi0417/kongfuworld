@@ -1,0 +1,86 @@
+.wrap {
+  margin: 18px 0 10px;
+  background: #1a1b1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.viewAll {
+  color: #7aa7ff;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.th, .td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px;
+}
+
+.th {
+  color: rgba(255,255,255,0.7);
+  font-weight: 800;
+}
+
+.novelCell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.cover {
+  width: 34px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #111;
+}
+
+.novelTitle {
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.muted {
+  color: rgba(255,255,255,0.65);
+}
+
+.empty {
+  color: rgba(255,255,255,0.65);
+  padding: 10px 2px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .novelTitle {
+    max-width: 160px;
+  }
+}
+
+

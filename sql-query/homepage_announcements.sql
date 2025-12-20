@@ -1,0 +1,1 @@
+select * from homepage_announcements;

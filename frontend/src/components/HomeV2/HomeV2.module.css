@@ -1,0 +1,65 @@
+.page {
+  background: #0f0f10;
+  color: #e8e8ea;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.heroRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  margin: 18px 0 26px;
+}
+
+@media (max-width: 980px) {
+  .heroRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sectionRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .sectionRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sectionTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 10px 0 10px;
+}
+
+.h2 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.viewAll {
+  color: #7aa7ff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.mutedCard {
+  background: #1a1b1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+}
+
+

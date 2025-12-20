@@ -1,0 +1,1 @@
+select * from novel_advanced_stats_daily;

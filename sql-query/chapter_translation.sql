@@ -1,0 +1,1 @@
+select * from chapter_translation order by id desc;

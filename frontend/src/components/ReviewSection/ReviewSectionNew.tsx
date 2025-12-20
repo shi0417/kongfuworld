@@ -5,6 +5,7 @@ import reviewService, { Review, ReviewStats } from '../../services/reviewService
 import ReviewReplies from './ReviewReplies';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import Toast from '../Toast/Toast';
 
 
 interface ReviewSectionProps {
@@ -27,6 +28,11 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ message, type });
+  };
 
   // 加载评论数据
   useEffect(() => {
@@ -59,11 +65,13 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
   const handleSubmitReview = async () => {
     if (!user) {
       setError('Please login first');
+      showToast('Please login first', 'warning');
       return;
     }
 
     if (!reviewContent.trim() || reviewContent.trim().length < 100) {
       setError('Review content must be at least 100 characters');
+      showToast('Review content must be at least 100 characters', 'warning');
       return;
     }
 
@@ -78,8 +86,10 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
       setShowReviewForm(false);
       await loadReviews();
       await loadStats();
+      showToast('Review submitted successfully', 'success');
     } catch (err: any) {
       setError(err.message || 'Failed to submit review');
+      showToast(err.message || 'Failed to submit review', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -325,6 +335,14 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
 
   return (
     <div className={styles.reviewSection}>
+      {/* Toast 提示（风格参考段落评论） */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* 顶部统计和撰写评论按钮 */}
       <div className={styles.reviewHeader}>
         <div className={styles.reviewStats}>

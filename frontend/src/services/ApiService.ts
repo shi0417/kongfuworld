@@ -167,11 +167,14 @@ class ApiService {
    */
   static async post<T = any>(
     endpoint: string,
-    data?: any
+    data?: any,
+    options?: RequestInit
   ): Promise<ApiResponse<T>> {
+    const isFormData = data instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined
+      body: isFormData ? data : (data ? JSON.stringify(data) : undefined),
+      ...options
     });
   }
 

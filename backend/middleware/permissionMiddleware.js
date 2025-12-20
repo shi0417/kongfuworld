@@ -12,29 +12,45 @@
  */
 async function getNovelPermissionFilter(db, adminId, role) {
   // super_admin：可以看到全部小说，不受合同限制
+  // 对于 admin.role = 'super_admin' 的用户，显示所有小说
   if (role === 'super_admin') {
     return { where: '', params: [] };
   }
   
-  // editor / chief_editor：只能看到自己在 novel_editor_contract 中拥有"有效合同"的小说的章节
+  // editor：只能看到自己在 novel_editor_contract 中拥有"有效合同"的小说
   // 有效合同定义：
   // - status = 'active'
-  // - start_date <= NOW()
-  // - (end_date IS NULL OR end_date >= NOW())
-  // - role 与当前 admin.role 匹配
-  if (role === 'chief_editor' || role === 'editor') {
-    const contractRole = role; // editor 对应 'editor'，chief_editor 对应 'chief_editor'
+  // - start_date <= NOW() （开始日期在当前时间之前或等于）
+  // - (end_date IS NULL OR end_date >= NOW()) （结束日期为空或大于等于当前时间）
+  // - editor_admin_id 匹配当前管理员ID
+  if (role === 'editor') {
     return {
       where: `AND EXISTS (
         SELECT 1 FROM novel_editor_contract nec
         WHERE nec.novel_id = n.id
           AND nec.editor_admin_id = ?
-          AND nec.role = ?
+          AND nec.role = 'editor'
           AND nec.status = 'active'
           AND nec.start_date <= NOW()
           AND (nec.end_date IS NULL OR nec.end_date >= NOW())
       )`,
-      params: [adminId, contractRole]
+      params: [adminId]
+    };
+  }
+  
+  // chief_editor：只能看到自己在 novel_editor_contract 中拥有"有效合同"的小说
+  if (role === 'chief_editor') {
+    return {
+      where: `AND EXISTS (
+        SELECT 1 FROM novel_editor_contract nec
+        WHERE nec.novel_id = n.id
+          AND nec.editor_admin_id = ?
+          AND nec.role = 'chief_editor'
+          AND nec.status = 'active'
+          AND nec.start_date <= NOW()
+          AND (nec.end_date IS NULL OR nec.end_date >= NOW())
+      )`,
+      params: [adminId]
     };
   }
   

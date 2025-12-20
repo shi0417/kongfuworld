@@ -19,7 +19,11 @@ export type AdminMenuItemKey =
   | 'novel-review'
   | 'new-novel-pool'
   | 'chapter-approval'
-  | 'admin-payout-account';
+  | 'admin-payout-account'
+  | 'admin-banner-management'
+  | 'announcement-management'
+  | 'admin-legal-docs'
+  | 'admin-inbox';
 
 export type AdminMenuGroupKey =
   | 'group:income-editor';
@@ -70,7 +74,11 @@ export const topStandaloneMenus: AdminMenuItem[] = [
 
 // 底部独立菜单配置（我的收款账户）
 export const bottomStandaloneMenus: AdminMenuItem[] = [
-  { key: 'admin-payout-account', label: '我的收款账户', icon: '💳', tab: 'admin-payout-account' }
+  { key: 'admin-payout-account', label: '我的收款账户', icon: '💳', tab: 'admin-payout-account' },
+  { key: 'admin-banner-management', label: 'Banner 管理', icon: '🖼️', tab: 'admin-banner-management' },
+  { key: 'announcement-management', label: '公告管理', icon: '📣', tab: 'announcement-management' },
+  { key: 'admin-legal-docs', label: '站点政策', icon: '📜', tab: 'admin-legal-docs' },
+  { key: 'admin-inbox', label: '站内信', icon: '✉️', tab: 'admin-inbox' }
 ];
 
 export const ALL_MENU_KEYS: string[] = [
