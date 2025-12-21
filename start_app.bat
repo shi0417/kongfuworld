@@ -98,6 +98,11 @@ echo ========================================
 echo 启动应用服务
 echo ========================================
 
+echo 正在执行每日备份...
+call "%~dp0daily-backup-runner.bat"
+echo ✓ 备份任务已执行
+echo.
+
 echo 正在释放端口5000...
 echo 检查端口5000占用情况...
 netstat -ano | findstr ":5000" >nul
