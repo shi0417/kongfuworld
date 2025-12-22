@@ -99,8 +99,10 @@ echo 启动应用服务
 echo ========================================
 
 echo 正在执行每日备份...
-call "%~dp0daily-backup-runner.bat"
-echo ✓ 备份任务已执行
+REM 以异步方式启动备份任务，避免阻塞后续启动流程
+REM /b: 不新开窗口；通过重定向避免输出和本脚本混杂
+start "" /b cmd /c call "%~dp0daily-backup-runner.bat" ^> "%~dp0daily-backup-runner.log" 2^>^&1
+echo ✓ 备份任务已启动（后台运行中），日志: "%~dp0daily-backup-runner.log"
 echo.
 
 echo 正在释放端口5000...
