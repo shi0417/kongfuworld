@@ -3958,6 +3958,221 @@ function parseDateTimeForValidation(value) {
   return d;
 }
 
+// ==================== 首页 Featured Novels 管理（Admin） ====================
+// 说明：提供对 homepage_featured_novels 的 CRUD（含 Champion 推荐区：section_type='recommended'）
+function normalizeFeaturedDateTimeNullable(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).trim();
+  // datetime-local: YYYY-MM-DDTHH:mm
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s.replace('T', ' ') + ':00';
+  // ISO-like with seconds
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s.replace('T', ' ').replace('Z', '');
+  return s;
+}
+
+function validateFeaturedNovelPayload(payload) {
+  const section_type = (payload.section_type ?? '').toString().trim();
+  const novel_id = payload.novel_id === null || payload.novel_id === undefined || payload.novel_id === '' ? null : Number(payload.novel_id);
+  const display_order = payload.display_order === undefined ? 0 : Number(payload.display_order);
+  const is_active = payload.is_active === undefined ? 1 : Number(payload.is_active);
+
+  const allowedSectionTypes = ['popular', 'new_releases', 'top_series', 'banner', 'recommended', 'trending'];
+  if (!section_type || !allowedSectionTypes.includes(section_type)) return `section_type 不合法（允许：${allowedSectionTypes.join(', ')}）`;
+  if (!novel_id || !Number.isFinite(novel_id) || novel_id <= 0) return 'novel_id 必填且必须为正整数';
+  if (!Number.isFinite(display_order)) return 'display_order 必须是数字';
+  if (!(is_active === 0 || is_active === 1)) return 'is_active 只能为 0/1';
+
+  const start = parseDateTimeForValidation(payload.start_date);
+  const end = parseDateTimeForValidation(payload.end_date);
+  if (payload.start_date && !start) return 'start_date 格式不合法';
+  if (payload.end_date && !end) return 'end_date 格式不合法';
+  if (start && end && start.getTime() > end.getTime()) return 'start_date 不能大于 end_date';
+
+  return '';
+}
+
+// GET /api/admin/homepage/featured-novels?section_type=
+router.get('/homepage/featured-novels', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const section_type = (req.query.section_type ?? 'recommended').toString().trim();
+    const allowedSectionTypes = ['popular', 'new_releases', 'top_series', 'banner', 'recommended', 'trending'];
+    if (!allowedSectionTypes.includes(section_type)) {
+      return res.status(400).json({ success: false, message: `section_type 不合法（允许：${allowedSectionTypes.join(', ')}）` });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    const [rows] = await db.execute(
+      `
+        SELECT
+          hfn.id, hfn.novel_id, hfn.section_type, hfn.display_order, hfn.is_active,
+          hfn.start_date, hfn.end_date, hfn.created_at, hfn.updated_at,
+          n.title AS novel_title,
+          n.cover AS novel_cover,
+          n.author AS novel_author
+        FROM homepage_featured_novels hfn
+        INNER JOIN novel n ON n.id = hfn.novel_id
+        WHERE hfn.section_type = ?
+        ORDER BY hfn.display_order ASC, hfn.id ASC
+      `,
+      [section_type]
+    );
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('获取 homepage_featured_novels 失败:', error);
+    res.status(500).json({ success: false, message: '获取推荐小说失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// POST /api/admin/homepage/featured-novels（upsert by unique(novel_id, section_type)）
+router.post('/homepage/featured-novels', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const payload = req.body || {};
+    const msg = validateFeaturedNovelPayload(payload);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    const novel_id = Number(payload.novel_id);
+    const section_type = String(payload.section_type).trim();
+    const display_order = Number.isFinite(Number(payload.display_order)) ? Number(payload.display_order) : 0;
+    const is_active = payload.is_active === 0 || payload.is_active === '0' || payload.is_active === false ? 0 : 1;
+    const start_date = normalizeFeaturedDateTimeNullable(payload.start_date);
+    const end_date = normalizeFeaturedDateTimeNullable(payload.end_date);
+
+    db = await mysql.createConnection(dbConfig);
+
+    // 校验必须是 published 小说
+    const [novels] = await db.execute('SELECT id FROM novel WHERE id = ? AND review_status = ?', [novel_id, 'published']);
+    if (novels.length === 0) {
+      return res.status(400).json({ success: false, message: 'novel_id 不存在或非 published' });
+    }
+
+    await db.execute(
+      `
+        INSERT INTO homepage_featured_novels
+          (novel_id, section_type, display_order, is_active, start_date, end_date)
+        VALUES
+          (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          display_order = VALUES(display_order),
+          is_active = VALUES(is_active),
+          start_date = VALUES(start_date),
+          end_date = VALUES(end_date)
+      `,
+      [novel_id, section_type, display_order, is_active, start_date, end_date]
+    );
+
+    const [rows] = await db.execute(
+      'SELECT id FROM homepage_featured_novels WHERE novel_id = ? AND section_type = ?',
+      [novel_id, section_type]
+    );
+    const id = rows?.[0]?.id ? Number(rows[0].id) : null;
+
+    res.json({ success: true, message: '保存成功', data: { id } });
+  } catch (error) {
+    console.error('创建/更新 homepage_featured_novels 失败:', error);
+    res.status(500).json({ success: false, message: '保存推荐小说失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// PUT /api/admin/homepage/featured-novels/:id（支持部分更新）
+router.put('/homepage/featured-novels/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const featuredId = Number(req.params.id);
+    if (!Number.isFinite(featuredId) || featuredId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    const [existingRows] = await db.execute('SELECT * FROM homepage_featured_novels WHERE id = ?', [featuredId]);
+    if (existingRows.length === 0) return res.status(404).json({ success: false, message: '记录不存在' });
+    const existing = existingRows[0];
+
+    const patch = req.body || {};
+    const merged = {
+      novel_id: patch.novel_id !== undefined ? patch.novel_id : existing.novel_id,
+      section_type: patch.section_type !== undefined ? patch.section_type : existing.section_type,
+      display_order: patch.display_order !== undefined ? patch.display_order : existing.display_order,
+      is_active: patch.is_active !== undefined ? patch.is_active : existing.is_active,
+      start_date: patch.start_date !== undefined ? patch.start_date : existing.start_date,
+      end_date: patch.end_date !== undefined ? patch.end_date : existing.end_date
+    };
+
+    const msg = validateFeaturedNovelPayload(merged);
+    if (msg) return res.status(400).json({ success: false, message: msg });
+
+    // 若更新 novel_id，则校验必须是 published
+    if (patch.novel_id !== undefined) {
+      const novelIdNum = patch.novel_id === null || patch.novel_id === '' ? null : Number(patch.novel_id);
+      if (novelIdNum) {
+        const [novels] = await db.execute('SELECT id FROM novel WHERE id = ? AND review_status = ?', [novelIdNum, 'published']);
+        if (novels.length === 0) {
+          return res.status(400).json({ success: false, message: 'novel_id 不存在或非 published' });
+        }
+      }
+    }
+
+    const updates = [];
+    const params = [];
+    const allowFields = ['novel_id', 'section_type', 'display_order', 'is_active', 'start_date', 'end_date'];
+    allowFields.forEach((f) => {
+      if (patch[f] !== undefined) {
+        updates.push(`${f} = ?`);
+        if (f === 'start_date' || f === 'end_date') params.push(normalizeFeaturedDateTimeNullable(patch[f]));
+        else if (f === 'is_active') params.push(patch[f] === 0 || patch[f] === '0' || patch[f] === false ? 0 : 1);
+        else if (f === 'display_order') params.push(Number.isFinite(Number(patch[f])) ? Number(patch[f]) : 0);
+        else params.push(patch[f]);
+      }
+    });
+
+    if (updates.length === 0) return res.json({ success: true, message: '无更新内容' });
+
+    params.push(featuredId);
+    try {
+      await db.execute(`UPDATE homepage_featured_novels SET ${updates.join(', ')} WHERE id = ?`, params);
+    } catch (e) {
+      if (String(e?.code || '').toUpperCase() === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ success: false, message: '该小说在该 section_type 下已存在配置（unique_novel_section）' });
+      }
+      throw e;
+    }
+
+    res.json({ success: true, message: '更新成功' });
+  } catch (error) {
+    console.error('更新 homepage_featured_novels 失败:', error);
+    res.status(500).json({ success: false, message: '更新推荐小说失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
+// DELETE /api/admin/homepage/featured-novels/:id
+router.delete('/homepage/featured-novels/:id', authenticateAdmin, requireRole('editor', 'super_admin'), async (req, res) => {
+  let db;
+  try {
+    const featuredId = Number(req.params.id);
+    if (!Number.isFinite(featuredId) || featuredId <= 0) {
+      return res.status(400).json({ success: false, message: 'id 不合法' });
+    }
+
+    db = await mysql.createConnection(dbConfig);
+    const [result] = await db.execute('DELETE FROM homepage_featured_novels WHERE id = ?', [featuredId]);
+    res.json({ success: true, message: '删除成功', data: { affectedRows: result.affectedRows } });
+  } catch (error) {
+    console.error('删除 homepage_featured_novels 失败:', error);
+    res.status(500).json({ success: false, message: '删除推荐小说失败', error: error.message });
+  } finally {
+    if (db) await db.end();
+  }
+});
+
 function validateBannerPayload(payload) {
   const title = (payload.title ?? '').toString().trim();
   const image_url = (payload.image_url ?? '').toString().trim();

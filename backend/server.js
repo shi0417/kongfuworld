@@ -2305,28 +2305,13 @@ app.get('/api/homepage/config', (req, res) => {
   });
 });
 
-// 8. 管理首页推荐小说（管理员接口）
+// 8. ⚠️ 已弃用：/api/admin/homepage/featured-novels 写接口（未鉴权）
+// 说明：该能力已迁移到 backend/routes/admin.js（/api/admin/homepage/featured-novels）并强制管理员鉴权。
+// 保留占位用于避免旧前端/脚本误调用导致“静默成功”，此处明确返回 410。
 app.post('/api/admin/homepage/featured-novels', (req, res) => {
-  const { novel_id, section_type, display_order, start_date, end_date } = req.body;
-  
-  const query = `
-    INSERT INTO homepage_featured_novels 
-    (novel_id, section_type, display_order, start_date, end_date)
-    VALUES (?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    display_order = VALUES(display_order),
-    start_date = VALUES(start_date),
-    end_date = VALUES(end_date),
-    is_active = 1
-  `;
-  
-  db.query(query, [novel_id, section_type, display_order, start_date, end_date], (err, result) => {
-    if (err) {
-      console.error('Failed to add recommended novel:', err);
-      return res.status(500).json({ message: 'Failed to add recommended novel' });
-    }
-    
-    res.json({ success: true, id: result.insertId });
+  return res.status(410).json({
+    success: false,
+    message: 'Deprecated: use authenticated admin route /api/admin/homepage/featured-novels via backend/routes/admin.js'
   });
 });
 
