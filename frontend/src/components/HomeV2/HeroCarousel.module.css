@@ -1,6 +1,6 @@
 .wrap {
-  background: #1a1b1e;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 14px;
   overflow: hidden;
   position: relative;
@@ -32,7 +32,7 @@
   border-radius: 10px;
   object-fit: cover;
   border: 1px solid rgba(255,255,255,0.15);
-  background: #111;
+  background: var(--bg-tertiary);
   flex: 0 0 auto;
 }
 

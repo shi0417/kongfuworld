@@ -1,6 +1,6 @@
 .page {
-  background: #0f0f10;
-  color: #e8e8ea;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .container {
@@ -57,8 +57,8 @@
 }
 
 .mutedCard {
-  background: #1a1b1e;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
 }
 
