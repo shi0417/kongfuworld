@@ -13427,6 +13427,7 @@ const ALL_MENU_KEYS = [
   'announcement-management',
   'admin-legal-docs',
   'admin-inbox',
+  'admin-champion-novel-management',
 ];
 
 // 获取当前登录管理员可见菜单 key 列表

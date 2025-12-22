@@ -20,6 +20,7 @@ import AdminBannerManagement from './AdminPanel/AdminBannerManagement';
 import AdminAnnouncementManagement from './AdminPanel/AdminAnnouncementManagement';
 import AdminLegalDocsManagement from './AdminPanel/AdminLegalDocsManagement';
 import AdminInbox from './AdminPanel/AdminInbox';
+import AdminChampionNovelManagement from './AdminPanel/AdminChampionNovelManagement';
 import EditorSettlementPayoutModal from './AdminPanel/EditorSettlementPayoutModal';
 import AIBatchTranslation from './AdminPanel/AIBatchTranslation';
 import { incomeEditorMenuGroup, ALL_MENU_KEYS, topStandaloneMenus, bottomStandaloneMenus } from './adminMenuConfig';
@@ -61,7 +62,27 @@ interface PaymentStats {
   byType: { [key: string]: number };
 }
 
-type TabType = 'novel-review' | 'new-novel-pool' | 'chapter-approval' | 'payment-stats' | 'author-income' | 'reader-income' | 'base-income' | 'author-royalty' | 'commission-transaction' | 'editor-base-income' | 'commission-settings' | 'settlement-overview' | 'editor-management' | 'ai-batch-translation' | 'admin-payout-account' | 'admin-banner-management' | 'announcement-management' | 'admin-legal-docs' | 'admin-inbox';
+type TabType =
+  | 'novel-review'
+  | 'new-novel-pool'
+  | 'chapter-approval'
+  | 'payment-stats'
+  | 'author-income'
+  | 'reader-income'
+  | 'base-income'
+  | 'author-royalty'
+  | 'commission-transaction'
+  | 'editor-base-income'
+  | 'commission-settings'
+  | 'settlement-overview'
+  | 'editor-management'
+  | 'ai-batch-translation'
+  | 'admin-payout-account'
+  | 'admin-banner-management'
+  | 'announcement-management'
+  | 'admin-legal-docs'
+  | 'admin-inbox'
+  | 'admin-champion-novel-management';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
 const formatDateForInput = (dateString: string | null | undefined): string => {
@@ -3357,6 +3378,9 @@ const AdminPanel: React.FC = () => {
           )}
           {activeTab === 'admin-inbox' && (
             <AdminInbox onError={setError} />
+          )}
+          {activeTab === 'admin-champion-novel-management' && (
+            <AdminChampionNovelManagement onError={setError} />
           )}
                 </div>
               </div>

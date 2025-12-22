@@ -23,7 +23,8 @@ export type AdminMenuItemKey =
   | 'admin-banner-management'
   | 'announcement-management'
   | 'admin-legal-docs'
-  | 'admin-inbox';
+  | 'admin-inbox'
+  | 'admin-champion-novel-management';
 
 export type AdminMenuGroupKey =
   | 'group:income-editor';
@@ -78,7 +79,8 @@ export const bottomStandaloneMenus: AdminMenuItem[] = [
   { key: 'admin-banner-management', label: 'Banner 管理', icon: '🖼️', tab: 'admin-banner-management' },
   { key: 'announcement-management', label: '公告管理', icon: '📣', tab: 'announcement-management' },
   { key: 'admin-legal-docs', label: '站点政策', icon: '📜', tab: 'admin-legal-docs' },
-  { key: 'admin-inbox', label: '站内信', icon: '✉️', tab: 'admin-inbox' }
+  { key: 'admin-inbox', label: '站内信', icon: '✉️', tab: 'admin-inbox' },
+  { key: 'admin-champion-novel-management', label: 'Champion小说管理', icon: '🏆', tab: 'admin-champion-novel-management' }
 ];
 
 export const ALL_MENU_KEYS: string[] = [
