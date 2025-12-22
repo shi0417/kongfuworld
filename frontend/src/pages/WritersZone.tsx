@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -10,7 +10,10 @@ import CommentManagement from '../components/CommentManagement/CommentManagement
 import IncomeManagement from './WritersZone/IncomeManagement';
 import WorkData from './WritersZone/WorkData';
 import ApiService from '../services/ApiService';
+import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './WritersZone.module.css';
+
+const ALLOWED_NAV = new Set(['home', 'novels', 'workData', 'incomeManagement', 'personalInfo', 'commentManagement']);
 
 // Calendar Component
 interface CalendarDayData {
@@ -164,6 +167,8 @@ const WritersZone: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const navParam = searchParams.get('nav');
 
   const [stats, setStats] = useState<WriterStats>({
     worksCount: 0,
@@ -173,7 +178,7 @@ const WritersZone: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [activeNav, setActiveNav] = useState('home');
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['workManagement']);
+  const { expandedMenus, toggleMenu } = useAuthorSidebarState();
   const [showNovelList, setShowNovelList] = useState(false);
   const [novels, setNovels] = useState<UserNovel[]>([]);
   const [novelsLoading, setNovelsLoading] = useState(false);
@@ -373,15 +378,6 @@ const WritersZone: React.FC = () => {
     }
   };
 
-  // 切换菜单展开状态
-  const toggleMenu = (menu: string) => {
-    setExpandedMenus(prev =>
-      prev.includes(menu)
-        ? prev.filter(m => m !== menu)
-        : [...prev, menu]
-    );
-  };
-
   // 处理小说导航点击
   const handleNovelNavClick = () => {
     setActiveNav('novels');
@@ -390,6 +386,22 @@ const WritersZone: React.FC = () => {
     // 每次都重新加载，确保数据是最新的
     loadUserNovels();
   };
+
+  // 支持 ?nav= 参数驱动 Sidebar 与主内容区切换
+  useEffect(() => {
+    const nav = navParam;
+    if (!nav) return;
+
+    if (!ALLOWED_NAV.has(nav)) return;
+
+    if (nav === 'novels') {
+      handleNovelNavClick();
+      return;
+    }
+
+    setActiveNav(nav);
+    setShowNovelList(false);
+  }, [navParam]);
 
   // 获取状态显示文本
   const getStatusText = (status: string) => {
@@ -500,85 +512,14 @@ const WritersZone: React.FC = () => {
 
       <div className={styles.mainLayout}>
         {/* Left Sidebar Navigation */}
-        <aside className={styles.sidebar}>
-          <nav className={styles.nav}>
-            <div
-              className={`${styles.navItem} ${activeNav === 'home' ? styles.active : ''}`}
-              onClick={() => setActiveNav('home')}
-            >
-              <span className={styles.navIcon}>🏠</span>
-              {t('nav.home')}
-            </div>
-
-            <div className={styles.navSection}>
-              <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('workManagement')}
-              >
-                <span className={styles.navIcon}>📚</span>
-                {t('nav.workManagement')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('workManagement') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('workManagement') && (
-                <div className={styles.subNav}>
-                  <div 
-                    className={`${styles.subNavItem} ${activeNav === 'novels' ? styles.active : ''}`}
-                    onClick={handleNovelNavClick}
-                  >
-                    {t('nav.novel')}
-                  </div>
-                </div>
-              )}
-
-              <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('interactionManagement')}
-              >
-                <span className={styles.navIcon}>💬</span>
-                {t('nav.interactionManagement')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('interactionManagement') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('interactionManagement') && (
-                <div className={styles.subNav}>
-                  <div 
-                    className={`${styles.subNavItem} ${activeNav === 'commentManagement' ? styles.active : ''}`}
-                    onClick={() => setActiveNav('commentManagement')}
-                  >
-                    {t('nav.commentManagement')}
-                  </div>
-                </div>
-              )}
-
-              <div
-                className={`${styles.navItem} ${activeNav === 'workData' ? styles.active : ''}`}
-                onClick={() => setActiveNav('workData')}
-              >
-                <span className={styles.navIcon}>📊</span>
-                {t('nav.workData')}
-              </div>
-
-              <div
-                className={`${styles.navItem} ${activeNav === 'incomeManagement' ? styles.active : ''}`}
-                onClick={() => setActiveNav('incomeManagement')}
-              >
-                <span className={styles.navIcon}>💰</span>
-                {t('nav.incomeManagement')}
-              </div>
-
-              <div
-                className={`${styles.navItem} ${activeNav === 'personalInfo' ? styles.active : ''}`}
-                onClick={() => setActiveNav('personalInfo')}
-              >
-                <span className={styles.navIcon}>👤</span>
-                {t('nav.personalInfo')}
-              </div>
-            </div>
-          </nav>
-        </aside>
+        <AuthorSidebar
+          t={t}
+          navigate={(to) => navigate(to)}
+          styles={styles}
+          activeKey={activeNav}
+          expandedMenus={expandedMenus}
+          onToggleMenu={toggleMenu}
+        />
 
         {/* Main Content */}
         <main className={styles.content}>

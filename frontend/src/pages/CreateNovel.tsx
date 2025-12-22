@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import NavBar from '../components/NavBar/NavBar';
 import Footer from '../components/Footer/Footer';
 import ApiService from '../services/ApiService';
+import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './CreateNovel.module.css';
 
 interface Genre {
@@ -25,7 +26,7 @@ const CreateNovel: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['workManagement']);
+  const { expandedMenus, toggleMenu } = useAuthorSidebarState();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -49,15 +50,6 @@ const CreateNovel: React.FC = () => {
   const [showGenreModal, setShowGenreModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [newLanguageName, setNewLanguageName] = useState('');
-
-  // 切换菜单展开状态
-  const toggleMenu = (menu: string) => {
-    setExpandedMenus(prev =>
-      prev.includes(menu)
-        ? prev.filter(m => m !== menu)
-        : [...prev, menu]
-    );
-  };
 
   // Check authentication
   useEffect(() => {
@@ -306,106 +298,14 @@ const CreateNovel: React.FC = () => {
 
       <div className={styles.mainLayout}>
         {/* Left Sidebar Navigation */}
-        <aside className={styles.sidebar}>
-          <nav className={styles.nav}>
-            <div
-              className={styles.navItem}
-              onClick={() => navigate('/writers-zone')}
-            >
-              <span className={styles.navIcon}>🏠</span>
-              {t('nav.home')}
-            </div>
-
-            <div className={styles.navSection}>
-              <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('workManagement')}
-              >
-                <span className={styles.navIcon}>📚</span>
-                {t('nav.workManagement')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('workManagement') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('workManagement') && (
-                <div className={styles.subNav}>
-                  <div 
-                    className={`${styles.subNavItem} ${styles.active}`}
-                    onClick={() => navigate('/create-novel')}
-                  >
-                    {t('nav.novel')}
-                  </div>
-                  <div className={styles.subNavItem}>{t('nav.shortStory')}</div>
-                  <div className={styles.subNavItem}>{t('nav.script')}</div>
-                </div>
-              )}
-
-              <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('interactionManagement')}
-              >
-                <span className={styles.navIcon}>💬</span>
-                {t('nav.interactionManagement')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('interactionManagement') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('interactionManagement') && (
-                <div className={styles.subNav}>
-                  <div className={styles.subNavItem}>{t('nav.commentManagement')}</div>
-                  <div className={styles.subNavItem}>{t('nav.readerCorrections')}</div>
-                </div>
-              )}
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📊</span>
-                {t('nav.workData')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>💰</span>
-                {t('nav.incomeManagement')}
-              </div>
-
-              <div
-                className={styles.navItem}
-                onClick={() => toggleMenu('learningExchange')}
-              >
-                <span className={styles.navIcon}>📖</span>
-                {t('nav.learningExchange')}
-                <span className={styles.expandIcon}>
-                  {expandedMenus.includes('learningExchange') ? '▼' : '▶'}
-                </span>
-              </div>
-              {expandedMenus.includes('learningExchange') && (
-                <div className={styles.subNav}>
-                  <div className={styles.subNavItem}>{t('header.writerExchange')}</div>
-                  <div className={styles.subNavItem}>{t('nav.writerAcademy')}</div>
-                </div>
-              )}
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📅</span>
-                {t('nav.leaveManagement')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>👤</span>
-                {t('nav.personalInfo')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📄</span>
-                {t('nav.myContracts')}
-              </div>
-
-              <div className={styles.navItem}>
-                <span className={styles.navIcon}>📝</span>
-                {t('nav.myPosts')}
-              </div>
-            </div>
-          </nav>
-        </aside>
+        <AuthorSidebar
+          t={t}
+          navigate={(to) => navigate(to)}
+          styles={styles}
+          activeKey="novels"
+          expandedMenus={expandedMenus}
+          onToggleMenu={toggleMenu}
+        />
 
         {/* Main Content */}
         <main className={styles.content}>
