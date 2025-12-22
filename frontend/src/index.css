@@ -9,6 +9,19 @@ body {
   line-height: 1.6; /* 增加行高提升可读性 */
 }
 
+html, body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
 /* 全局字体大小调整 */
 * {
   font-size: inherit;

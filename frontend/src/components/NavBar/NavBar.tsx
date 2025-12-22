@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useUser } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
 import styles from './NavBar.module.css';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const defaultAvatar = 'https://via.placeholder.com/150x150/4a90e2/ffffff?text=Avatar';
 
@@ -34,6 +35,7 @@ const getAvatarUrl = (avatar?: string) => {
 const NavBar: React.FC = () => {
   const { isAuthenticated, user: authUser, logout } = useAuth();
   const { user: userData, points, goldenKarma } = useUser();
+  const { theme, toggleTheme } = useTheme();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [diamondDropdownOpen, setDiamondDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
@@ -396,13 +398,13 @@ const NavBar: React.FC = () => {
               <img
                 src={getAvatarUrl(user.avatar)}
                 alt="avatar"
-                style={{ width: 32, height: 32, borderRadius: '8px', marginRight: 8, objectFit: 'cover', background: '#eee' }}
+                style={{ width: 32, height: 32, borderRadius: '8px', marginRight: 8, objectFit: 'cover', background: 'var(--bg-tertiary)' }}
               />
-              <span style={{ color: '#fff', fontWeight: 500 }}>{user.username}</span>
-              <span style={{ marginLeft: 4, color: '#fff' }}>▼</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{user.username}</span>
+              <span style={{ marginLeft: 4, color: 'var(--text-primary)' }}>▼</span>
             </div>
           ) : (
-            <Link to="/login" style={{ color: '#fff', textDecoration: 'none' }}>Login</Link>
+            <Link to="/login" style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>Login</Link>
           )}
           {dropdownOpen && user && (
             <div
@@ -411,20 +413,21 @@ const NavBar: React.FC = () => {
                 position: 'absolute',
                 right: 0,
                 top: 40,
-                background: '#222',
-                color: '#fff',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
                 borderRadius: 10,
-                boxShadow: '0 4px 16px #0003',
+                boxShadow: '0 4px 16px var(--shadow-color)',
+                border: '1px solid var(--border-color)',
                 minWidth: 200,
                 zIndex: 1000,
                 padding: '16px 0'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', padding: '0 20px 12px 20px', borderBottom: '1px solid #333' }}>
+              <div style={{ display: 'flex', alignItems: 'center', padding: '0 20px 12px 20px', borderBottom: '1px solid var(--border-color)' }}>
                 <img
                   src={getAvatarUrl(user.avatar)}
                   alt="avatar"
-                  style={{ width: 40, height: 40, borderRadius: '8px', marginRight: 12, objectFit: 'cover', background: '#eee' }}
+                  style={{ width: 40, height: 40, borderRadius: '8px', marginRight: 12, objectFit: 'cover', background: 'var(--bg-tertiary)' }}
                 />
                 <div>
                   <div style={{ fontWeight: 600 }}>{user.username}</div>
@@ -435,8 +438,20 @@ const NavBar: React.FC = () => {
               <div style={{ padding: '10px 20px', cursor: 'pointer' }}>Notifications <span style={{ background: '#1976d2', borderRadius: 8, padding: '2px 8px', marginLeft: 6, fontSize: 12 }}>9</span></div>
               <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/settings'); }}>Settings</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer', color: '#f44' }} onClick={handleLogout}>Log out</div>
-              <div style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                Mode <span style={{ marginLeft: 8 }}>🌙</span>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleTheme()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') toggleTheme();
+                  if (e.key === ' ') {
+                    e.preventDefault();
+                    toggleTheme();
+                  }
+                }}
+                style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                Mode <span style={{ marginLeft: 8 }}>{theme === 'light' ? '📖 Reading' : '🌙 Dark'}</span>
               </div>
             </div>
           )}

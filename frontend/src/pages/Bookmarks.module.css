@@ -2,8 +2,8 @@
 
 .container {
   min-height: calc(100vh - 200px); /* 减去导航栏和页脚的高度 */
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
@@ -11,7 +11,7 @@
 
 /* 页面包装器 - 确保整个页面都是深色背景 */
 .pageWrapper {
-  background-color: #1a1a1a;
+  background-color: var(--bg-primary);
   min-height: 100vh;
   width: 100%;
   margin: 0;
@@ -20,7 +20,7 @@
 
 /* 确保Bookmarks页面是深色背景 */
 .pageWrapper {
-  background-color: #1a1a1a;
+  background-color: var(--bg-primary);
   min-height: 100vh;
   width: 100%;
   margin: 0;
@@ -34,7 +34,7 @@
 .title {
   font-size: 2.5rem;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -47,7 +47,7 @@
 .tab {
   background: none;
   border: none;
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 12px 24px;
   font-size: 1rem;
   cursor: pointer;
@@ -56,7 +56,7 @@
 }
 
 .tab:hover {
-  background-color: #333;
+  background-color: var(--bg-tertiary);
 }
 
 .tab.active {

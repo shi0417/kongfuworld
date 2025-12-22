@@ -1,0 +1,20 @@
+:root[data-theme="light"] {
+  --bg-primary: #F3EAD7;
+  --bg-secondary: #FFF9EE;
+  --bg-tertiary: #F7F1E3;
+  --text-primary: #2B2B2B;
+  --text-secondary: #555;
+  --border-color: rgba(0, 0, 0, 0.10);
+  --shadow-color: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --bg-primary: #121212;
+  --bg-secondary: #1E1E1E;
+  --bg-tertiary: #222222;
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.80);
+  --border-color: rgba(255, 255, 255, 0.10);
+  --shadow-color: rgba(0, 0, 0, 0.30);
+}
+

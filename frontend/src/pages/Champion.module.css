@@ -1,8 +1,8 @@
 /* Champion Page Styles */
 .championPage {
   min-height: 100vh;
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'Arial', sans-serif;
 }
 

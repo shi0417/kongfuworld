@@ -1,6 +1,6 @@
 .page {
-  background: #0f0f10;
-  color: #e8e8ea;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
 }
 
@@ -23,7 +23,7 @@
 
 .subtitle {
   margin-top: 6px;
-  color: rgba(255,255,255,0.70);
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 13px;
 }
@@ -39,9 +39,9 @@
 .state {
   padding: 40px 10px;
   text-align: center;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: #1a1b1e;
+  background: var(--bg-secondary);
 }
 
 .error {

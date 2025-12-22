@@ -12,7 +12,8 @@
 }
 
 .modal {
-  background: white;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
@@ -26,13 +27,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .title {
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -40,7 +41,7 @@
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -53,7 +54,7 @@
 }
 
 .closeButton:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-tertiary);
 }
 
 .content {
@@ -63,20 +64,20 @@
 .tierInfo {
   margin-bottom: 24px;
   padding: 16px;
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
   border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .tierName {
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .tierDescription {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 12px 0;
   font-size: 14px;
 }
@@ -93,9 +94,9 @@
 
 .cardElement {
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background-color: white;
+  background-color: var(--bg-tertiary);
   margin-bottom: 16px;
   transition: border-color 0.2s;
 }
@@ -165,12 +166,12 @@
 
 .securityText {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
   text-align: center;
   margin-top: 16px;
   padding: 12px;
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
   border-radius: 4px;
 }
 

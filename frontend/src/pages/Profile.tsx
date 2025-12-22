@@ -576,12 +576,12 @@ const Profile: React.FC = () => {
       : defaultAvatar;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#222', color: '#fff', padding: '0 0 40px 0', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '0 0 40px 0', display: 'flex', flexDirection: 'column' }}>
       <NavBar />
       <div style={{ flex: 1 }}>
         <div style={{ maxWidth: 700, margin: '0 auto', marginTop: 32 }}>
           {/* 选项卡 */}
-          <div style={{ display: 'flex', gap: 40, borderBottom: '2px solid #333', marginBottom: 32 }}>
+          <div style={{ display: 'flex', gap: 40, borderBottom: '2px solid var(--border-color)', marginBottom: 32 }}>
             <div
               style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'profile' ? '3px solid #1976d2' : 'none', color: tab === 'profile' ? '#fff' : '#aaa', cursor: 'pointer' }}
               onClick={() => setTab('profile')}

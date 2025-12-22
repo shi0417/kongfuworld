@@ -2,18 +2,18 @@
   max-width: 800px;
   margin: 60px auto 0 auto;
   padding: 0 24px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .loading {
   text-align: center;
   font-size: 1.2rem;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 /* 评论输入区域 */
 .commentForm {
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 16px;
   padding: 32px;
   margin-bottom: 32px;
@@ -23,7 +23,7 @@
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 16px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .commentTextarea {
@@ -31,8 +31,8 @@
   min-height: 120px;
   border-radius: 8px;
   border: none;
-  background: #18191A;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 20pt;
   padding: 16px;
   margin-bottom: 16px;
@@ -41,7 +41,7 @@
 }
 
 .commentTextarea::placeholder {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .formFooter {
@@ -65,7 +65,7 @@
 
 .wordCount {
   font-size: 14px;
-  color: #aaa;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -109,15 +109,15 @@
 
 .noComments {
   text-align: center;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 1.1rem;
   padding: 20px;
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 16px;
 }
 
 .commentItem {
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
@@ -146,17 +146,17 @@
 
 .username {
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
 .commentDate {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .commentContent {
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 16px;
   line-height: 1.6;
   font-size: 20pt;
@@ -178,7 +178,7 @@
 .actionButton {
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
   display: flex;
@@ -198,7 +198,7 @@
 .replyForm {
   margin-top: 16px;
   padding: 16px;
-  background: #18191A;
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -207,8 +207,8 @@
   min-height: 80px;
   border-radius: 6px;
   border: none;
-  background: #0f0f0f;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 20pt;
   padding: 12px;
   margin-bottom: 12px;
@@ -217,7 +217,7 @@
 }
 
 .replyTextarea::placeholder {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .replyActions {

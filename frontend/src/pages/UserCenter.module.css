@@ -1,8 +1,8 @@
 /* User Center Page Styles */
 .userCenterPage {
   min-height: 100vh;
-  background-color: #1a1a1a;
-  color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'Arial', sans-serif;
 }
 
@@ -12,21 +12,21 @@
   justify-content: center;
   gap: 40px;
   padding: 20px 0;
-  background-color: #2a2a2a;
-  border-bottom: 1px solid #333;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .navItem {
   padding: 10px 20px;
   cursor: pointer;
-  color: #cccccc;
+  color: var(--text-secondary);
   font-weight: 500;
   transition: color 0.3s ease;
   position: relative;
 }
 
 .navItem:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .navItem.active {

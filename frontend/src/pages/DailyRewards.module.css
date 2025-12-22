@@ -1,8 +1,8 @@
 /* Daily Rewards Page Styles - Matching WuxiaWorld Design */
 .dailyRewardsPage {
   min-height: 100vh;
-  background: #1a1a1a;
-  color: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'Arial', sans-serif;
 }
 

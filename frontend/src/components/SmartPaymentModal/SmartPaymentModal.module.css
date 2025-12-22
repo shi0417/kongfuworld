@@ -12,13 +12,14 @@
 }
 
 .modal {
-  background: white;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-color);
 }
 
 .header {
@@ -26,13 +27,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .title {
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -40,7 +41,7 @@
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -53,7 +54,7 @@
 }
 
 .closeButton:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-tertiary);
 }
 
 .content {
@@ -63,20 +64,20 @@
 .tierInfo {
   margin-bottom: 24px;
   padding: 16px;
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
   border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .tierName {
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .tierDescription {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 12px 0;
   font-size: 14px;
 }
@@ -98,7 +99,7 @@
 .savedPaymentMethods h4 {
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0 0 12px 0;
 }
 
@@ -106,7 +107,7 @@
   display: flex;
   align-items: center;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -115,7 +116,7 @@
 
 .paymentMethodOption:hover {
   border-color: #3b82f6;
-  background-color: #f8fafc;
+  background-color: var(--bg-tertiary);
 }
 
 .paymentMethodOption input[type="radio"] {
@@ -133,19 +134,19 @@
 
 .cardBrand {
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   text-transform: uppercase;
   font-size: 14px;
 }
 
 .cardNumber {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-family: monospace;
   font-size: 14px;
 }
 
 .cardExpiry {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -161,14 +162,14 @@
 .newCardSection {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
 }
 
 .cardElement {
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background-color: white;
+  background-color: var(--bg-tertiary);
   margin-bottom: 16px;
   transition: border-color 0.2s;
 }
@@ -196,7 +197,7 @@
 .loading {
   text-align: center;
   padding: 40px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -260,12 +261,12 @@
 
 .securityText {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
   text-align: center;
   margin-top: 16px;
   padding: 12px;
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
   border-radius: 4px;
 }
 
@@ -316,11 +317,11 @@
 .inputField {
   width: 100%;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 16px;
-  color: #111827;
-  background-color: #ffffff;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
   transition: border-color 0.2s ease;
   box-sizing: border-box;
 }
@@ -332,8 +333,8 @@
 }
 
 .inputField:disabled {
-  background-color: #f9fafb;
-  color: #6b7280;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 

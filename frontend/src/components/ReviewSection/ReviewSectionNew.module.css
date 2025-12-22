@@ -3,7 +3,7 @@
   margin-top: 2rem;
   padding: 0;
   background: transparent;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .reviewHeader {
@@ -61,7 +61,7 @@
 
 .statsLabel {
   font-size: 0.9rem;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 /* 评论表单样式 */
