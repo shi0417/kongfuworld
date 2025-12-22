@@ -7,7 +7,7 @@ const express = require('express');
  * - GET /api/genres (optional helper for filters)
  *
  * Notes:
- * - MUST enforce: n.review_status IN ('published','approved')
+ * - MUST enforce: n.review_status = 'published'
  * - db should be mysql2 Promise Pool/Connection (e.g. db.promise())
  */
 module.exports = function createPublicSeriesRouter(db) {
@@ -76,8 +76,8 @@ module.exports = function createPublicSeriesRouter(db) {
     const where = [];
     const params = [];
 
-    // 强制只返回已发布/已通过
-    where.push(`n.review_status IN ('published','approved')`);
+    // 强制只返回已发布（published）
+    where.push(`n.review_status = 'published'`);
 
     const q = String(query || '').trim();
     if (q) {
