@@ -287,9 +287,9 @@ const BookDetail: React.FC = () => {
             )}
           </div>
           <div style={{ margin: '24px 0 0 0' }}>
-            <div style={{ background: '#23272F', borderRadius: 8, padding: '8px 18px', color: '#6cf', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '8px 18px', color: '#6cf', fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
               <span>🕒 2 Free Chapters Every 23 Hrs</span>
-              <span style={{ color: '#fff', background: '#111', borderRadius: 4, padding: '2px 8px', fontSize: 15 }}>23:00:00</span>
+              <span style={{ color: 'var(--text-primary)', background: 'var(--bg-tertiary)', borderRadius: 4, padding: '2px 8px', fontSize: 15 }}>23:00:00</span>
             </div>
             <button 
               onClick={handleStartReading}
@@ -301,7 +301,7 @@ const BookDetail: React.FC = () => {
         </div>
       </div>
       {/* Tabs */}
-      <div style={{ maxWidth: 1100, margin: '32px auto 0 auto', padding: '0 24px', borderBottom: '2px solid #23272F', display: 'flex', gap: 32, fontSize: 20, fontWeight: 600, position: 'relative' }}>
+      <div style={{ maxWidth: 1100, margin: '32px auto 0 auto', padding: '0 24px', borderBottom: '2px solid var(--border-color)', display: 'flex', gap: 32, fontSize: 20, fontWeight: 600, position: 'relative' }}>
         {['About', 'Chapters', ...(book?.champion_status === 'approved' ? ['Champion'] : [])].map((t) => (
           <div
             key={t}
@@ -309,7 +309,7 @@ const BookDetail: React.FC = () => {
             style={{
               padding: '12px 0',
               borderBottom: tab === t ? '3px solid #2196f3' : '3px solid transparent',
-              color: tab === t ? '#fff' : '#aaa',
+              color: tab === t ? 'var(--text-primary)' : 'var(--text-secondary)',
               cursor: 'pointer',
               position: 'relative',
               flex: 1,
@@ -374,7 +374,7 @@ const BookDetail: React.FC = () => {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 }}>
             {/* 暂时使用默认标签，后续可以从数据库获取 */}
             {['Chinese', 'Comedy', 'Cultivation', 'Reincarnator', 'Xianxia', 'Action', 'Modern Setting'].map((tag) => (
-              <span key={tag} style={{ background: '#23272F', color: '#fff', borderRadius: 8, padding: '6px 18px', fontWeight: 600, fontSize: 15 }}>{tag}</span>
+              <span key={tag} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: 8, padding: '6px 18px', fontWeight: 600, fontSize: 15 }}>{tag}</span>
             ))}
           </div>
           {/* 简介介绍区块 */}

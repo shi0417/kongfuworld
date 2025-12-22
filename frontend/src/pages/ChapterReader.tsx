@@ -682,7 +682,7 @@ const ChapterReader: React.FC = () => {
   // 加载状态
   if (loading) {
     return (
-      <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit' }}>
+      <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit' }}>
         <NavBar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <div style={{ textAlign: 'center' }}>
@@ -718,7 +718,7 @@ const ChapterReader: React.FC = () => {
   // 错误状态
   if (error || !chapterData) {
     return (
-      <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit' }}>
+      <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit' }}>
         <NavBar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <div style={{ textAlign: 'center', maxWidth: '600px', padding: '20px' }}>
@@ -768,7 +768,7 @@ const ChapterReader: React.FC = () => {
   }
 
   return (
-    <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit' }}>
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit' }}>
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
