@@ -7,8 +7,6 @@ import ChapterReader from './pages/ChapterReader';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
-import NovelUpload from './pages/NovelUpload';
-import NovelEdit from './pages/NovelEdit';
 import PaymentSuccess from './pages/PaymentSuccess';
 // import PaymentError from './pages/PaymentError'; // 暂时取消错误页面功能
 import Karma from './pages/Karma';
@@ -53,8 +51,6 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/upload" element={<NovelUpload />} />
-        <Route path="/edit" element={<NovelEdit />} />
         <Route path="/payment/success" element={<PaymentSuccess />} />
         {/* <Route path="/payment/error" element={<PaymentError />} /> */} {/* 暂时取消错误页面功能 */}
         <Route path="/karma" element={<Karma />} />

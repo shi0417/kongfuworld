@@ -9,6 +9,7 @@ const fs = require('fs');
 const multer = require('multer');
 // 导入登录日志记录工具
 const { logUserLogin } = require('./utils/loginLogger');
+const authenticateToken = require('./middleware/authenticateToken');
 // 尝试加载环境变量，如果失败则使用默认值
 try {
   require('dotenv').config({ path: './kongfuworld.env' });
@@ -45,6 +46,8 @@ const karmaRoutes = require('./routes/karma');
 
 // 导入Karma支付路由
 const karmaPaymentRoutes = require('./routes/karmaPayment');
+// Billing 聚合流水路由
+const billingRoutes = require('./routes/billing');
 
 // 导入用户路由
 const userRoutes = require('./routes/user');
@@ -108,23 +111,8 @@ app.use('/api/chapter', (req, res, next) => {
   }, 100);
 });
 
-// JWT验证中间件
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ message: 'Please login first' });
-  }
-
-  jwt.verify(token, 'your-secret-key', (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Token invalid or expired' });
-    }
-    req.user = user;
-    next();
-  });
-};
+// JWT验证中间件（普通用户）
+// 注意：实现已抽到 backend/middleware/authenticateToken.js，供多路由复用
 
 // Optional JWT 验证中间件（不影响未登录访问）
 // - 有 Authorization Bearer token：尝试校验，成功则 req.user=user
@@ -137,14 +125,35 @@ const optionalAuth = (req, res, next) => {
       req.user = null;
       return next();
     }
-    jwt.verify(token, 'your-secret-key', (err, user) => {
-      if (err) {
-        req.user = null;
+    const primarySecret = process.env.JWT_SECRET || 'your-secret-key';
+    const fallbackSecret = 'your-secret-key';
+
+    const verifyWith = (secret) =>
+      new Promise((resolve, reject) => {
+        jwt.verify(token, secret, (err, decoded) => {
+          if (err) return reject(err);
+          return resolve(decoded);
+        });
+      });
+
+    (async () => {
+      try {
+        req.user = await verifyWith(primarySecret);
         return next();
+      } catch (err1) {
+        if (primarySecret === fallbackSecret) {
+          req.user = null;
+          return next();
+        }
+        try {
+          req.user = await verifyWith(fallbackSecret);
+          return next();
+        } catch (err2) {
+          req.user = null;
+          return next();
+        }
       }
-      req.user = user;
-      return next();
-    });
+    })();
   } catch (e) {
     req.user = null;
     return next();
@@ -165,6 +174,9 @@ app.use('/api/karma', karmaRoutes);
 
 // Karma支付路由
 app.use('/api/karma/payment', karmaPaymentRoutes);
+
+// Billing 路由（交易流水聚合）
+app.use('/api/billing', billingRoutes);
 
 // 用户路由
 app.use('/api/user', userRoutes);

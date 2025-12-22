@@ -6,6 +6,7 @@ const SimplePaymentService = require('../services/simplePaymentService');
 const UnifiedPaymentService = require('../services/unifiedPaymentService');
 const KarmaPaymentService = require('../services/karmaPaymentService');
 const ChampionService = require('../services/championService');
+const authenticateToken = require('../middleware/authenticateToken');
 
 const paypalService = new PayPalServiceSDK();
 const stripeService = new StripeService();
@@ -270,13 +271,22 @@ router.post('/stripe/create-subscription', async (req, res) => {
 });
 
 // 获取支付历史
-router.get('/history/:userId', async (req, res) => {
+router.get('/history/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const authedUserId = Number(req.user?.userId ?? req.user?.id ?? req.user?.uid);
+    if (!Number.isFinite(authedUserId) || authedUserId <= 0) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // :userId 仅用于兼容旧前端，但必须与 token 用户一致
+    if (parseInt(userId, 10) !== authedUserId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
     
     const [rows] = await paymentService.db.execute(
       'SELECT * FROM payment_record WHERE user_id = ? ORDER BY created_at DESC',
-      [userId]
+      [authedUserId]
     );
 
     res.json({ success: true, payments: rows });

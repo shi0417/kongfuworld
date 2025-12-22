@@ -39,6 +39,204 @@
   overflow-x: auto;
 }
 
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #1f1f1f;
+  color: #ffffff;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #333;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.filterGroup {
+}
+
+.filterLabel {
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.filterOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filterButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.filterBtn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.88);
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.filterBtn:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.18);
+}
+
+.filterBtnActive {
+  background: rgba(40, 167, 69, 0.22);
+  border-color: rgba(40, 167, 69, 0.55);
+  color: #fff;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cccccc;
+}
+
+.resetBtn {
+  align-self: flex-start;
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.row {
+  cursor: pointer;
+}
+
+.row:hover {
+  background-color: #2f2f2f;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: #444;
+  color: #ffffff;
+  font-size: 0.8rem;
+}
+
+.status_completed {
+  background-color: #1e7e34;
+}
+
+.status_pending {
+  background-color: #6c757d;
+}
+
+.status_failed {
+  background-color: #a71d2a;
+}
+
+.status_cancelled {
+  background-color: #5a6268;
+}
+
+.status_refunded {
+  background-color: #0d6efd;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  color: #cccccc;
+}
+
+.paginationBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.pageBtn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+
+.modal {
+  width: 100%;
+  max-width: 720px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modalTitle {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.modalClose {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.modalBody {
+  color: #cccccc;
+  display: grid;
+  gap: 8px;
+}
+
 .billingTable {
   width: 100%;
   border-collapse: collapse;

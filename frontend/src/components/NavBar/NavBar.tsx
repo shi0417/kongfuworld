@@ -432,11 +432,7 @@ const NavBar: React.FC = () => {
               </div>
               <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/profile'); }}>Profile</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/bookmarks'); }}>Bookmarks</div>
-              <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/upload'); }}>Upload Novel</div>
-              <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/edit'); }}>Edit Novel</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer' }}>Notifications <span style={{ background: '#1976d2', borderRadius: 8, padding: '2px 8px', marginLeft: 6, fontSize: 12 }}>9</span></div>
-              <div style={{ padding: '10px 20px', cursor: 'pointer' }}>My Audiobooks</div>
-              <div style={{ padding: '10px 20px', cursor: 'pointer' }}>My Ebooks</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer' }} onClick={() => { setDropdownOpen(false); navigate('/settings'); }}>Settings</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer', color: '#f44' }} onClick={handleLogout}>Log out</div>
               <div style={{ padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

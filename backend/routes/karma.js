@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
+const authenticateToken = require('../middleware/authenticateToken');
 
 // 数据库连接配置
 const dbConfig = {
@@ -88,11 +89,21 @@ router.get('/packages', async (req, res) => {
 });
 
 // 获取用户Karma交易记录
-router.get('/transactions', async (req, res) => {
+router.get('/transactions', authenticateToken, async (req, res) => {
   let db;
   try {
-    // 从请求头获取用户ID，如果没有则使用默认值
-    const userId = req.headers['user-id'] || req.query.userId || 1;
+    const authedUserId = Number(req.user?.userId ?? req.user?.id ?? req.user?.uid);
+    if (!Number.isFinite(authedUserId) || authedUserId <= 0) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // 兼容旧调用：允许传 userId 但仅用于校验（禁止越权）
+    const providedUserId = req.headers['user-id'] || req.query.userId;
+    if (providedUserId != null && String(providedUserId).trim() !== '' && Number(providedUserId) !== authedUserId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const userId = authedUserId;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
@@ -100,13 +111,22 @@ router.get('/transactions', async (req, res) => {
     db = await mysql.createConnection(dbConfig);
     
     // 获取用户Karma交易记录
-    const [transactions] = await db.execute(
-      `SELECT * FROM user_karma_transactions WHERE user_id = ${parseInt(userId)} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`
+    const limitInt = Number.isFinite(Number(limit)) ? parseInt(limit) : 20;
+    const offsetInt = Number.isFinite(Number(offset)) ? parseInt(offset) : 0;
+    // 注意：部分 MySQL 环境对 prepared stmt 的 LIMIT ? OFFSET ? 兼容性不好（会抛 ER_WRONG_ARGUMENTS）。
+    // 这里使用 db.query（非 prepared）保持参数化与兼容性。
+    const [transactions] = await db.query(
+      `SELECT * FROM user_karma_transactions
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [userId, limitInt, offsetInt]
     );
     
     // 获取总记录数
-    const [countResult] = await db.execute(
-      `SELECT COUNT(*) as total FROM user_karma_transactions WHERE user_id = ${parseInt(userId)}`
+    const [countResult] = await db.query(
+      `SELECT COUNT(*) as total FROM user_karma_transactions WHERE user_id = ?`,
+      [userId]
     );
     const total = countResult[0].total;
     const totalPages = Math.ceil(total / limit);
