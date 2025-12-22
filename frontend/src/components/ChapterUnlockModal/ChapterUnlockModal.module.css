@@ -68,7 +68,7 @@
 }
 
 .helpIcon {
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -156,7 +156,7 @@
 
 .buttonCost {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .buttonAction {
@@ -177,7 +177,7 @@
 
 .originalPrice {
   text-decoration: line-through;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 

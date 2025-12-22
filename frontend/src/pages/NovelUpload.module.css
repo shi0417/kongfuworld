@@ -799,7 +799,7 @@
   gap: 15px;
   margin-bottom: 15px;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 6px;
   width: 100%;
   min-width: 0;
@@ -828,19 +828,19 @@
 .settingItem input[type="number"] {
   width: 80px;
   padding: 4px 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
 /* 第四行：章节内容 */
 .chapterContent {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 6px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-color);
   width: 100%;
   min-width: 0;
   box-sizing: border-box;

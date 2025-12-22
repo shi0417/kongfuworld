@@ -171,7 +171,7 @@
 
 .form-row label {
   font-weight: 600;
-  color: #495057;
+  color: var(--text-secondary);
   font-size: 1.1rem;
   min-width: 120px;
   white-space: nowrap;
@@ -181,7 +181,7 @@
 .form-row textarea {
   flex: 1;
   padding: 12px 16px;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border-color);
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.3s ease;
@@ -201,8 +201,8 @@
 }
 
 .readonly-input {
-  background: #f8f9fa !important;
-  color: #495057 !important;
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
   cursor: not-allowed;
 }
 
@@ -241,7 +241,7 @@
 }
 
 .query-hint {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-style: italic;
   margin-left: 135px;
@@ -252,7 +252,7 @@
   display: flex;
   justify-content: flex-start;
   padding-top: 25px;
-  border-top: 2px solid #e9ecef;
+  border-top: 2px solid var(--border-color);
 }
 
 .update-button {

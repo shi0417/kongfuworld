@@ -81,7 +81,7 @@
   gap: 15px;
   padding: 15px;
   border-radius: 8px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-color);
   transition: all 0.3s ease;
 }
 
@@ -129,13 +129,13 @@
 }
 
 .conditionValue {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin-left: 5px;
 }
 
 .conditionDetail {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   font-style: italic;
   margin-top: 5px;
@@ -157,7 +157,7 @@
 }
 
 .statusLabel {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -200,10 +200,10 @@
 
 .hint {
   text-align: center;
-  color: #6c757d;
+  color: var(--text-secondary);
   font-style: italic;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 8px;
 }
 

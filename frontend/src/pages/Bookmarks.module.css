@@ -214,7 +214,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .spinner {
@@ -254,7 +254,7 @@
 .loginPrompt {
   text-align: center;
   padding: 60px 20px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .content {
@@ -361,7 +361,7 @@
 .actionIcon {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 6px;
@@ -386,7 +386,7 @@
 .removeIcon {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 6px;
@@ -454,7 +454,7 @@
 .removeBtn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 4px;
@@ -606,7 +606,7 @@
 
 .chapterCount {
   font-size: 0.9rem;
-  color: #888;
+  color: var(--text-secondary);
   margin: 5px 0 0 0;
 }
 
@@ -619,7 +619,7 @@
 .expandBtn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 4px;
@@ -658,7 +658,7 @@
 .removeChapterBtn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 4px;
@@ -674,7 +674,7 @@
 .emptyState {
   text-align: center;
   padding: 60px 20px;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.1rem;
 }
 
