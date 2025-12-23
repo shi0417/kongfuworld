@@ -94,9 +94,9 @@
 }
 
 .sortSelect {
-  background: #1a1f2e;
-  border: 1px solid #333;
-  color: #fff;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;
@@ -105,8 +105,8 @@
 }
 
 .sortSelect:hover {
-  background: #23272F;
-  border-color: #444;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 .sortSelect:focus {
@@ -186,10 +186,10 @@
 }
 
 .volumeCardStats {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
-  background: #333;
+  background: var(--bg-tertiary);
   padding: 4px 8px;
   border-radius: 4px;
   margin-left: auto;
