@@ -1,5 +1,5 @@
 .championDisplay {
-  color: #fff;
+  color: var(--text-primary);
   padding: 0;
 }
 
@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 .spinner {
@@ -105,8 +105,8 @@
 }
 
 .plusIcon {
-  background: #23272F;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 32px;
   padding: 0 18px;
@@ -161,11 +161,11 @@
 }
 
 .tierCard {
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 16px;
   width: 270px;
   padding: 28px 24px 20px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px var(--shadow-color);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -175,7 +175,7 @@
 
 .tierCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px var(--shadow-color);
 }
 
 .tierHeader {
@@ -191,14 +191,14 @@
 }
 
 .tierPrice {
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 22px;
   margin-bottom: 8px;
 }
 
 .tierPrice span {
-  color: #aaa;
+  color: var(--text-secondary);
   font-weight: 400;
   font-size: 16px;
 }
@@ -255,7 +255,7 @@
 }
 
 .tierBenefit {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 15px;
   white-space: pre-line;
   line-height: 1.4;
@@ -287,7 +287,7 @@
 }
 
 .currentStatus {
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px;
   margin-top: 32px;
@@ -307,7 +307,7 @@
 }
 
 .statusTier {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
 }
@@ -319,7 +319,7 @@
 }
 
 .statusExpiry {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 

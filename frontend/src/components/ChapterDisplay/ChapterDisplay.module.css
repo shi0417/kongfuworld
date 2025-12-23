@@ -3,7 +3,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
-  background: #0f1419;
+  background: var(--bg-primary);
   min-height: 100vh;
 }
 
@@ -14,8 +14,8 @@
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: #aaa;
-  background: #0f1419;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
   min-height: 400px;
 }
 
@@ -124,18 +124,18 @@
 }
 
 .volumeCard {
-  background: #1a1f2e;
+  background: var(--bg-secondary);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px var(--shadow-color);
   transition: all 0.2s ease;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   margin-bottom: 8px;
 }
 
 .volumeCard:hover {
-  background: #23272F;
-  border-color: #444;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 /* 卷卡片头部 - WuxiaWorld样式 */
@@ -146,11 +146,11 @@
   padding: 16px 20px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .volumeCardHeader:hover {
-  background: #23272F;
+  background: var(--bg-tertiary);
 }
 
 .volumeCardNumber {
@@ -180,7 +180,7 @@
 }
 
 .volumeCardRange {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 400;
 }
@@ -209,8 +209,8 @@
 
 /* 卷内章节列表 - WuxiaWorld样式 */
 .volumeChaptersList {
-  background: #1a1f2e;
-  border-top: 1px solid #333;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
   padding: 16px 20px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -222,17 +222,17 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #23272F;
+  background: var(--bg-tertiary);
   border-radius: 6px;
   transition: all 0.2s ease;
   cursor: pointer;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   margin-bottom: 4px;
 }
 
 .volumeChapterItem:hover {
-  background: #2a2f3a;
-  border-color: #444;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
   transform: translateX(2px);
 }
 
@@ -250,7 +250,7 @@
 }
 
 .volumeChapterTitle {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.4;
@@ -263,7 +263,7 @@
 }
 
 .volumeChapterDate {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
