@@ -68,9 +68,9 @@
 .reviewFormContainer {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: #23272F;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
 }
 
 .reviewForm {
@@ -84,7 +84,7 @@
 .recommendationSection p {
   margin-bottom: 0.5rem;
   font-size: 1rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .recommendationRow {
@@ -126,7 +126,7 @@
 .ratingSection label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -139,15 +139,15 @@
 .ratingSectionInline label {
   display: inline-block;
   margin-bottom: 0;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .ratingSelect {
-  background: #333;
-  border: 1px solid #555;
-  color: #fff;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 0.5rem;
   border-radius: 4px;
   font-size: 0.9rem;
@@ -160,15 +160,15 @@
 .contentSection label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .reviewTextarea {
   width: 100%;
-  background: #333;
-  border: 1px solid #555;
-  color: #fff;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 0.75rem;
   border-radius: 4px;
   font-size: 20pt;
@@ -178,7 +178,7 @@
 }
 
 .reviewTextarea::placeholder {
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 .formFooter {

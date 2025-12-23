@@ -6,7 +6,7 @@
 .menuButton {
   background: transparent;
   border: none;
-  color: #aaa;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -19,8 +19,8 @@
 }
 
 .menuButton:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .menuIcon {
@@ -31,10 +31,10 @@
 
 .menuDropdown {
   /* position 和位置由内联样式控制（fixed定位） */
-  background: #2a2f38;
-  border: 1px solid #404040;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px var(--shadow-color);
   min-width: 120px;
   overflow: hidden;
 }
@@ -44,7 +44,7 @@
   padding: 10px 16px;
   background: transparent;
   border: none;
-  color: #e0e0e0;
+  color: var(--text-primary);
   text-align: left;
   cursor: pointer;
   font-size: 14px;
@@ -52,7 +52,7 @@
 }
 
 .reportMenuItem:hover {
-  background: #333842;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 

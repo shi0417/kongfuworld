@@ -188,7 +188,7 @@ const BookDetail: React.FC = () => {
   // 加载状态
   if (loading) {
     return (
-      <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
+      <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
         <NavBar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <div style={{ textAlign: 'center' }}>
@@ -204,7 +204,7 @@ const BookDetail: React.FC = () => {
   // 错误状态
   if (error || !book) {
     return (
-      <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
+      <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
         <NavBar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <div style={{ textAlign: 'center' }}>
@@ -231,7 +231,7 @@ const BookDetail: React.FC = () => {
   }
 
   return (
-    <div style={{ background: '#18191A', minHeight: '100vh', color: '#fff', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'inherit', padding: '0 0 40px 0' }}>
       <DailyRewardsModal open={showDailyModal} onClose={() => setShowDailyModal(false)} />
       <NavBar />
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 0 24px', display: 'flex', gap: 40 }}>
@@ -378,7 +378,7 @@ const BookDetail: React.FC = () => {
             ))}
           </div>
           {/* 简介介绍区块 */}
-          <div style={{ borderTop: '1px solid #333', marginTop: 0, paddingTop: 0 }}>
+          <div style={{ borderTop: '1px solid var(--border-color)', marginTop: 0, paddingTop: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 12 }}>Details</div>
             {book.translator && (
               <div style={{ color: '#aaa', fontStyle: 'italic', marginBottom: 16 }}>
@@ -433,7 +433,7 @@ const BookDetail: React.FC = () => {
                 status: 'Ongoing',
                 rating: 68
               }].map((novel, idx) => (
-                <div key={idx} style={{ width: 160, background: '#23272F', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px #0002', marginRight: 8 }}>
+                <div key={idx} style={{ width: 160, background: 'var(--bg-secondary)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px #0002', marginRight: 8 }}>
                   <div style={{ position: 'relative' }}>
                     <img src={novel.cover} alt={novel.title} style={{ width: '100%', height: 220, objectFit: 'cover' }} />
                     <span style={{ position: 'absolute', top: 8, left: 8, background: '#222', color: '#fff', borderRadius: 6, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>{novel.status}</span>
