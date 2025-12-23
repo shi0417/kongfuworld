@@ -1,6 +1,6 @@
 .footer {
-  background: #222;
-  color: #fff;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   text-align: center;
   padding: 2rem 0 1rem 0;
   font-size: 0.95rem;
@@ -8,7 +8,7 @@
 }
 
 .link {
-  color: #fff;
+  color: var(--text-primary);
   text-decoration: underline;
   transition: opacity 0.2s;
 }
