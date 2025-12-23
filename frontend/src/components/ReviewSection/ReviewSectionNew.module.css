@@ -12,7 +12,7 @@
   align-items: center;
   margin-bottom: 1.5rem;
   padding: 1rem 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .reviewStats {
@@ -289,8 +289,8 @@
 }
 
 .reviewItem {
-  background: #23272F;
-  border: 1px solid #333;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 0.75rem;
@@ -301,7 +301,7 @@
 }
 
 .reviewItem:hover {
-  border-color: #555;
+  border-color: var(--border-color);
 }
 
 .reviewHeader {
@@ -365,7 +365,7 @@
 
 .username {
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
@@ -380,7 +380,7 @@
 }
 
 .reviewDate {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 0.8rem;
 }
 
@@ -397,7 +397,7 @@
 }
 
 .reviewContent {
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1.4;
   margin-bottom: 0.25rem; /* 再减少50% */
   margin-left: 52px; /* 对齐到用户名位置 */
@@ -542,7 +542,7 @@
   margin-top: 0.375rem; /* 再减少50% */
   margin-left: 0; /* 从左边开始，不额外缩进 */
   padding-left: 40px; /* 创建明显的缩进 */
-  border-left: 2px solid #333; /* 垂直连接线 */
+  border-left: 2px solid var(--border-color); /* 垂直连接线 */
   width: 100%; /* 占据整行 */
   display: block; /* 确保是块级元素，独占一行 */
   box-sizing: border-box; /* 确保padding包含在宽度内 */
@@ -584,12 +584,12 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #333;
+  background: var(--border-color);
 }
 
 .replyItem {
-  background: #18191A;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 0.75rem;
@@ -606,8 +606,8 @@
 }
 
 .replyItem:hover {
-  border-color: #3a3a3a;
-  background: #1e1e1e;
+  border-color: var(--border-color);
+  background: var(--bg-tertiary);
 }
 
 .replyHeader {
@@ -627,18 +627,18 @@
 
 .replyUsername {
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.85rem;
 }
 
 .replyDate {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   margin-left: 0; /* 移除自动推到右边，紧跟在用户名后面 */
 }
 
 .replyContent {
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 20pt; /* 20号字体 */
   line-height: 1.4;
   margin-bottom: 0.25rem; /* 减少间距 */

@@ -32,25 +32,25 @@
 
 .toast.success {
   background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
-  color: var(--text-primary);
+  color: white;
   border: 1px solid var(--border-color);
 }
 
 .toast.error {
   background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
-  color: var(--text-primary);
+  color: white;
   border: 1px solid var(--border-color);
 }
 
 .toast.info {
   background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
-  color: var(--text-primary);
+  color: white;
   border: 1px solid var(--border-color);
 }
 
 .toast.warning {
   background: linear-gradient(135deg, #faad14 0%, #ffc53d 100%);
-  color: var(--text-primary);
+  color: white;
   border: 1px solid var(--border-color);
 }
 
