@@ -780,8 +780,8 @@ const ChapterReader: React.FC = () => {
 
       {/* 章节导航栏 */}
       <div style={{ 
-        background: '#23272F', 
-        borderBottom: '1px solid #333',
+        background: 'var(--bg-secondary)', 
+        borderBottom: '1px solid var(--border-color)',
         padding: '12px 0',
         position: 'sticky',
         top: '0',
@@ -802,7 +802,7 @@ const ChapterReader: React.FC = () => {
             >
               ← Back to Novel
             </button>
-            <span style={{ color: '#666' }}>|</span>
+            <span style={{ color: 'var(--text-secondary)' }}>|</span>
             <span style={{ fontWeight: 600, fontSize: 18 }}>{chapterData.novel_title}</span>
           </div>
           
@@ -810,9 +810,9 @@ const ChapterReader: React.FC = () => {
             <button 
               onClick={() => handleChangeFontSize(fontSize - 2)}
               style={{ 
-                background: '#333', 
+                background: 'var(--bg-tertiary)', 
                 border: 'none', 
-                color: '#fff', 
+                color: 'var(--text-primary)', 
                 borderRadius: 4,
                 padding: '4px 8px',
                 cursor: 'pointer'
@@ -823,9 +823,9 @@ const ChapterReader: React.FC = () => {
             <button 
               onClick={() => handleChangeFontSize(fontSize + 2)}
               style={{ 
-                background: '#333', 
+                background: 'var(--bg-tertiary)', 
                 border: 'none', 
-                color: '#fff', 
+                color: 'var(--text-primary)', 
                 borderRadius: 4,
                 padding: '4px 8px',
                 cursor: 'pointer'
@@ -939,18 +939,18 @@ const ChapterReader: React.FC = () => {
         <div style={{ 
           textAlign: 'center', 
           marginBottom: 40,
-          borderBottom: '1px solid #333',
+          borderBottom: '1px solid var(--border-color)',
           paddingBottom: 20
         }}>
           <h1 style={{ 
             fontSize: 28, 
             fontWeight: 700, 
             margin: '0 0 8px 0',
-            color: '#fff'
+            color: 'var(--text-primary)'
           }}>
             {chapterData.title}
           </h1>
-          <div style={{ color: '#666', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             <span>Chapter {chapterData.chapter_number}</span>
             {chapterData.is_advance && (
               <span style={{ 
@@ -969,7 +969,7 @@ const ChapterReader: React.FC = () => {
 
         {/* 章节内容 */}
         <div style={{ 
-          color: '#e0e0e0',
+          color: 'var(--text-primary)',
           fontSize: fontSize,
           lineHeight: lineHeight,
           textAlign: 'justify',
@@ -1095,7 +1095,7 @@ const ChapterReader: React.FC = () => {
               });
             })()
           ) : (
-            <p style={{ color: '#666', fontStyle: 'italic' }}>章节内容暂不可用</p>
+            <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>章节内容暂不可用</p>
           )}
         </div>
 
@@ -1133,10 +1133,10 @@ const ChapterReader: React.FC = () => {
                 alignItems: 'center',
                 gap: 12,
                 padding: '16px 28px',
-                border: '2px solid #444',
+                border: '2px solid var(--border-color)',
                 borderRadius: 30,
-                background: chapterLikeSummary.user_status === 1 ? '#1976d2' : '#2a2a2a',
-                color: '#fff',
+                background: chapterLikeSummary.user_status === 1 ? '#1976d2' : 'var(--bg-secondary)',
+                color: chapterLikeSummary.user_status === 1 ? '#fff' : 'var(--text-primary)',
                 fontSize: 18,
                 cursor: chapterLikeLoading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
@@ -1153,8 +1153,8 @@ const ChapterReader: React.FC = () => {
                   textAlign: 'center',
                   padding: '4px 10px',
                   borderRadius: 999,
-                  background: 'rgba(0,0,0,0.25)',
-                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
                   fontSize: 16,
                   fontWeight: 800
                 }}
@@ -1247,7 +1247,7 @@ const ChapterReader: React.FC = () => {
 
       {/* 相关小说推荐 */}
       <div style={{ maxWidth: 1100, margin: '60px auto 0 auto', padding: '0 24px' }}>
-        <div style={{ color: '#fff', fontWeight: 700, fontSize: 28, marginBottom: 24 }}>Related Novels</div>
+        <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 28, marginBottom: 24 }}>Related Novels</div>
         <div style={{ display: 'flex', gap: 32, overflowX: 'auto', paddingBottom: 20 }}>
           {/* 示例相关小说卡片 */}
           {[{
@@ -1281,14 +1281,14 @@ const ChapterReader: React.FC = () => {
             status: 'Ongoing',
             rating: 89
           }].map((novel, idx) => (
-            <div key={idx} style={{ width: 160, background: '#23272F', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px #0002', marginRight: 8, flexShrink: 0 }}>
+            <div key={idx} style={{ width: 160, background: 'var(--bg-secondary)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px var(--shadow-color)', marginRight: 8, flexShrink: 0 }}>
               <div style={{ position: 'relative' }}>
                 <img src={novel.cover} alt={novel.title} style={{ width: '100%', height: 220, objectFit: 'cover' }} />
-                <span style={{ position: 'absolute', top: 8, left: 8, background: '#222', color: '#fff', borderRadius: 6, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>{novel.status}</span>
+                <span style={{ position: 'absolute', top: 8, left: 8, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderRadius: 6, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>{novel.status}</span>
               </div>
               <div style={{ padding: '12px 10px 8px 10px' }}>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4, lineHeight: 1.3 }}>{novel.title}</div>
-                <div style={{ color: '#aaa', fontSize: 15, marginBottom: 4 }}>👍 {novel.rating}%</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 16, marginBottom: 4, lineHeight: 1.3 }}>{novel.title}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 4 }}>👍 {novel.rating}%</div>
               </div>
             </div>
           ))}
