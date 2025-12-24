@@ -859,20 +859,20 @@ const ChapterReader: React.FC = () => {
           right: 0,
           width: 300,
           height: '100vh',
-          background: '#23272F',
-          borderLeft: '1px solid #333',
+          background: 'var(--bg-secondary)',
+          borderLeft: '1px solid var(--border-color)',
           zIndex: 200,
           overflowY: 'auto',
           padding: '20px'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h3 style={{ margin: 0, fontSize: 18 }}>Chapters</h3>
+            <h3 style={{ margin: 0, fontSize: 18, color: 'var(--text-primary)' }}>Chapters</h3>
             <button 
               onClick={() => setShowChapterList(false)}
               style={{ 
                 background: 'none', 
                 border: 'none', 
-                color: '#666', 
+                color: 'var(--text-secondary)', 
                 fontSize: 20,
                 cursor: 'pointer'
               }}
@@ -882,11 +882,11 @@ const ChapterReader: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {chaptersLoading ? (
-              <div style={{ color: '#ccc', textAlign: 'center', padding: '20px' }}>
+              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
                 加载章节列表中...
               </div>
             ) : chapters.length === 0 ? (
-              <div style={{ color: '#ccc', textAlign: 'center', padding: '20px' }}>
+              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
                 暂无章节数据
               </div>
             ) : (
@@ -899,7 +899,7 @@ const ChapterReader: React.FC = () => {
                     style={{
                       background: isCurrent ? '#1976d2' : 'transparent',
                       border: 'none',
-                      color: isCurrent ? '#fff' : '#ccc',
+                      color: isCurrent ? '#fff' : 'var(--text-primary)',
                       padding: '8px 12px',
                       borderRadius: 6,
                       cursor: 'pointer',
@@ -909,7 +909,7 @@ const ChapterReader: React.FC = () => {
                     }}
                     onMouseEnter={(e) => {
                       if (!isCurrent) {
-                        e.currentTarget.style.background = '#333';
+                        e.currentTarget.style.background = 'var(--bg-tertiary)';
                       }
                     }}
                     onMouseLeave={(e) => {
