@@ -11,7 +11,7 @@
 }
 
 .metaRow {
-  color: rgba(255,255,255,0.72);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -26,23 +26,23 @@
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.86);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .skeletonCard {
   width: 140px; /* 与 NovelCard 一致，避免布局跳动 */
   border-radius: 8px;
   overflow: hidden;
-  background: #1a1b1e;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .skeletonCover {
   width: 100%;
   height: 180px; /* 与 NovelCard.cover 一致 */
-  background: rgba(255,255,255,0.08);
+  background: var(--bg-tertiary);
 }
 
 .skeletonInfo {
@@ -56,7 +56,7 @@
 .skeletonLineMd,
 .skeletonLineSm {
   border-radius: 6px;
-  background: rgba(255,255,255,0.10);
+  background: var(--bg-tertiary);
 }
 
 .skeletonLineLg {
@@ -79,8 +79,8 @@
   height: 18px;
   width: 62px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.10);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
 }
 
 .shimmer {
@@ -118,9 +118,9 @@
   grid-template-columns: 220px 1fr;
   gap: 14px;
   padding: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: #1a1b1e;
+  background: var(--bg-secondary);
 }
 
 .listCover :global(.card) {
@@ -137,16 +137,16 @@
 .listTitle {
   font-size: 18px;
   font-weight: 900;
-  color: #e8e8ea;
+  color: var(--text-primary);
 }
 
 .listAuthor {
-  color: rgba(255,255,255,0.70);
+  color: var(--text-secondary);
   font-weight: 700;
 }
 
 .listMeta {
-  color: rgba(255,255,255,0.72);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }

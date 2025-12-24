@@ -1,0 +1,127 @@
+id: GIT-HARD-GATES-001
+title: "Git Hard Gates: Index Cleanliness & Evidence Credibility"
+status: active
+owner: git
+version: 1
+applies_to:
+  - git
+  - worktree
+  - index
+  - evidence-verification
+
+intent: >
+  确保 Git 索引（index）的洁净性，防止 assume-unchanged (H) 和 skip-worktree (S) 标记掩盖真实变更，
+  从而保证基于 git diff / git status 的证据可信性。本规则要求在每次开发/验收前强制检查并清理 H/S 标记。
+
+hard_gates:
+  - id: HG-INDEX-CLEANLINESS
+    name: "Index Cleanliness Check"
+    command: "git ls-files -v | Select-String '^[HS]'"
+    rule: >
+      任何输出 → Hard Gate FAIL。必须先清理所有 H/S 标记后再继续任何开发/验收操作。
+      这是证据可信性的基础：H/S 标记会掩盖真实变更，导致 git diff / git status 输出失真。
+    applies_to:
+      - "所有涉及 git diff / git status 证据的验收流程"
+      - "所有涉及文件变更的提交前检查"
+    failure_action: >
+      立即停止当前操作，执行清理流程（见 cleanup_procedures），清理完成后再继续。
+
+  - id: HG-RELATED-FILES-CLEAN
+    name: "Related Files H/S Check"
+    command: "git ls-files -v -- <related_file_path>"
+    rule: >
+      本次操作涉及的文件必须无 H/S 标记（输出不得以 H 或 S 开头）。
+      即使全仓存在其他 H/S 标记，本次相关文件必须清理干净。
+    applies_to:
+      - "提交前检查"
+      - "验收前检查"
+
+cleanup_procedures:
+  - id: CLEANUP-SINGLE-FILE
+    name: "Single File Cleanup"
+    steps:
+      - "git update-index --no-assume-unchanged --no-skip-worktree -- <file_path>"
+      - "git ls-files -v -- <file_path> (verify no H/S)"
+    note: >
+      如果清理后仍显示 H/S，可能存在外部进程持续写回。需要：
+      1. 使用 Procmon 定位写入进程
+      2. 停掉元凶后再清理
+      3. 或暂时跳过该文件的 H/S 检查（需在报告中注明）
+
+  - id: CLEANUP-BATCH
+    name: "Batch Cleanup (PowerShell)"
+    steps:
+      - "$hs = git ls-files -v | Select-String '^[HS]' | ForEach-Object { $_.Line.Substring(2).Trim() }"
+      - "$batchSize = 200"
+      - "for ($i=0; $i -lt $hs.Count; $i += $batchSize) { $chunk = $hs[$i..([Math]::Min($i+$batchSize-1, $hs.Count-1))]; git update-index --no-assume-unchanged --no-skip-worktree -- $chunk }"
+      - "git ls-files -v | Select-String '^[HS]' | Measure-Object -Line (verify count = 0)"
+    note: >
+      批量清理适用于全仓清理场景。清理后必须验证计数为 0。
+
+evidence_required:
+  - id: EVIDENCE-INDEX-CLEAN
+    description: >
+      提交前/验收前必须输出 git ls-files -v | Select-String '^[HS]' | Measure-Object -Line，
+      证明 H/S 计数为 0（或本次相关文件无 H/S）。
+    minimum:
+      - "全仓 H/S 计数（如果执行全仓清理）"
+      - "本次相关文件的 H/S 状态（如果只清理相关文件）"
+
+  - id: EVIDENCE-CLEANUP-ATTEMPT
+    description: >
+      如果清理命令执行后 H/S 标记仍然存在，必须记录：
+      1. 清理命令的 exit code
+      2. 清理前后的 H/S 状态对比
+      3. 全仓 H/S 总数（用于判断是否为系统性问题）
+    note: >
+      若清理失败但文件已正确跟踪（git ls-files --stage 显示正常），
+      可在报告中注明"H 标记存在但不影响功能"，但必须说明风险。
+
+risk_notes:
+  - id: RISK-EXTERNAL-WRITE-BACK
+    description: >
+      H/S 标记在清理后立即重新出现，说明有外部进程持续写回 index。
+      常见元凶：Cursor IDE、Git GUI 工具、系统级监控/备份工具。
+    mitigation:
+      - "使用 Procmon 定位写入进程"
+      - "关闭可疑工具后重试清理"
+      - "在报告中明确标注 H/S 标记风险"
+
+  - id: RISK-EVIDENCE-CREDIBILITY
+    description: >
+      H/S 标记会掩盖真实变更，导致 git diff / git status 输出失真。
+      即使文件已正确跟踪，H 标记的存在仍影响证据可信度。
+    mitigation:
+      - "强制要求清理 H/S 标记后再进行证据收集"
+      - "如果无法清理，必须在报告中明确标注并说明影响范围"
+
+appendix:
+  investigation_procedures:
+    - id: PROCMON-CAPTURE
+      title: "使用 Procmon 定位写入进程"
+      steps:
+        - "下载 Sysinternals Process Monitor"
+        - "设置过滤器：Path is <index_path> → Include, Operation is WriteFile → Include"
+        - "捕获 git update-index 命令执行过程"
+        - "记录写入 index 的 Process Name、PID、Operation、Command Line"
+    
+    - id: ISOLATION-TEST
+      title: "隔离测试（快速判定）"
+      steps:
+        - "关闭 Cursor IDE 和相关进程"
+        - "执行清理命令"
+        - "检查 H/S 标记是否消失"
+        - "如果消失 → 锁定 Cursor 为元凶"
+
+  case_evidence:
+    title: "本次 Bookmarks Light Mode 修复案例"
+    findings:
+      - "全仓存在 1481 个 H/S 标记"
+      - "清理命令执行成功（exit code 0）但标记仍然存在"
+      - "疑似外部进程持续写回"
+      - "H 标记不影响 Git 提交功能，但影响证据可信度"
+    resolution:
+      - "本次相关文件已执行清理命令"
+      - "提交成功（文件已正确跟踪）"
+      - "建议后续使用 Procmon 定位并停掉写回进程"
+

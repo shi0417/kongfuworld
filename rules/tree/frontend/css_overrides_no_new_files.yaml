@@ -1,0 +1,97 @@
+id: FE-CSS-OVERRIDE-002
+title: "Frontend CSS Overrides: 无新增文件前提下的稳定覆盖（基于 build 前缀证据 + 双重收敛）"
+status: active
+owner: frontend
+version: 1
+applies_to:
+  - frontend
+  - css
+  - css-modules
+intent: >
+  当修复主题（light/dark）相关样式问题但受到“只能改少量文件/不能新增文件/不能改组件结构”的硬门槛时，
+  允许采用 CSS 覆盖策略；但必须使用可验证的稳定锚点并严格收敛作用域，避免“猜 hash / 误伤全站 / 回归 dark mode”。
+hard_gates:
+  - "仅允许改动被明确许可的文件集合（例如 1~3 个文件），不得新增第 4 个业务文件。"
+  - "单文件 diff 行数必须 ≤ 60（以 git diff --numstat 或等效方式证明）。"
+  - "不允许改 TS/React 结构；不允许新增 data-* / aria-* 等属性作为锚点；不允许引入新依赖。"
+requirements:
+  anchor_evidence:
+    - id: ANCHOR-BUILD-PREFIX-EVIDENCE
+      must: true
+      rule: >
+        覆盖所依赖的类名锚点必须来自 build 产物 CSS（frontend/build/static/css/main.*.css）的模式匹配证据，
+        禁止根据 DevTools 里看到的 hash 猜测或硬编码完整 hash。
+      accepted_forms:
+        - "Select-String/grep 输出：例如匹配到 Series_container__\\w+、SeriesGrid_listRow__\\w+ 等前缀存在。"
+        - "说明来源：main.*.css（具体 hash 文件名可变），但模式必须可复现。"
+  selector_scoping:
+    - id: NO-BARE-GLOBAL
+      must: true
+      rule: >
+        禁止出现“裸 :global(...)”全局覆盖。所有 :global() 选择器必须带父容器作用域前缀（例如 .wrap / .panel / 页面根容器前缀）。
+      check:
+        - "grep '^:global\\(' 在变更文件中必须为 0 命中。"
+    - id: DOUBLE-NARROWING
+      must: true
+      rule: >
+        对跨组件覆盖（例如覆盖 SeriesGrid 的 listRow）必须使用“双重收敛”：
+        先限定 Series 页面根容器前缀（例如 [class*=\"Series_container__\"] / [class*=\"Series_page__\"]），
+        再限定目标组件前缀（例如 [class*=\"SeriesGrid_listRow__\"]）。
+      selector_shape_example: >
+        .wrap :global([class*="Series_container__"]) :global([class*="SeriesGrid_listRow__"]) { ... }
+  state_coverage:
+    - id: ARIA-PRESSED-TRUE-FALSE
+      must: true
+      rule: >
+        对 chips（PillSelect）覆盖必须至少覆盖 aria-pressed="true" 与 aria-pressed="false" 两态（及其 hover），
+        防止“未选中态仍白字/深色”残留。
+      required_selectors:
+        - 'button[aria-pressed="true"]'
+        - 'button[aria-pressed="false"]'
+        - 'button[aria-pressed="true"]:hover'
+        - 'button[aria-pressed="false"]:hover'
+    - id: HOVER-COVERAGE
+      must: true
+      rule: >
+        对 listRow 等容器类覆盖必须明确覆盖 hover（若设计需要），并确保 hover 仍使用 token（例如 bg-secondary → bg-tertiary）。
+      selector_shape_example: >
+        .wrap :global([class*="Series_container__"]) :global([class*="SeriesGrid_listRow__"]:hover) { background: var(--bg-tertiary) !important; }
+  tokenization:
+    - id: TOKEN-ONLY
+      must: true
+      rule: >
+        覆盖内容只允许使用现有主题 token：var(--bg-*), var(--text-*), var(--border-color)。
+        禁止在覆盖里写死 #1a1b1e/#e8e8ea/rgba(255,255,255,...) 等深色或白字硬编码。
+    - id: IMPORTANT-WHEN-OVERRIDING
+      must: true
+      rule: >
+        当覆盖目标来自其它 CSS module 的更高优先级/后加载规则时，允许使用 !important；
+        但必须同时满足“父容器作用域 + 双重收敛 + build 前缀证据”。
+evidence_required:
+  - id: EVIDENCE-BUILD-PREFIX
+    description: >
+      main.*.css 的模式匹配输出，证明页面根容器前缀与目标组件前缀真实存在。
+    minimum:
+      - "至少 1 个 Series 页面根容器前缀：Series_container__/Series_page__/Series_main__ 之一"
+      - "至少 1 个目标前缀：SeriesGrid_listRow__"
+  - id: EVIDENCE-SELECTOR-SHAPE
+    description: >
+      列出最终采用的双重收敛选择器形态（.wrap/.panel + Series_* 根容器前缀 + SeriesGrid_* 前缀）。
+  - id: EVIDENCE-GATES
+    description: >
+      输出 gate 证据：git status（仅允许文件）+ git diff --numstat（每文件 ≤ 60）+ build 成功日志片段。
+appendix:
+  case_evidence_example:
+    title: "本次 /series light mode 修复案例 evidence（示例）"
+    build_prefix_examples:
+      - "在 frontend/build/static/css/main.*.css 中可匹配到：Series_container__\\w+（页面根容器）"
+      - "在 frontend/build/static/css/main.*.css 中可匹配到：SeriesGrid_listRow__\\w+（list row 容器）"
+    double_narrowing_selector_example: >
+      .wrap :global([class*="Series_container__"]) :global([class*="SeriesGrid_listRow__"]) { background: var(--bg-secondary) !important; border: 1px solid var(--border-color) !important; }
+    why_hover_needed: >
+      若交互设计要求 hover 层次，应使用 token（bg-secondary → bg-tertiary）覆盖 :hover，避免 hover 回到深色硬编码。
+    why_aria_pressed_true_false_needed: >
+      PillSelect 默认 CSS 可能对未选中态写死白字；仅覆盖 aria-pressed="true" 会导致 aria-pressed="false" 残留白字，因此必须双态覆盖。
+    no_bare_global_note: >
+      禁止裸 :global([class*="..."])，必须通过 .wrap/.panel 以及页面根容器前缀收敛作用域，避免误伤全站。
+

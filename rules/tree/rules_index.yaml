@@ -1,0 +1,14 @@
+version: 1
+tree:
+  frontend:
+    css:
+      - id: FE-CSS-OVERRIDE-002
+        title: "Frontend CSS Overrides: 无新增文件前提下的稳定覆盖（基于 build 前缀证据 + 双重收敛）"
+        status: active
+        path: rules/tree/frontend/css_overrides_no_new_files.yaml
+  git:
+    hard_gates:
+      - id: GIT-HARD-GATES-001
+        title: "Git Hard Gates: Index Cleanliness & Evidence Credibility"
+        status: active
+        path: rules/tree/git/hard_gates.yaml

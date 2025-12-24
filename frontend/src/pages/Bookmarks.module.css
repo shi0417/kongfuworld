@@ -874,3 +874,64 @@
     font-size: 12px;
   }
 }
+
+/* Light mode overrides: replace hard-coded dark palette with theme tokens (L1-L4) */
+:global(:root[data-theme="light"]) .tabs,
+:global(:root[data-theme="light"]) .controls,
+:global(:root[data-theme="light"]) .tableHeader,
+:global(:root[data-theme="light"]) .novelListItem,
+:global(:root[data-theme="light"]) .chapterList,
+:global(:root[data-theme="light"]) .chapterItem { border-color: var(--border-color); }
+
+:global(:root[data-theme="light"]) .viewBtn,
+:global(:root[data-theme="light"]) .sortButton,
+:global(:root[data-theme="light"]) .sortOrderBtn,
+:global(:root[data-theme="light"]) .pageBtn { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
+
+:global(:root[data-theme="light"]) .sortOptions,
+:global(:root[data-theme="light"]) .novelList,
+:global(:root[data-theme="light"]) .tableHeader,
+:global(:root[data-theme="light"]) .novelListItem,
+:global(:root[data-theme="light"]) .novelCard,
+:global(:root[data-theme="light"]) .favoriteCard,
+:global(:root[data-theme="light"]) .modalContent { background-color: var(--bg-secondary); border-color: var(--border-color); color: var(--text-primary); }
+
+:global(:root[data-theme="light"]) .sortOption,
+:global(:root[data-theme="light"]) .lastReadColumn,
+:global(:root[data-theme="light"]) .latestReleaseColumn,
+:global(:root[data-theme="light"]) .progressText,
+:global(:root[data-theme="light"]) .chapterName,
+:global(:root[data-theme="light"]) .modalMessage { color: var(--text-secondary); }
+
+:global(:root[data-theme="light"]) .novelListItem .novelTitle { color: var(--text-primary); }
+
+/* Light mode: fix card view and favorite chapters novel title visibility */
+:global(:root[data-theme="light"]) .novelCard .novelTitle,
+:global(:root[data-theme="light"]) .favoriteCard .novelTitle { color: var(--text-primary); }
+
+/* Light mode: fix card view button contrast */
+:global(:root[data-theme="light"]) .actionBtn {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+:global(:root[data-theme="light"]) .actionBtn:hover {
+  background: var(--bg-secondary);
+}
+
+/* Light mode: remove all vertical borders in table view */
+:global(:root[data-theme="light"]) .titleHeader,
+:global(:root[data-theme="light"]) .lastReadHeader,
+:global(:root[data-theme="light"]) .latestReleaseHeader { border-right: none; }
+
+:global(:root[data-theme="light"]) .novelListItem .novelTitle,
+:global(:root[data-theme="light"]) .lastReadColumn,
+:global(:root[data-theme="light"]) .latestReleaseColumn { border-right: none; }
+
+:global(:root[data-theme="light"]) .novelListItem:hover,
+:global(:root[data-theme="light"]) .viewBtn:hover,
+:global(:root[data-theme="light"]) .sortButton:hover,
+:global(:root[data-theme="light"]) .sortOption:hover,
+:global(:root[data-theme="light"]) .actionBtn:hover,
+:global(:root[data-theme="light"]) .pageBtn:hover:not(.disabled) { background-color: var(--bg-secondary); }

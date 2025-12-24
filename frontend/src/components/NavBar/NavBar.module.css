@@ -471,3 +471,14 @@
     font-size: 0.9rem;
   }
 } 
+
+/* Light mode overrides for notification dropdown (L11) */
+:global(:root[data-theme="light"]) .notificationHeader,
+:global(:root[data-theme="light"]) .notificationFooter,
+:global(:root[data-theme="light"]) .notificationItem.read { background: var(--bg-secondary); border-color: var(--border-color); }
+
+:global(:root[data-theme="light"]) .notificationItem { border-bottom-color: var(--border-color); }
+:global(:root[data-theme="light"]) .notificationItem:hover { background: var(--bg-tertiary); }
+:global(:root[data-theme="light"]) .notificationTitle { color: var(--text-primary); }
+:global(:root[data-theme="light"]) .notificationMessage,
+:global(:root[data-theme="light"]) .notificationTime { color: var(--text-secondary); }
