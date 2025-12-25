@@ -1,0 +1,466 @@
+id: UI-THEME-20241219-001
+title: "禁止内容区硬编码 dark 色值；统一使用语义主题变量"
+status: active
+owner: frontend
+version: 1
+created_at: "2024-12-19"
+last_updated_at: "2024-12-19"
+
+applies_to:
+  - frontend/src/components/**/*.module.css
+  - frontend/src/pages/**/*.module.css
+  - frontend/src/components/UserCenter/**
+  - frontend/src/styles/theme.css
+
+intent: >
+  确保所有内容区组件（非 reader 特殊页面）在 light/dark 模式下都能正确显示。
+  通过统一使用语义主题变量替代硬编码深色背景与白字，避免 light mode 下出现"Tabs 正常但内容仍 dark"的
+  对比度问题，提升用户体验和主题切换的一致性。
+
+problem_statement: >
+  在 UserCenter 页面主题化过程中发现：虽然顶部 Tab 导航已正确使用主题变量，但 5 个 Tab 内容页（DailyRewards、
+  Champion、Karma、Billing、FAQ）仍大量硬编码深色背景（#1a1a1a、#2a2a2a、#333 等）和白字（#ffffff、#cccccc），
+  导致在 light mode 下出现"Tabs 正常但内容仍 dark"的视觉不一致问题。
+  
+  根因：内容组件 CSS 文件直接写死深色背景与白字/透明白字，未使用主题变量系统。
+  
+  影响：
+  - 对比度差：light mode 下深色背景与浅色页面背景冲突
+  - 不可读：白字在浅色背景下几乎不可见
+  - 用户误以为主题切换无效：Tabs 已切换但内容未跟随
+
+hard_gates:
+  - "仅允许修改样式层（CSS/导入顺序/变量），不得改动业务逻辑（TS/React 组件结构）"
+  - "每个文件 diff 尽量 ≤ 80 行"
+  - "默认改动文件数量 ≤ 3；若超过 3，必须在 appendix.case_summary 中列出文件清单并说明原因（本规则案例为 7 个文件）"
+
+requirements:
+  must_not:
+    - id: NO-HARDCODED-DARK-BG
+      rule: >
+        内容区组件（非 reader 特殊页面）不得硬编码以下深色背景值：
+        #1a1a1a, #2a2a2a, #333, #444, #121212, #1E1E1E, #2f2f2f, #404040
+      check: >
+        grep -E "(background|background-color):\s*(#1a1a1a|#2a2a2a|#333|#444|#121212|#1E1E1E|#2f2f2f|#404040)" 
+        在变更文件中必须为 0 命中（或已替换为 var(--*)）
+    
+    - id: NO-HARDCODED-WHITE-TEXT
+      rule: >
+        禁止硬编码白字用于内容区标题/说明文字：
+        #fff, #ffffff, rgba(255,255,255,*), color: white
+      check: >
+        grep -E "color:\s*(#fff|#ffffff|white|rgba\(255,\s*255,\s*255)" 
+        在变更文件中必须为 0 命中（或已替换为 var(--text-primary)/var(--text-secondary)）
+    
+    - id: NO-LOW-OPACITY-TITLES
+      rule: >
+        禁止使用 opacity < 0.8 用于标题/说明文字（除非有明确设计说明）。
+        禁止用"透明白字"做装饰性大标题（light 模式必然不可读）。
+      check: >
+        grep -E "opacity:\s*0\.[0-7]|rgba\(255,\s*255,\s*255,\s*0\.[0-7]" 
+        在变更文件中必须为 0 命中（或已替换为 var(--text-secondary)）
+
+  must:
+    - id: USE-SURFACE-TOKENS
+      rule: >
+        内容面板/卡片必须使用语义变量：
+        --surface-1（主面板底色）、--surface-2（内层卡片底色）、
+        --surface-1-text（面板主文字色）、--surface-1-muted（面板副文字色）
+      example: >
+        .card { background: var(--surface-1); color: var(--surface-1-text); }
+        .nestedCard { background: var(--surface-2); color: var(--surface-1-text); }
+    
+    - id: USE-ACCENT-TOKEN
+      rule: >
+        强调色/选中态/按钮必须使用：
+        --accent（替代硬编码的 #007bff 等）
+      example: >
+        .active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .button { background: var(--accent); }
+    
+    - id: USE-BORDER-TOKEN
+      rule: >
+        边框与分割线必须使用：
+        --border-color
+      example: >
+        .card { border: 1px solid var(--border-color); }
+
+  should:
+    - id: TOKEN-FIRST-APPROACH
+      rule: >
+        主题化优先顺序：
+        1) theme.css 增/补语义变量（--surface-1/2、--surface-1-text、--surface-1-muted）
+        2) 替换组件 CSS 硬编码为语义变量
+        3) DevTools 取证确认 computed style
+        4) build 验证
+      note: >
+        优先把颜色控制收敛在 theme tokens，而不是每个组件做 [data-theme='light'] 的特判
+
+procedure:
+  step_0:
+    title: "定位硬编码深色"
+    checklist:
+      - "在目标组件目录搜索硬编码色值："
+      - "  grep -E '#1E1E1E|#121212|#222|#333|#2b2b2b|rgb\\(35,39,47\\)'"
+      - "  grep -E 'rgba\\(255, 255, 255|color: #fff|color: white'"
+      - "  grep -E 'background:|background-color:'"
+      - "输出命中文件清单（Tab 名称 → 组件文件路径 → CSS 文件路径 → 硬编码色证据）"
+  
+  step_1:
+    title: "补齐语义变量（theme.css）"
+    checklist:
+      - "在 frontend/src/styles/theme.css 添加内容区块专用语义变量："
+      - "  light mode: --surface-1: #FFFFFF, --surface-2: #F7F1E3, --surface-1-text: #2B2B2B, --surface-1-muted: #555"
+      - "  dark mode: --surface-1: #1E1E1E, --surface-2: #222222, --surface-1-text: #FFFFFF, --surface-1-muted: rgba(255,255,255,0.80)"
+      - "确认 theme.css 已在 index.tsx 中全局引入"
+  
+  step_2:
+    title: "替换组件 CSS 硬编码为变量"
+    checklist:
+      - "大容器（Transaction History、FAQ 折叠卡外框）："
+      - "  background: var(--surface-1); color: var(--surface-1-text); border: 1px solid var(--border-color);"
+      - "内层卡片/折叠项："
+      - "  background: var(--surface-2); color: var(--surface-1-text);"
+      - "次要文字：color: var(--surface-1-muted);"
+      - "标题/说明文字："
+      - "  标题：color: var(--text-primary);"
+      - "  说明：color: var(--text-secondary);"
+      - "按钮/高亮：统一使用 var(--accent)"
+      - "禁止再用透明白字做标题装饰"
+  
+  step_3:
+    title: "验收"
+    checklist:
+      - "npm run build 通过（无 error）"
+      - "浏览器分别切到 data-theme=light 与 data-theme=dark："
+      - "  .topNav 背景与边框在两种模式下都正确"
+      - "  .navItem 默认/hover/active 在两种模式下都清晰可读"
+      - "  内容区卡片背景为浅色（light）/深色（dark）"
+      - "  文字颜色在两种模式下都清晰可读"
+      - "输出 git diff（逐文件）+ git status + build 关键输出"
+
+acceptance_criteria:
+  - "5 个 Tab（DailyRewards/Champion/Karma/Billing/FAQ）在 light mode 下可读"
+  - "卡片背景为浅色，文字为深色，按钮/高亮正确"
+  - "dark mode 不回归（所有样式在 dark mode 下仍正确）"
+  - "npm run build 通过（无 error，警告可接受）"
+  - "所有硬编码深色值已替换为语义变量"
+
+evidence_required:
+  - id: EVIDENCE-01
+    description: "theme.css 新增 tokens"
+    file: "frontend/src/styles/theme.css"
+    lines: "9-13, 24-28"
+    git_diff_snippet: |
+      :root[data-theme="light"] {
+        ...
+        --accent: #0066cc;
+      + --surface-1: #FFFFFF;
+      + --surface-2: #F7F1E3;
+      + --surface-1-text: #2B2B2B;
+      + --surface-1-muted: #555;
+      }
+      
+      :root[data-theme="dark"] {
+        ...
+        --accent: #4a9eff;
+      + --surface-1: #1E1E1E;
+      + --surface-2: #222222;
+      + --surface-1-text: #FFFFFF;
+      + --surface-1-muted: rgba(255, 255, 255, 0.80);
+      }
+    actual_content: |
+      Lines 9-13 (light mode):
+      --accent: #0066cc;
+      --surface-1: #FFFFFF;
+      --surface-2: #F7F1E3;
+      --surface-1-text: #2B2B2B;
+      --surface-1-muted: #555;
+      
+      Lines 24-28 (dark mode):
+      --accent: #4a9eff;
+      --surface-1: #1E1E1E;
+      --surface-2: #222222;
+      --surface-1-text: #FFFFFF;
+      --surface-1-muted: rgba(255, 255, 255, 0.80);
+  
+  - id: EVIDENCE-02
+    description: "UserCenter.module.css active tab 改用 --accent"
+    file: "frontend/src/pages/UserCenter.module.css"
+    lines: "32-35"
+    git_diff_snippet: |
+      .navItem.active {
+      - color: #007bff;
+      - border-bottom: 2px solid #007bff;
+      + color: var(--accent);
+      + border-bottom: 2px solid var(--accent);
+      }
+    actual_content: |
+      Lines 32-35:
+      .navItem.active {
+        color: var(--accent);
+        border-bottom: 2px solid var(--accent);
+      }
+  
+  - id: EVIDENCE-03
+    description: "DailyRewards.module.css 替换硬编码色值"
+    file: "frontend/src/components/UserCenter/DailyRewards.module.css"
+    lines: "2-5, 11-16"
+    git_diff_snippet: |
+      .dailyRewardsContent {
+        width: 100%;
+      - background: #1a1a1a;
+      - color: #ffffff;
+      + background: var(--bg-primary);
+      + color: var(--text-primary);
+        font-family: 'Arial', sans-serif;
+        min-height: 100vh;
+      }
+      
+      .keysSection {
+      - background: #2a2a2a;
+      + background: var(--surface-1);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+      - border: 1px solid #404040;
+      + border: 1px solid var(--border-color);
+      }
+    actual_content: |
+      Lines 2-5:
+      .dailyRewardsContent {
+        width: 100%;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      
+      Lines 11-16:
+      .keysSection {
+        background: var(--surface-1);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid var(--border-color);
+      }
+  
+  - id: EVIDENCE-04
+    description: "Champion.module.css 移除渐变背景，改用 --surface-1"
+    file: "frontend/src/components/UserCenter/Champion.module.css"
+    lines: "218-223"
+    git_diff_snippet: |
+      .benefitsSection {
+      - background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      + background: var(--surface-1);
+        border-radius: 12px;
+        padding: 40px;
+        margin-bottom: 60px;
+        position: relative;
+        overflow: hidden;
+      + border: 1px solid var(--border-color);
+      }
+    actual_content: |
+      Lines 218-223:
+      .benefitsSection {
+        background: var(--surface-1);
+        border-radius: 12px;
+        padding: 40px;
+        margin-bottom: 60px;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+      }
+  
+  - id: EVIDENCE-05
+    description: "Karma.module.css 卡片背景/文字/边框使用 tokens"
+    file: "frontend/src/components/UserCenter/Karma.module.css"
+    lines: "59-66, 88-92"
+    git_diff_snippet: |
+      .karmaPackage {
+      - background-color: #2a2a2a;
+      + background-color: var(--surface-1);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      - border: 1px solid #333;
+      + border: 1px solid var(--border-color);
+      }
+      
+      .amount {
+        font-size: 1.5rem;
+        font-weight: bold;
+      - color: #ffffff;
+      + color: var(--text-primary);
+        margin-bottom: 5px;
+      }
+    actual_content: |
+      Lines 59-66:
+      .karmaPackage {
+        background-color: var(--surface-1);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid var(--border-color);
+      }
+      
+      Lines 88-92:
+      .amount {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+      }
+  
+  - id: EVIDENCE-06
+    description: "Billing.module.css 面板/输入框/表格使用 tokens"
+    file: "frontend/src/components/UserCenter/Billing.module.css"
+    lines: "25-30, 50-55"
+    git_diff_snippet: |
+      .section {
+      - background-color: #2a2a2a;
+      + background-color: var(--surface-1);
+        border-radius: 12px;
+        padding: 30px;
+      + border: 1px solid var(--border-color);
+      }
+      
+      .searchInput {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+      - border: 1px solid #444;
+      - background: #1f1f1f;
+      - color: #ffffff;
+      + border: 1px solid var(--border-color);
+      + background: var(--surface-2);
+      + color: var(--text-primary);
+      }
+    actual_content: |
+      Lines 25-30:
+      .section {
+        background-color: var(--surface-1);
+        border-radius: 12px;
+        padding: 30px;
+        border: 1px solid var(--border-color);
+      }
+      
+      Lines 50-55:
+      .searchInput {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: var(--surface-2);
+        color: var(--text-primary);
+      }
+  
+  - id: EVIDENCE-07
+    description: "FAQ.module.css 折叠卡使用 tokens"
+    file: "frontend/src/components/UserCenter/FAQ.module.css"
+    lines: "26-32, 34-45, 57-63"
+    git_diff_snippet: |
+      .faqItem {
+      - background-color: #2a2a2a;
+      + background-color: var(--surface-1);
+        border-radius: 8px;
+        margin-bottom: 15px;
+        overflow: hidden;
+      - border: 1px solid #333;
+      + border: 1px solid var(--border-color);
+      }
+      
+      .faqQuestion {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        cursor: pointer;
+      - background-color: #333;
+      + background-color: var(--bg-tertiary);
+        transition: background-color 0.3s ease;
+        font-size: 1.1rem;
+        font-weight: 500;
+      - color: #ffffff;
+      + color: var(--text-primary);
+      }
+      
+      .faqAnswer {
+        padding: 20px;
+      - color: #cccccc;
+      + color: var(--text-secondary);
+        line-height: 1.6;
+      - background-color: #2a2a2a;
+      + background-color: var(--surface-2);
+      - border-top: 1px solid #333;
+      + border-top: 1px solid var(--border-color);
+      }
+    actual_content: |
+      Lines 26-32:
+      .faqItem {
+        background-color: var(--surface-1);
+        border-radius: 8px;
+        margin-bottom: 15px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+      }
+      
+      Lines 34-45:
+      .faqQuestion {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        cursor: pointer;
+        background-color: var(--bg-tertiary);
+        transition: background-color 0.3s ease;
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+      
+      Lines 57-63:
+      .faqAnswer {
+        padding: 20px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        background-color: var(--surface-2);
+        border-top: 1px solid var(--border-color);
+      }
+  
+  - id: EVIDENCE-08
+    description: "构建验证：npm run build 成功"
+    command: "cd frontend && npm run build"
+    exit_code: 0
+    output_key_lines: |
+      Compiled with warnings.
+      
+      File sizes after gzip:
+        513.09 kB          build\static\js\main.68bdbec4.js
+        77.34 kB (+205 B)  build\static\css\main.89220762.css
+        1.76 kB            build\static\js\453.54292a4b.chunk.js
+        1.26 kB            build\static\js\677.80dea9ee.chunk.js
+      
+      The build folder is ready to be deployed.
+
+appendix:
+  case_summary:
+    title: "UserCenter 5 个 Tab 内容页主题化案例"
+    files_modified:
+      - "frontend/src/styles/theme.css"
+      - "frontend/src/pages/UserCenter.module.css"
+      - "frontend/src/components/UserCenter/DailyRewards.module.css"
+      - "frontend/src/components/UserCenter/Champion.module.css"
+      - "frontend/src/components/UserCenter/Karma.module.css"
+      - "frontend/src/components/UserCenter/Billing.module.css"
+      - "frontend/src/components/UserCenter/FAQ.module.css"
+    total_files: 7
+    build_result: "成功（Exit code: 0）"
+    css_size_change: "+205 B"
+  
+  reusable_patterns:
+    - "新增语义变量优先在 theme.css 统一管理"
+    - "大容器用 --surface-1，内层卡片用 --surface-2"
+    - "主文字用 --text-primary 或 --surface-1-text，副文字用 --text-secondary 或 --surface-1-muted"
+    - "强调色统一用 --accent，边框统一用 --border-color"
+    - '避免每个组件单独写 [data-theme="light"] 特判，统一用 tokens'
+

@@ -6,6 +6,12 @@ tree:
         title: "Frontend CSS Overrides: 无新增文件前提下的稳定覆盖（基于 build 前缀证据 + 双重收敛）"
         status: active
         path: rules/tree/frontend/css_overrides_no_new_files.yaml
+  ui:
+    theme:
+      - id: UI-THEME-20241219-001
+        title: "禁止内容区硬编码 dark 色值；统一使用语义主题变量"
+        status: active
+        path: rules/tree/ui/theme_semantic_tokens.yaml
   git:
     hard_gates:
       - id: GIT-HARD-GATES-001
