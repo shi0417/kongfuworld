@@ -565,7 +565,20 @@ const Profile: React.FC = () => {
     }
   };
 
-  if (loading) return <div style={{ color: '#fff', textAlign: 'center', marginTop: 80 }}>加载中...</div>;
+  // Theme tokens for light/dark mode support
+  const t = {
+    cardBg: 'var(--surface-1)',
+    cardText: 'var(--text-primary)',
+    mutedText: 'var(--text-secondary)',
+    pageBg: 'var(--bg-primary)',
+    inputBg: 'var(--surface-1)',
+    border: 'var(--border-color)',
+    shadow: '0 4px 24px var(--shadow-color)',
+    accent: 'var(--accent)',
+    hoverOpacity: 0.9
+  };
+
+  if (loading) return <div style={{ color: t.cardText, textAlign: 'center', marginTop: 80 }}>加载中...</div>;
   if (!user) return null;
 
   // 假设 user.avatar 是 /avatars/xxx.jpg
@@ -581,23 +594,23 @@ const Profile: React.FC = () => {
       <div style={{ flex: 1 }}>
         <div style={{ maxWidth: 700, margin: '0 auto', marginTop: 32 }}>
           {/* 选项卡 */}
-          <div style={{ display: 'flex', gap: 40, borderBottom: '2px solid var(--border-color)', marginBottom: 32 }}>
+          <div style={{ display: 'flex', gap: 40, borderBottom: `2px solid ${t.border}`, marginBottom: 32 }}>
             <div
-              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'profile' ? '3px solid #1976d2' : 'none', color: tab === 'profile' ? '#fff' : '#aaa', cursor: 'pointer' }}
+              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'profile' ? `3px solid ${t.accent}` : 'none', color: tab === 'profile' ? t.cardText : t.mutedText, cursor: 'pointer' }}
               onClick={() => setTab('profile')}
             >Edit Profile</div>
             <div
-              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'notifications' ? '3px solid #1976d2' : 'none', color: tab === 'notifications' ? '#fff' : '#aaa', cursor: 'pointer' }}
+              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'notifications' ? `3px solid ${t.accent}` : 'none', color: tab === 'notifications' ? t.cardText : t.mutedText, cursor: 'pointer' }}
               onClick={() => setTab('notifications')}
             >Notifications</div>
             <div
-              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'settings' ? '3px solid #1976d2' : 'none', color: tab === 'settings' ? '#fff' : '#aaa', cursor: 'pointer' }}
+              style={{ fontWeight: 700, fontSize: 22, paddingBottom: 10, borderBottom: tab === 'settings' ? `3px solid ${t.accent}` : 'none', color: tab === 'settings' ? t.cardText : t.mutedText, cursor: 'pointer' }}
               onClick={() => setTab('settings')}
             >Settings</div>
           </div>
           {/* Edit Profile Tab */}
           {tab === 'profile' && (
-            <div style={{ maxWidth: 500, margin: '0 auto', background: '#23272F', borderRadius: 16, padding: 36, boxShadow: '0 4px 24px #0008' }}>
+            <div style={{ maxWidth: 500, margin: '0 auto', background: t.cardBg, borderRadius: 16, padding: 36, boxShadow: t.shadow }}>
               <h2 style={{ fontWeight: 700, fontSize: 28, marginBottom: 24, textAlign: 'center' }}>Your Profile</h2>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
                 <div
@@ -622,7 +635,7 @@ const Profile: React.FC = () => {
                       <img
                         src={avatarUrl}
                         alt="avatar"
-                        style={{ width: 140, height: 140, borderRadius: '12px', objectFit: 'cover', background: '#eee' }}
+                        style={{ width: 140, height: 140, borderRadius: '12px', objectFit: 'cover', background: 'var(--bg-tertiary)' }}
                       />
                       <div
                         style={{
@@ -640,19 +653,19 @@ const Profile: React.FC = () => {
                         onClick={handleDeleteAvatar}
                         title="点击删除头像"
                       >
-                        <span style={{ fontSize: 48, color: '#fff', fontWeight: 700 }}>×</span>
+                        <span style={{ fontSize: 48, color: t.cardText, fontWeight: 700 }}>×</span>
                       </div>
                     </>
                   ) : (
                     <div
                       style={{
-                        width: 140, height: 140, borderRadius: '12px', background: '#444',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 18, flexDirection: 'column',
-                        border: '2px dashed #888', cursor: 'pointer',
+                        width: 140, height: 140, borderRadius: '12px', background: 'var(--bg-tertiary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.mutedText, fontSize: 18, flexDirection: 'column',
+                        border: `2px dashed ${t.border}`, cursor: 'pointer',
                       }}
                       onClick={() => fileInputRef.current && fileInputRef.current.click()}
                     >
-                      Drag & Drop your picture<br />or <span style={{ color: '#1976d2', textDecoration: 'underline' }}>Browse</span>
+                      Drag & Drop your picture<br />or <span style={{ color: t.accent, textDecoration: 'underline' }}>Browse</span>
                     </div>
                   )}
                   <input
@@ -663,7 +676,7 @@ const Profile: React.FC = () => {
                     onChange={handleAvatarChange}
                   />
                 </div>
-                <ul style={{ color: '#aaa', fontSize: 15, margin: '12px 0 0 0', padding: 0, listStyle: 'disc inside' }}>
+                <ul style={{ color: t.mutedText, fontSize: 15, margin: '12px 0 0 0', padding: 0, listStyle: 'disc inside' }}>
                   <li>Image must be a .jpg or .png</li>
                   <li>Max file size is 500 KB</li>
                 </ul>
@@ -682,11 +695,11 @@ const Profile: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    border: '1px solid #444',
+                    border: `1px solid ${t.border}`,
                     borderRadius: 6,
                     fontSize: 16,
-                    background: editingProfile ? '#23272F' : '#18191A',
-                    color: '#fff',
+                    background: t.inputBg,
+                    color: t.cardText,
                     marginBottom: 8,
                     cursor: editingProfile ? 'text' : 'not-allowed'
                   }}
@@ -706,11 +719,11 @@ const Profile: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '10px 12px',
-                    border: '1px solid #444',
+                    border: `1px solid ${t.border}`,
                     borderRadius: 6,
                     fontSize: 16,
-                    background: editingProfile ? '#23272F' : '#18191A',
-                    color: '#fff',
+                    background: t.inputBg,
+                    color: t.cardText,
                     marginBottom: 8,
                     cursor: editingProfile ? 'text' : 'not-allowed'
                   }}
@@ -725,17 +738,17 @@ const Profile: React.FC = () => {
                     }}
                     style={{
                       padding: '10px 24px',
-                      background: '#1976d2',
+                      background: t.accent,
                       color: '#fff',
                       border: 'none',
                       borderRadius: 6,
                       fontSize: 16,
                       fontWeight: 500,
                       cursor: 'pointer',
-                      transition: 'background 0.2s'
+                      transition: 'opacity 0.2s'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.background = '#1565c0'}
-                    onMouseOut={(e) => e.currentTarget.style.background = '#1976d2'}
+                    onMouseOver={(e) => e.currentTarget.style.opacity = String(t.hoverOpacity)}
+                    onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                   >
                     Update
                   </button>
@@ -792,23 +805,24 @@ const Profile: React.FC = () => {
                       disabled={updatingProfile}
                       style={{
                         padding: '10px 24px',
-                        background: updatingProfile ? '#666' : '#1976d2',
+                        background: updatingProfile ? t.mutedText : t.accent,
                         color: '#fff',
                         border: 'none',
                         borderRadius: 6,
                         fontSize: 16,
                         fontWeight: 500,
                         cursor: updatingProfile ? 'not-allowed' : 'pointer',
-                        transition: 'background 0.2s'
+                        transition: 'opacity 0.2s',
+                        opacity: updatingProfile ? 0.6 : 1
                       }}
                       onMouseOver={(e) => {
                         if (!updatingProfile) {
-                          e.currentTarget.style.background = '#1565c0';
+                          e.currentTarget.style.opacity = String(t.hoverOpacity);
                         }
                       }}
                       onMouseOut={(e) => {
                         if (!updatingProfile) {
-                          e.currentTarget.style.background = '#1976d2';
+                          e.currentTarget.style.opacity = '1';
                         }
                       }}
                     >
@@ -823,24 +837,22 @@ const Profile: React.FC = () => {
                       style={{
                         padding: '10px 24px',
                         background: 'transparent',
-                        color: '#aaa',
-                        border: '1px solid #444',
+                        color: t.mutedText,
+                        border: `1px solid ${t.border}`,
                         borderRadius: 6,
                         fontSize: 16,
                         fontWeight: 500,
                         cursor: updatingProfile ? 'not-allowed' : 'pointer',
-                        transition: 'color 0.2s, border-color 0.2s'
+                        transition: 'opacity 0.2s'
                       }}
                       onMouseOver={(e) => {
                         if (!updatingProfile) {
-                          e.currentTarget.style.color = '#fff';
-                          e.currentTarget.style.borderColor = '#666';
+                          e.currentTarget.style.opacity = String(t.hoverOpacity);
                         }
                       }}
                       onMouseOut={(e) => {
                         if (!updatingProfile) {
-                          e.currentTarget.style.color = '#aaa';
-                          e.currentTarget.style.borderColor = '#444';
+                          e.currentTarget.style.opacity = '1';
                         }
                       }}
                     >
@@ -853,7 +865,7 @@ const Profile: React.FC = () => {
           )}
           {/* Notifications Tab */}
           {tab === 'notifications' && (
-            <div style={{ maxWidth: 800, margin: '0 auto', background: '#23272F', borderRadius: 16, padding: 36, boxShadow: '0 4px 24px #0008' }}>
+            <div style={{ maxWidth: 800, margin: '0 auto', background: t.cardBg, borderRadius: 16, padding: 36, boxShadow: t.shadow }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <h2 style={{ fontWeight: 700, fontSize: 24, margin: 0 }}>Notifications</h2>
                 <button
@@ -862,7 +874,7 @@ const Profile: React.FC = () => {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: isMarkingAll ? '#666' : '#1976d2',
+                    color: isMarkingAll ? t.mutedText : t.accent,
                     cursor: isMarkingAll || notifications.length === 0 ? 'not-allowed' : 'pointer',
                     fontSize: 14,
                     textDecoration: 'underline',
@@ -880,9 +892,9 @@ const Profile: React.FC = () => {
                     key={filter}
                     onClick={() => handleFilterChange(filter)}
                     style={{
-                      background: notificationFilter === filter ? '#1976d2' : 'transparent',
-                      color: notificationFilter === filter ? '#fff' : '#aaa',
-                      border: '1px solid #444',
+                      background: notificationFilter === filter ? t.accent : 'transparent',
+                      color: notificationFilter === filter ? '#fff' : t.mutedText,
+                      border: `1px solid ${t.border}`,
                       borderRadius: 20,
                       padding: '8px 16px',
                       cursor: 'pointer',
@@ -899,9 +911,9 @@ const Profile: React.FC = () => {
               
               {/* 通知列表 */}
               {notificationsLoading ? (
-                <div style={{ color: '#fff', textAlign: 'center', margin: 40 }}>加载中...</div>
+                <div style={{ color: t.cardText, textAlign: 'center', margin: 40 }}>加载中...</div>
               ) : notifications.length === 0 ? (
-                <div style={{ color: '#aaa', textAlign: 'center', margin: 40 }}>暂无通知</div>
+                <div style={{ color: t.mutedText, textAlign: 'center', margin: 40 }}>暂无通知</div>
               ) : (
                 <div style={{ marginBottom: 24 }}>
                   {notifications.map((notification, index) => (
@@ -909,7 +921,7 @@ const Profile: React.FC = () => {
                       key={notification.id}
                       style={{
                         padding: '20px 0',
-                        borderBottom: index < notifications.length - 1 ? '1px solid #444' : 'none',
+                        borderBottom: index < notifications.length - 1 ? `1px solid ${t.border}` : 'none',
                         opacity: notification.is_read ? 0.7 : 1,
                         cursor: 'pointer'
                       }}
@@ -950,24 +962,25 @@ const Profile: React.FC = () => {
                             fontWeight: 600, 
                             fontSize: 16, 
                             marginBottom: 4,
-                            color: (notification.is_read || notification.readed) ? '#aaa' : '#fff'
+                            color: (notification.is_read || notification.readed) ? t.mutedText : t.cardText
                           }}>
                             {notification.novel_title}
                             {notification.chapter_title && (
-                              <span style={{ color: '#888', fontSize: 14, marginLeft: 8 }}>
+                              <span style={{ color: t.mutedText, fontSize: 14, marginLeft: 8, opacity: 0.85 }}>
                                 - {notification.chapter_title}
                               </span>
                             )}
                           </div>
                           <div style={{ 
-                            color: (notification.is_read || notification.readed) ? '#666' : '#ccc', 
+                            color: (notification.is_read || notification.readed) ? t.mutedText : t.cardText,
+                            opacity: (notification.is_read || notification.readed) ? 0.85 : 1, 
                             fontSize: 14, 
                             marginBottom: 8,
                             lineHeight: 1.4
                           }}>
                             {notification.message}
                           </div>
-                          <div style={{ color: '#888', fontSize: 12 }}>
+                          <div style={{ color: t.mutedText, fontSize: 12, opacity: 0.85 }}>
                             {notification.timeAgo}
                             {notification.isTimeUnlock && notification.unlock_at && (
                               <span style={{ marginLeft: 8, color: notification.isUnlocked ? '#4caf50' : '#ff9800' }}>
@@ -984,7 +997,7 @@ const Profile: React.FC = () => {
                           style={{
                             background: 'none',
                             border: 'none',
-                            color: '#1976d2',
+                            color: t.accent,
                             cursor: 'pointer',
                             fontSize: 14,
                             fontWeight: 500,
@@ -1007,8 +1020,8 @@ const Profile: React.FC = () => {
                     disabled={notificationPagination.currentPage <= 1}
                     style={{
                       background: 'none',
-                      border: '1px solid #444',
-                      color: notificationPagination.currentPage <= 1 ? '#666' : '#fff',
+                      border: `1px solid ${t.border}`,
+                      color: notificationPagination.currentPage <= 1 ? t.mutedText : t.cardText,
                       borderRadius: 4,
                       padding: '8px 12px',
                       cursor: notificationPagination.currentPage <= 1 ? 'not-allowed' : 'pointer'
@@ -1022,9 +1035,9 @@ const Profile: React.FC = () => {
                       key={page}
                       onClick={() => handlePageChange(page)}
                       style={{
-                        background: page === notificationPagination.currentPage ? '#1976d2' : 'transparent',
-                        border: '1px solid #444',
-                        color: page === notificationPagination.currentPage ? '#fff' : '#aaa',
+                        background: page === notificationPagination.currentPage ? t.accent : 'transparent',
+                        border: `1px solid ${t.border}`,
+                        color: page === notificationPagination.currentPage ? '#fff' : t.mutedText,
                         borderRadius: 4,
                         padding: '8px 12px',
                         cursor: 'pointer',
@@ -1040,8 +1053,8 @@ const Profile: React.FC = () => {
                     disabled={notificationPagination.currentPage >= notificationPagination.totalPages}
                     style={{
                       background: 'none',
-                      border: '1px solid #444',
-                      color: notificationPagination.currentPage >= notificationPagination.totalPages ? '#666' : '#fff',
+                      border: `1px solid ${t.border}`,
+                      color: notificationPagination.currentPage >= notificationPagination.totalPages ? t.mutedText : t.cardText,
                       borderRadius: 4,
                       padding: '8px 12px',
                       cursor: notificationPagination.currentPage >= notificationPagination.totalPages ? 'not-allowed' : 'pointer'
@@ -1055,51 +1068,51 @@ const Profile: React.FC = () => {
           )}
           {/* Settings Tab */}
           {tab === 'settings' && (
-            <div style={{ maxWidth: 600, margin: '0 auto', background: '#23272F', borderRadius: 16, padding: 36, boxShadow: '0 4px 24px #0008' }}>
+            <div style={{ maxWidth: 600, margin: '0 auto', background: t.cardBg, borderRadius: 16, padding: 36, boxShadow: t.shadow }}>
               {settingsLoading ? (
-                <div style={{ color: '#fff', textAlign: 'center', margin: 40 }}>加载中...</div>
+                <div style={{ color: t.cardText, textAlign: 'center', margin: 40 }}>加载中...</div>
               ) : (
                 <>
                   <h2 style={{ fontWeight: 700, fontSize: 24, marginBottom: 24 }}>General Settings</h2>
-                  <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+                  <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>Enable Auto Unlock</div>
-                      <div style={{ color: '#aaa', fontSize: 15 }}>Automatically unlock chapters without confirmation. Unlock will use WTU, Keys, and Karma, in that order.</div>
+                      <div style={{ color: t.mutedText, fontSize: 15 }}>Automatically unlock chapters without confirmation. Unlock will use WTU, Keys, and Karma, in that order.</div>
                     </div>
                     <input type="checkbox" checked={!!settings.auto_unlock} onChange={e => saveSettings({ ...settings, auto_unlock: e.target.checked })} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>Paragraph Comments</div>
-                      <div style={{ color: '#aaa', fontSize: 15 }}>Show paragraph comments in the comment section.</div>
+                      <div style={{ color: t.mutedText, fontSize: 15 }}>Show paragraph comments in the comment section.</div>
                     </div>
                     <input type="checkbox" checked={!!settings.paragraph_comments} onChange={e => saveSettings({ ...settings, paragraph_comments: e.target.checked })} />
                   </div>
                   <h2 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 12px 0' }}>Web Notification Settings</h2>
-                  <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+                  <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>Unlock Updates</div>
-                      <div style={{ color: '#aaa', fontSize: 15 }}>Receive notifications when chapters are ready to be unlocked</div>
+                      <div style={{ color: t.mutedText, fontSize: 15 }}>Receive notifications when chapters are ready to be unlocked</div>
                     </div>
                     <input type="checkbox" checked={!!settings.notify_unlock_updates} onChange={e => saveSettings({ ...settings, notify_unlock_updates: e.target.checked })} />
                   </div>
                   <h2 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 12px 0' }}>Push Notification Settings</h2>
-                  <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+                  <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>Chapter Updates</div>
-                      <div style={{ color: '#aaa', fontSize: 15 }}>Receive notifications when chapters of bookmarked series are published</div>
+                      <div style={{ color: t.mutedText, fontSize: 15 }}>Receive notifications when chapters of bookmarked series are published</div>
                     </div>
                     <input type="checkbox" checked={!!settings.notify_chapter_updates} onChange={e => saveSettings({ ...settings, notify_chapter_updates: e.target.checked })} />
                   </div>
                   <h2 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 12px 0' }}>Miscellaneous</h2>
-                  <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+                  <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>Marketing</div>
-                      <div style={{ color: '#aaa', fontSize: 15 }}>Allow marketing and promotional emails from Kongfuworld</div>
+                      <div style={{ color: t.mutedText, fontSize: 15 }}>Allow marketing and promotional emails from Kongfuworld</div>
                     </div>
                     <input type="checkbox" checked={!!settings.accept_marketing} onChange={e => saveSettings({ ...settings, accept_marketing: e.target.checked })} />
                   </div>
@@ -1108,33 +1121,37 @@ const Profile: React.FC = () => {
 
               {/* Authenticator 区块 */}
               <h2 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 12px 0' }}>Authenticator</h2>
-              <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+              <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div>
                   <div style={{ fontWeight: 600 }}>Two-factor authentication (2FA)</div>
-                  <div style={{ color: '#aaa', fontSize: 15 }}>
-                    <a href="#" style={{ color: '#1976d2', textDecoration: 'underline', marginRight: 16 }}>Set up authenticator app</a>
-                    <a href="#" style={{ color: '#1976d2', textDecoration: 'underline' }}>Reset authenticator app</a>
+                  <div style={{ color: t.mutedText, fontSize: 15 }}>
+                    <a href="#" style={{ color: t.accent, textDecoration: 'underline', marginRight: 16 }}>Set up authenticator app</a>
+                    <a href="#" style={{ color: t.accent, textDecoration: 'underline' }}>Reset authenticator app</a>
                   </div>
                 </div>
               </div>
 
               {/* Account Settings 区块 */}
               <h2 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 12px 0' }}>Account Settings</h2>
-              <div style={{ borderBottom: '1px solid #444', marginBottom: 18 }} />
+              <div style={{ borderBottom: `1px solid ${t.border}`, marginBottom: 18 }} />
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>Change password</div>
-                <button style={{ background: 'linear-gradient(90deg,#1976d2,#2196f3)', color: '#fff', fontWeight: 600, border: 'none', borderRadius: 8, padding: '10px 28px', fontSize: 16, cursor: 'pointer' }}
+                <button style={{ background: t.accent, color: '#fff', fontWeight: 600, border: 'none', borderRadius: 8, padding: '10px 28px', fontSize: 16, cursor: 'pointer', transition: 'opacity 0.2s' }}
                   onClick={() => alert('弹窗输入旧密码和新密码，提交到后端 /api/user/:id/password')}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = String(t.hoverOpacity)}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >Change password</button>
               </div>
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>Delete my Kongfuworld account</div>
-                <div style={{ color: '#aaa', fontSize: 15, marginBottom: 8 }}>
+                <div style={{ color: t.mutedText, fontSize: 15, marginBottom: 8 }}>
                   If you delete your account, you will lose access to all associated bookmarks, purchases, and settings. Account deletion is irreversible.
                 </div>
-                <button style={{ background: '#f44', color: '#fff', fontWeight: 600, border: 'none', borderRadius: 8, padding: '10px 28px', fontSize: 16, cursor: 'pointer' }}
+                <button style={{ background: '#f44', color: '#fff', fontWeight: 600, border: 'none', borderRadius: 8, padding: '10px 28px', fontSize: 16, cursor: 'pointer', transition: 'opacity 0.2s' }}
                   onClick={() => { if(window.confirm('确定要删除账号吗？此操作不可恢复')) alert('调用后端 /api/user/:id/delete 删除账号') }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = String(t.hoverOpacity)}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >Delete account</button>
               </div>
             </div>
