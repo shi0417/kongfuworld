@@ -486,6 +486,60 @@ evidence_required:
         background: var(--bg-tertiary);
       }
 
+  - id: EVIDENCE-10
+    description: "/profile (Profile.tsx) 三个 Tab 使用 inline style 时也必须 token-first；禁止 #23272F/#fff/#444 等硬编码导致 light mode 不可读"
+    file: "frontend/src/pages/Profile.tsx"
+    lines: "568-579, 613-613, 695-704, 739-751"
+    git_diff_snippet: |
+      - background: '#23272F';
+      + background: t.cardBg;
+      - boxShadow: '0 4px 24px #0008';
+      + boxShadow: t.shadow;
+      - color: '#fff';
+      + color: t.cardText;
+      - border: '1px solid #444';
+      + border: `1px solid ${t.border}`;
+      - background: '#1976d2';
+      + background: t.accent;
+      - onMouseOver: (e) => e.currentTarget.style.background = '#1565c0';
+      + onMouseOver: (e) => e.currentTarget.style.opacity = String(t.hoverOpacity);
+    actual_content: |
+      // Theme tokens constant (lines 568-579)
+      const t = {
+        cardBg: 'var(--surface-1)',
+        cardText: 'var(--text-primary)',
+        mutedText: 'var(--text-secondary)',
+        inputBg: 'var(--surface-1)',
+        border: 'var(--border-color)',
+        shadow: '0 4px 24px var(--shadow-color)',
+        accent: 'var(--accent)',
+        hoverOpacity: 0.9
+      };
+      
+      // Card container (line 613)
+      <div style={{ maxWidth: 500, margin: '0 auto', background: t.cardBg, borderRadius: 16, padding: 36, boxShadow: t.shadow }}>
+      
+      // Input field (lines 695-704)
+      <input style={{
+        width: '100%',
+        padding: '10px 12px',
+        border: `1px solid ${t.border}`,
+        background: t.inputBg,
+        color: t.cardText,
+        borderRadius: 6
+      }} />
+      
+      // Primary button (lines 739-751)
+      <button style={{
+        padding: '10px 24px',
+        background: t.accent,
+        color: '#fff',
+        transition: 'opacity 0.2s'
+      }}
+      onMouseOver={(e) => e.currentTarget.style.opacity = String(t.hoverOpacity)}
+      onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+      >
+
 appendix:
   case_summary:
     title: "UserCenter 5 个 Tab 内容页主题化案例"
@@ -508,4 +562,5 @@ appendix:
     - "强调色统一用 --accent，边框统一用 --border-color"
     - '避免每个组件单独写 [data-theme=''light''] 特判，统一用 tokens'
     - "全局浮层/Dropdown（如 NavBar diamond dropdown）同样禁止硬编码 #fff/#ccc/#444；必须使用 var(--text-primary/secondary), var(--border-color), var(--bg-tertiary), var(--accent) 等 tokens"
+    - "即使页面使用 inline style（未拆 CSS Module），也必须 token-first：颜色/边框/阴影/背景全部来自 theme tokens；禁止为 light mode 单独写硬编码色值。"
 
