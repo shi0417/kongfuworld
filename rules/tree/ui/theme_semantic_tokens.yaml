@@ -442,6 +442,50 @@ evidence_required:
       
       The build folder is ready to be deployed.
 
+  - id: EVIDENCE-09
+    description: "NavBar diamondDropdown（💎下拉）token 化修复 light mode 对比度"
+    file: "frontend/src/components/NavBar/NavBar.module.css"
+    lines: "141-170, 208-243, 252-263"
+    git_diff_snippet: |
+      -  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      +  box-shadow: 0 8px 24px var(--shadow-color);
+      -  border-bottom: 1px solid #444;
+      +  border-bottom: 1px solid var(--border-color);
+      -  color: #ccc;
+      +  color: var(--text-secondary);
+      -  color: #fff;
+      +  color: var(--text-primary);
+      -  background: #1976d2;
+      +  background: var(--accent);
+      -  background: #444;
+      +  background: var(--bg-tertiary);
+    actual_content: |
+      .diamondDropdown {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        box-shadow: 0 8px 24px var(--shadow-color);
+        border: 1px solid var(--border-color);
+      }
+      .resourcesSection,
+      .dailyRewardsSection {
+        border-bottom: 1px solid var(--border-color);
+      }
+      .resourceItem {
+        color: var(--text-secondary);
+      }
+      .sectionTitle {
+        color: var(--text-primary);
+      }
+      .sectionDescription {
+        color: var(--text-secondary);
+      }
+      .navItem {
+        color: var(--text-primary);
+      }
+      .navItem:hover {
+        background: var(--bg-tertiary);
+      }
+
 appendix:
   case_summary:
     title: "UserCenter 5 个 Tab 内容页主题化案例"
@@ -462,5 +506,6 @@ appendix:
     - "大容器用 --surface-1，内层卡片用 --surface-2"
     - "主文字用 --text-primary 或 --surface-1-text，副文字用 --text-secondary 或 --surface-1-muted"
     - "强调色统一用 --accent，边框统一用 --border-color"
-    - '避免每个组件单独写 [data-theme="light"] 特判，统一用 tokens'
+    - '避免每个组件单独写 [data-theme=''light''] 特判，统一用 tokens'
+    - "全局浮层/Dropdown（如 NavBar diamond dropdown）同样禁止硬编码 #fff/#ccc/#444；必须使用 var(--text-primary/secondary), var(--border-color), var(--bg-tertiary), var(--accent) 等 tokens"
 
