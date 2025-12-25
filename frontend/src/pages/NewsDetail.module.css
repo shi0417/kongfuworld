@@ -11,13 +11,13 @@
 }
 
 .breadcrumb {
-  color: #9aa0a6;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 14px;
 }
 
 .breadcrumb a {
-  color: #6cf;
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -33,37 +33,37 @@
 }
 
 .meta {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 20px;
 }
 
 .contentCard {
-  background: #23272F;
+  background: var(--surface-1);
   border-radius: 16px;
   padding: 22px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
 }
 
 .content {
-  color: #e6e6e6;
+  color: var(--text-primary);
   font-size: 16px;
   line-height: 1.8;
   word-break: break-word;
 }
 
 .content :global(a) {
-  color: #6cf;
+  color: var(--accent);
 }
 
 .content :global(code) {
-  background: rgba(0,0,0,0.25);
+  background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 6px;
 }
 
 .content :global(pre) {
-  background: rgba(0,0,0,0.35);
+  background: var(--bg-tertiary);
   padding: 12px;
   border-radius: 10px;
   overflow: auto;
@@ -71,7 +71,7 @@
 
 .divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-color);
   margin: 28px 0 8px;
 }
 
@@ -84,7 +84,7 @@
 }
 
 .loading {
-  color: #aaa;
+  color: var(--text-secondary);
   text-align: center;
   padding: 40px 0;
 }

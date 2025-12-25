@@ -11,13 +11,13 @@
 }
 
 .breadcrumb {
-  color: #9aa0a6;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 16px;
 }
 
 .breadcrumb a {
-  color: #6cf;
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -38,16 +38,16 @@
 }
 
 .card {
-  background: #23272F;
+  background: var(--surface-1);
   border-radius: 16px;
   padding: 18px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px var(--shadow-color);
   border-color: rgba(33, 150, 243, 0.35);
 }
 
@@ -59,16 +59,16 @@
 }
 
 .cardTitle a {
-  color: #fff;
+  color: var(--text-primary);
   text-decoration: none;
 }
 
 .cardTitle a:hover {
-  color: #6cf;
+  color: var(--accent);
 }
 
 .excerpt {
-  color: #ddd;
+  color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.6;
   margin: 0 0 12px 0;
@@ -79,21 +79,21 @@
 }
 
 .meta {
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .loading {
-  color: #aaa;
+  color: var(--text-secondary);
   text-align: center;
   padding: 40px 0;
 }
 
 .empty {
-  color: #aaa;
+  color: var(--text-secondary);
   text-align: center;
   padding: 24px;
-  background: #23272F;
+  background: var(--surface-1);
   border-radius: 16px;
 }
 
