@@ -7,13 +7,13 @@
   font-size: 2.5rem;
   font-weight: bold;
   margin-bottom: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
   text-align: center;
 }
 
 .subtitle {
   font-size: 1.2rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   text-align: center;
   margin-bottom: 40px;
 }
@@ -24,11 +24,11 @@
 }
 
 .faqItem {
-  background-color: #2a2a2a;
+  background-color: var(--surface-1);
   border-radius: 8px;
   margin-bottom: 15px;
   overflow: hidden;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
 }
 
 .faqQuestion {
@@ -37,29 +37,29 @@
   align-items: center;
   padding: 20px;
   cursor: pointer;
-  background-color: #333;
+  background-color: var(--bg-tertiary);
   transition: background-color 0.3s ease;
   font-size: 1.1rem;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .faqQuestion:hover {
-  background-color: #444;
+  background-color: var(--bg-secondary);
 }
 
 .caret {
   font-size: 1.2rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   transition: transform 0.3s ease;
 }
 
 .faqAnswer {
   padding: 20px;
-  color: #cccccc;
+  color: var(--text-secondary);
   line-height: 1.6;
-  background-color: #2a2a2a;
-  border-top: 1px solid #333;
+  background-color: var(--surface-2);
+  border-top: 1px solid var(--border-color);
 }
 
 /* Responsive Design */

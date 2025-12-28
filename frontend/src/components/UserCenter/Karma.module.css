@@ -7,7 +7,7 @@
   font-size: 2.5rem;
   font-weight: bold;
   margin-bottom: 30px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Current Karma display */
@@ -24,12 +24,12 @@
   gap: 10px;
   font-size: 1.5rem;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .blackYinYang {
   font-size: 2rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .yellowYinYang {
@@ -46,7 +46,7 @@
   font-size: 1.8rem;
   font-weight: bold;
   margin-bottom: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .karmaPackages {
@@ -57,12 +57,12 @@
 }
 
 .karmaPackage {
-  background-color: #2a2a2a;
+  background-color: var(--surface-1);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
 }
 
 .karmaPackage:hover {
@@ -88,13 +88,13 @@
 .amount {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 5px;
 }
 
 .label {
   font-size: 0.9rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
@@ -106,7 +106,7 @@
 }
 
 .buyButton {
-  background-color: #007bff;
+  background-color: var(--accent);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -118,15 +118,16 @@
 }
 
 .buyButton:hover {
-  background-color: #0056b3;
+  opacity: 0.9;
 }
 
 /* Collapsible sections */
 .collapsibleSection {
-  background-color: #2a2a2a;
+  background-color: var(--surface-1);
   border-radius: 8px;
   margin-bottom: 20px;
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .sectionHeader {
@@ -135,23 +136,23 @@
   align-items: center;
   padding: 20px;
   cursor: pointer;
-  background-color: #333;
+  background-color: var(--bg-tertiary);
   transition: background-color 0.3s ease;
 }
 
 .sectionHeader:hover {
-  background-color: #444;
+  background-color: var(--bg-secondary);
 }
 
 .sectionHeader .sectionTitle {
   margin: 0;
   font-size: 1.3rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .caret {
   font-size: 1.2rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   transition: transform 0.3s ease;
 }
 
@@ -166,18 +167,18 @@
 }
 
 .karmaTable th {
-  background-color: #333;
-  color: #ffffff;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
   padding: 15px 12px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .karmaTable td {
   padding: 15px 12px;
-  border-bottom: 1px solid #333;
-  color: #cccccc;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .emptyRow {
@@ -244,11 +245,11 @@
   align-items: center;
   margin-top: 1.5rem;
   padding: 1rem 0;
-  border-top: 1px solid #404040;
+  border-top: 1px solid var(--border-color);
 }
 
 .paginationInfo {
-  color: #cccccc;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -259,9 +260,9 @@
 }
 
 .paginationButton {
-  background: #404040;
-  color: #ffffff;
-  border: 1px solid #666666;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
@@ -272,20 +273,20 @@
 }
 
 .paginationButton:hover:not(.disabled) {
-  background: #555555;
-  border-color: #777777;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 .paginationButton.active {
-  background: #007bff;
-  border-color: #007bff;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #ffffff;
 }
 
 .paginationButton.disabled {
-  background: #2a2a2a;
-  color: #666666;
-  border-color: #404040;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
   cursor: not-allowed;
   opacity: 0.5;
 }

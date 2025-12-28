@@ -6,6 +6,11 @@
   --text-secondary: #555;
   --border-color: rgba(0, 0, 0, 0.10);
   --shadow-color: rgba(0, 0, 0, 0.08);
+  --accent: #0066cc;
+  --surface-1: #FFFFFF;
+  --surface-2: #F7F1E3;
+  --surface-1-text: #2B2B2B;
+  --surface-1-muted: #555;
 }
 
 :root[data-theme="dark"] {
@@ -16,5 +21,10 @@
   --text-secondary: rgba(255, 255, 255, 0.80);
   --border-color: rgba(255, 255, 255, 0.10);
   --shadow-color: rgba(0, 0, 0, 0.30);
+  --accent: #4a9eff;
+  --surface-1: #1E1E1E;
+  --surface-2: #222222;
+  --surface-1-text: #FFFFFF;
+  --surface-1-muted: rgba(255, 255, 255, 0.80);
 }
 

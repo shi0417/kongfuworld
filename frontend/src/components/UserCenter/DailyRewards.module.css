@@ -1,19 +1,19 @@
 /* Daily Rewards Tab Content Styles - Matching WuxiaWorld Design */
 .dailyRewardsContent {
   width: 100%;
-  background: #1a1a1a;
-  color: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'Arial', sans-serif;
   min-height: 100vh;
 }
 
 /* Keys Section - Matching WuxiaWorld */
 .keysSection {
-  background: #2a2a2a;
+  background: var(--surface-1);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .keysHeader {
@@ -31,13 +31,13 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .keysCount {
   font-size: 2rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Title Section */
@@ -58,7 +58,7 @@
 
 .subtitle {
   font-size: 1.2rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -71,29 +71,29 @@
 
 /* Login Rewards - Matching WuxiaWorld */
 .loginRewards {
-  background: #2a2a2a;
+  background: var(--surface-1);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .sectionHeader h3 {
   font-size: 1.5rem;
   margin: 0 0 0.5rem 0;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .sectionHeader p {
-  color: #cccccc;
+  color: var(--text-secondary);
   margin: 0 0 1.5rem 0;
 }
 
 /* Progress Card - Matching WuxiaWorld */
 .progressCard {
-  background: #1a1a1a;
+  background: var(--surface-2);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .progressHeader {
@@ -110,7 +110,7 @@
 .progressTitle {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Progress Bar */
@@ -120,13 +120,13 @@
 
 .progressLabel {
   font-size: 0.9rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
   font-weight: 500;
 }
 
 .progressContainer {
-  background: #404040;
+  background: var(--bg-tertiary);
   border-radius: 4px;
   height: 8px;
   overflow: hidden;
@@ -135,21 +135,21 @@
 
 .progressFill {
   height: 100%;
-  background: #007bff;
+  background: var(--accent);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
 
 .progressText {
   font-size: 0.9rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 /* Upcoming Rewards */
 .upcomingRewards h4 {
   font-size: 1rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin: 0 0 1rem 0;
   font-weight: 600;
 }
@@ -165,23 +165,23 @@
   flex-direction: column;
   align-items: center;
   padding: 0.75rem;
-  background: #1a1a1a;
+  background: var(--surface-2);
   border-radius: 8px;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
   transition: all 0.3s ease;
   min-width: 80px;
   position: relative;
 }
 
 .rewardItem.currentDay {
-  border-color: #007bff;
-  background: #1a1a1a;
-  box-shadow: 0 0 0 2px #007bff;
+  border-color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .dayLabel {
   font-size: 0.8rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin-bottom: 0.25rem;
   font-weight: 500;
 }
@@ -193,7 +193,7 @@
 
 .rewardText {
   font-size: 0.8rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
   text-align: center;
 }
@@ -204,7 +204,7 @@
 }
 
 .checkinButton {
-  background: #007bff;
+  background: var(--accent);
   color: #ffffff;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -215,7 +215,7 @@
 }
 
 .checkinButton:hover {
-  background: #0056b3;
+  opacity: 0.9;
 }
 
 .checkedIn {
@@ -246,7 +246,7 @@
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  color: #cccccc;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -257,7 +257,7 @@
 .toggleSlider {
   width: 40px;
   height: 20px;
-  background: #404040;
+  background: var(--bg-tertiary);
   border-radius: 10px;
   position: relative;
   transition: all 0.3s ease;
@@ -276,7 +276,7 @@
 }
 
 .toggleLabel input[type="checkbox"]:checked + .toggleSlider {
-  background: #007bff;
+  background: var(--accent);
 }
 
 .toggleLabel input[type="checkbox"]:checked + .toggleSlider::before {
@@ -285,14 +285,14 @@
 
 /* Mission Rewards - Matching WuxiaWorld */
 .missionRewards {
-  background: #2a2a2a;
+  background: var(--surface-1);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .resetTimer {
-  color: #007bff;
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -305,17 +305,17 @@
 }
 
 .missionCard {
-  background: #1a1a1a;
+  background: var(--surface-2);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
   transition: all 0.3s ease;
   margin-bottom: 1rem;
 }
 
 .missionCard:hover {
-  border-color: #404040;
-  background: #1a1a1a;
+  border-color: var(--border-color);
+  background: var(--surface-2);
 }
 
 .missionHeader {
@@ -340,7 +340,7 @@
 .missionTitle {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
@@ -348,7 +348,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -360,12 +360,12 @@
 
 .missionProgress .progressText {
   font-size: 0.9rem;
-  color: #cccccc;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
 .missionProgress .progressBar {
-  background: #404040;
+  background: var(--bg-tertiary);
   border-radius: 4px;
   height: 6px;
   overflow: hidden;
@@ -373,7 +373,7 @@
 
 .missionProgress .progressFill {
   height: 100%;
-  background: #007bff;
+  background: var(--accent);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -385,9 +385,9 @@
 }
 
 .claimButton {
-  background: #404040;
-  color: #ffffff;
-  border: 1px solid #666666;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   padding: 0.5rem 1rem;
   border-radius: 4px;
   font-weight: 600;
@@ -397,18 +397,18 @@
 }
 
 .claimButton:hover {
-  background: #555555;
-  border-color: #777777;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 .claimedStatus {
-  color: #cccccc;
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.9rem;
 }
 
 .inProgressStatus {
-  color: #cccccc;
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -426,8 +426,8 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid #007bff;
+  border: 4px solid var(--border-color);
+  border-left: 4px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -441,15 +441,15 @@
 .keyTransactionsSection {
   margin-top: 3rem;
   padding: 2rem;
-  background: #2a2a2a;
+  background: var(--surface-1);
   border-radius: 8px;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .sectionTitle {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 1.5rem;
   text-align: center;
 }
@@ -457,35 +457,35 @@
 .tableContainer {
   overflow-x: auto;
   border-radius: 8px;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
 }
 
 .transactionsTable {
   width: 100%;
   border-collapse: collapse;
-  background: #1a1a1a;
-  color: #ffffff;
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
 .transactionsTable th {
-  background: #333333;
-  color: #ffffff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   padding: 1rem 0.75rem;
   text-align: left;
   font-weight: 600;
-  border-bottom: 2px solid #404040;
+  border-bottom: 2px solid var(--border-color);
   white-space: nowrap;
 }
 
 .transactionsTable td {
   padding: 0.75rem;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-color);
   vertical-align: top;
 }
 
 .transactionsTable tr:hover {
-  background: #2a2a2a;
+  background: var(--surface-1);
 }
 
 .transactionType {
@@ -555,7 +555,7 @@
 }
 
 .paginationInfo {
-  color: #cccccc;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -566,9 +566,9 @@
 }
 
 .paginationButton {
-  background: #404040;
-  color: #ffffff;
-  border: 1px solid #666666;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
@@ -579,20 +579,20 @@
 }
 
 .paginationButton:hover:not(.disabled) {
-  background: #555555;
-  border-color: #777777;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 .paginationButton.active {
-  background: #007bff;
-  border-color: #007bff;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #ffffff;
 }
 
 .paginationButton.disabled {
-  background: #2a2a2a;
-  color: #666666;
-  border-color: #404040;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
   cursor: not-allowed;
   opacity: 0.5;
 }
