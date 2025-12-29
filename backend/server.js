@@ -79,6 +79,11 @@ app.set('trust proxy', true);
 
 app.use(cors());
 
+// WeChat Official Account "网页授权域名" 校验文件（MP_verify_*.txt）
+// - Place file at: backend/public/MP_verify_XXXX.txt (local only, do NOT commit)
+// - Must be registered BEFORE any routes so GET /MP_verify_*.txt can be served.
+app.use(express.static(path.join(__dirname, 'public')));
+
 // ⚠️ 重要：Stripe Webhook 路由必须在 express.json() 之前
 // Stripe Webhook 需要使用原始请求体（Buffer）进行签名验证
 // 如果使用 express.json()，请求体会被解析为 JSON，导致签名验证失败
