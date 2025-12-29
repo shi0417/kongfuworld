@@ -1419,6 +1419,13 @@ router.post('/payout-account/save', authenticateAuthor, async (req, res) => {
   try {
     const userId = req.authorId;
     const { id, method, account_label, account_data, is_default } = req.body;
+
+    // WeChat 兼容：历史数据 name -> real_name（不强制 openid，由 OAuth callback 写入）
+    if (method === 'wechat' && account_data && typeof account_data === 'object') {
+      if (account_data.name && !account_data.real_name) {
+        account_data.real_name = account_data.name;
+      }
+    }
     
     if (!method || !account_label || !account_data) {
       return res.status(400).json({

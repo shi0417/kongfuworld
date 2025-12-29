@@ -253,6 +253,10 @@ app.use('/api/bookmarklocked', bookmarklockedRoutes);
 const socialAuthRoutes = require('./routes/social_auth');
 app.use('/api/auth', socialAuthRoutes);
 
+// 微信网页 OAuth（openid 绑定）路由
+const wechatOAuthRoutes = require('./routes/wechat_oauth');
+app.use('/api/auth', wechatOAuthRoutes);
+
 // 邮箱验证路由
 const emailVerificationRoutes = require('./routes/emailVerification');
 app.use('/api/email-verification', emailVerificationRoutes);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -81,6 +82,7 @@ const IncomeManagement: React.FC = () => {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const { theme } = useTheme();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'income' | 'referral' | 'settlement' | 'account'>('income');
   
   // 获取主题相关的 CSS 变量值
@@ -149,6 +151,7 @@ const IncomeManagement: React.FC = () => {
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [wechatBindQrUrl, setWechatBindQrUrl] = useState<string>('');
   const [accountForm, setAccountForm] = useState({
     method: 'PayPal',
     account_label: '',
@@ -251,6 +254,11 @@ const IncomeManagement: React.FC = () => {
     } catch (error) {
       console.error('生成二维码失败:', error);
     }
+  };
+
+  // 获取二维码图片 URL（不影响推广链接二维码状态）
+  const getQrCodeImageUrl = (url: string) => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
   };
 
   // 加载推广方案
@@ -388,8 +396,12 @@ const IncomeManagement: React.FC = () => {
         if (!isValid) alert(t('income.common.validation.alipayAccountRequired'));
         break;
       case 'WeChat':
-        isValid = !!(accountForm.account_data.wechat_id || accountForm.account_data.qrcode_url);
-        if (!isValid) alert(t('income.common.validation.wechatRequired'));
+        // 不再手填微信号；openid 由 OAuth callback 绑定写入
+        if (accountForm.is_default && !accountForm.account_data?.openid) {
+          alert(t('income.common.validation.wechatBindRequired'));
+          return;
+        }
+        isValid = true;
         break;
       case 'Bank':
         isValid = !!(accountForm.account_data.bank_name && accountForm.account_data.account_name && accountForm.account_data.card_number);
@@ -420,6 +432,7 @@ const IncomeManagement: React.FC = () => {
       if (response && response.success) {
         alert(editingAccount ? t('income.common.accountUpdated') : t('income.common.accountCreated'));
         setShowAccountModal(false);
+        setWechatBindQrUrl('');
         setEditingAccount(null);
         setAccountForm({
           method: 'PayPal',
@@ -457,6 +470,7 @@ const IncomeManagement: React.FC = () => {
       account_data: {},
       is_default: false
     });
+    setWechatBindQrUrl('');
     setShowAccountModal(true);
   };
   
@@ -469,7 +483,31 @@ const IncomeManagement: React.FC = () => {
       account_data: account.account_data || {},
       is_default: account.is_default
     });
+    setWechatBindQrUrl('');
     setShowAccountModal(true);
+  };
+
+  // WeChat OAuth 绑定（微信内直接跳转，PC 显示二维码）
+  const startWeChatBind = async () => {
+    try {
+      const returnTo = '/writers-zone?nav=incomeManagement';
+      const resp: any = await ApiService.get(`/auth/wechat/authorize?return_to=${encodeURIComponent(returnTo)}`);
+      if (!resp || !resp.success || !resp.authorize_url) {
+        throw new Error(resp?.message || 'Authorize failed');
+      }
+
+      const authorizeUrl: string = resp.authorize_url;
+      const ua = navigator.userAgent || '';
+      if (ua.includes('MicroMessenger')) {
+        window.location.href = authorizeUrl;
+        return;
+      }
+
+      // PC：显示二维码图片
+      setWechatBindQrUrl(getQrCodeImageUrl(authorizeUrl));
+    } catch (e: any) {
+      alert(e?.message || 'WeChat bind failed');
+    }
   };
   
   // 格式化银行卡号（中间打星）
@@ -530,6 +568,23 @@ const IncomeManagement: React.FC = () => {
   useEffect(() => {
     loadUserNovels();
   }, [loadUserNovels]);
+
+  // OAuth 回跳后刷新收款账户列表，并清理 URL 参数（避免重复触发）
+  useEffect(() => {
+    const bindStatus = searchParams.get('bind_status');
+    const bindWechat = searchParams.get('bind_wechat');
+    if (bindStatus === 'ok' || bindWechat === '1') {
+      loadPayoutAccounts();
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('bind_status');
+        url.searchParams.delete('bind_wechat');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      } catch (_) {
+        // ignore
+      }
+    }
+  }, [searchParams, loadPayoutAccounts]);
 
   useEffect(() => {
     if (activeTab === 'income') {
@@ -1773,6 +1828,7 @@ const IncomeManagement: React.FC = () => {
               }}
               onClick={() => {
                 setShowAccountModal(false);
+                setWechatBindQrUrl('');
                 setEditingAccount(null);
                 setAccountForm({
                   method: 'PayPal',
@@ -1800,6 +1856,7 @@ const IncomeManagement: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowAccountModal(false);
+                      setWechatBindQrUrl('');
                       setEditingAccount(null);
                       setAccountForm({
                         method: 'PayPal',
@@ -1818,7 +1875,10 @@ const IncomeManagement: React.FC = () => {
                       <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.payMethod')}</label>
                       <select
                         value={accountForm.method}
-                        onChange={(e) => setAccountForm({ ...accountForm, method: e.target.value, account_data: {} })}
+                        onChange={(e) => {
+                          setWechatBindQrUrl('');
+                          setAccountForm({ ...accountForm, method: e.target.value, account_data: {} });
+                        }}
                         style={{ 
                           width: '100%', 
                           padding: '8px', 
@@ -1896,42 +1956,63 @@ const IncomeManagement: React.FC = () => {
 
                     {accountForm.method === 'WeChat' && (
                       <>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.wechatIdRequired')}</label>
-                          <input
-                            type="text"
-                            value={accountForm.account_data.wechat_id || ''}
-                            onChange={(e) => setAccountForm({
-                              ...accountForm,
-                              account_data: { ...accountForm.account_data, wechat_id: e.target.value }
-                            })}
-                            placeholder={t('income.paymentAccount.modal.wechatIdPlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
-                          />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {accountForm.account_data?.openid ? (
+                            <div style={{ fontSize: '14px', color: themeStyles.textPrimary }}>
+                              <strong>{t('income.paymentAccount.modal.wechatBound')}</strong>
+                              <span style={{ marginLeft: '8px', color: themeStyles.textSecondary }}>
+                                (****{String(accountForm.account_data.openid).slice(-4)})
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '14px', color: themeStyles.textSecondary }}>
+                              {t('income.common.validation.wechatBindRequired')}
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={startWeChatBind}
+                              style={{
+                                padding: '10px 16px',
+                                background: '#07c160',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {accountForm.account_data?.openid
+                                ? t('income.paymentAccount.modal.wechatRebindButton')
+                                : t('income.paymentAccount.modal.wechatBindButton')}
+                            </button>
+                          </div>
+
+                          {wechatBindQrUrl && !String(navigator.userAgent || '').includes('MicroMessenger') && (
+                            <div style={{ marginTop: '6px' }}>
+                              <div style={{ marginBottom: '8px', color: themeStyles.textSecondary }}>
+                                {t('income.paymentAccount.modal.wechatBindHintPc')}
+                              </div>
+                              <img
+                                src={wechatBindQrUrl}
+                                alt="WeChat OAuth QR"
+                                style={{ width: '220px', height: '220px', borderRadius: '6px', border: `1px solid ${themeStyles.borderColor}` }}
+                              />
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.realNameOptional')}</label>
                           <input
                             type="text"
-                            value={accountForm.account_data.name || ''}
+                            value={accountForm.account_data?.real_name ?? accountForm.account_data?.name ?? ''}
                             onChange={(e) => setAccountForm({
                               ...accountForm,
-                              account_data: { ...accountForm.account_data, name: e.target.value }
+                              account_data: { ...accountForm.account_data, real_name: e.target.value }
                             })}
                             placeholder={t('income.paymentAccount.modal.realNamePlaceholder')}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: themeStyles.textPrimary }}>{t('income.paymentAccount.modal.qrCodeUrlOptional')}</label>
-                          <input
-                            type="text"
-                            value={accountForm.account_data.qrcode_url || ''}
-                            onChange={(e) => setAccountForm({
-                              ...accountForm,
-                              account_data: { ...accountForm.account_data, qrcode_url: e.target.value }
-                            })}
-                            placeholder={t('income.paymentAccount.modal.qrCodeUrlPlaceholder')}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: `1px solid ${themeStyles.borderColor}`, background: themeStyles.bgSecondary, color: themeStyles.textPrimary }}
                           />
                         </div>
@@ -2010,6 +2091,7 @@ const IncomeManagement: React.FC = () => {
                       <button
                         onClick={() => {
                           setShowAccountModal(false);
+                          setWechatBindQrUrl('');
                           setEditingAccount(null);
                           setAccountForm({
                             method: 'PayPal',
