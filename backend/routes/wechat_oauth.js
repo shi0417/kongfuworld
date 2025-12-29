@@ -10,6 +10,16 @@ const REQUIRED_ENVS = ['WECHAT_APPID', 'WECHAT_OAUTH_APPSECRET', 'WECHAT_OAUTH_R
 const DEFAULT_RETURN_TO = '/writers-zone?nav=incomeManagement';
 
 const missingEnv = () => REQUIRED_ENVS.filter((k) => !process.env[k] || !String(process.env[k]).trim());
+const missingEnvHint = () => {
+  const hasSite = !!process.env.SITE_BASE_URL;
+  const hasWechatSite = !!process.env.WECHAT_SITE_BASE_URL;
+  const hasFrontendUrl = !!process.env.FRONTEND_URL;
+  if (!hasSite && (hasWechatSite || hasFrontendUrl)) {
+    // Security: boolean only, do not print values
+    return `; hint: please use SITE_BASE_URL (WECHAT_SITE_BASE_URL present=${hasWechatSite}, FRONTEND_URL present=${hasFrontendUrl})`;
+  }
+  return '';
+};
 const safeReturnTo = (v) => (typeof v === 'string' && v.startsWith('/') && !v.startsWith('//')) ? v : DEFAULT_RETURN_TO;
 const b64uJson = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64url');
 const parseB64uJson = (b) => JSON.parse(Buffer.from(String(b), 'base64url').toString('utf8'));
@@ -48,7 +58,7 @@ const authenticateAuthor = async (req, res, next) => {
 
 router.get('/wechat/authorize', authenticateAuthor, async (req, res) => {
   const missing = missingEnv();
-  if (missing.length) return res.status(500).json({ success: false, message: `missing env: ${missing.join(', ')}` });
+  if (missing.length) return res.status(500).json({ success: false, message: `missing env: ${missing.join(', ')}${missingEnvHint()}` });
   const appid = String(process.env.WECHAT_APPID).trim();
   const redirectUri = String(process.env.WECHAT_OAUTH_REDIRECT_URI).trim();
   const stateSecret = String(process.env.WECHAT_OAUTH_STATE_SECRET).trim();
@@ -63,7 +73,7 @@ router.get('/wechat/authorize', authenticateAuthor, async (req, res) => {
 
 router.get('/wechat/callback', async (req, res) => {
   const missing = missingEnv();
-  if (missing.length) return res.status(500).json({ success: false, message: `missing env: ${missing.join(', ')}` });
+  if (missing.length) return res.status(500).json({ success: false, message: `missing env: ${missing.join(', ')}${missingEnvHint()}` });
   const appid = String(process.env.WECHAT_APPID).trim();
   const appsecret = String(process.env.WECHAT_OAUTH_APPSECRET).trim();
   const stateSecret = String(process.env.WECHAT_OAUTH_STATE_SECRET).trim();

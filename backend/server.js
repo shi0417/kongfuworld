@@ -1,22 +1,28 @@
+// Load env early (must be before any route/service require that depends on process.env)
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, 'kongfuworld.env') });
+
+// One-time non-sensitive diagnostics (do NOT print values)
+console.log('[BOOT] cwd:', process.cwd());
+console.log('[BOOT] NODE_ENV:', process.env.NODE_ENV || '');
+console.log('[BOOT] has WECHAT_OAUTH_APPSECRET:', !!process.env.WECHAT_OAUTH_APPSECRET);
+console.log('[BOOT] has WECHAT_OAUTH_STATE_SECRET:', !!process.env.WECHAT_OAUTH_STATE_SECRET);
+console.log('[BOOT] has SITE_BASE_URL:', !!process.env.SITE_BASE_URL);
+
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 // 导入登录日志记录工具
 const { logUserLogin } = require('./utils/loginLogger');
 const authenticateToken = require('./middleware/authenticateToken');
-// 尝试加载环境变量，如果失败则使用默认值
-try {
-  require('dotenv').config({ path: './kongfuworld.env' });
-} catch (error) {
-  console.log('dotenv not available, using default values');
-}
-const uploadApi="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"
+// NOTE: env already loaded above via __dirname/kongfuworld.env (cwd-independent)
+// Security: never hardcode secrets in source. Prefer env.
+const uploadApi = process.env.OPENAI_API_KEY || '';
 // 导入小说上传模块
 const { 
   findSimilarNovelsAPI, 
