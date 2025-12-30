@@ -128,30 +128,8 @@ app.post(
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // 支持FormData
 
-// 全局中间件：记录所有 /api/chapter 相关的请求
-app.use('/api/chapter', (req, res, next) => {
-  console.log('[全局中间件] ============================================');
-  console.log('[全局中间件] 检测到 /api/chapter 请求');
-  console.log('[全局中间件] 请求URL:', req.url);
-  console.log('[全局中间件] 请求路径:', req.path);
-  console.log('[全局中间件] 请求方法:', req.method);
-  console.log('[全局中间件] 请求参数:', req.params);
-  console.log('[全局中间件] 原始URL:', req.originalUrl);
-  console.log('[全局中间件] 调用 next() 继续传递请求...');
-  console.log('[全局中间件] 检查路由是否匹配 /api/chapter/:chapterId');
-  console.log('[全局中间件] 当前路径是否匹配模式:', req.path.match(/^\/\d+$/));
-  console.log('[全局中间件] ============================================');
-  next();
-  
-  // 在 next() 之后添加日志，看看是否有响应被发送
-  setTimeout(() => {
-    if (!res.headersSent) {
-      console.log('[全局中间件] ⚠️ 警告：next() 后 100ms，响应仍未发送，可能路由未匹配');
-    } else {
-      console.log('[全局中间件] ✅ 响应已发送，状态码:', res.statusCode);
-    }
-  }, 100);
-});
+// 全局中间件：/api/chapter 链路不打印用户输入（URL/params/query），避免隐私泄露与日志放大。
+app.use('/api/chapter', (req, res, next) => next());
 
 // JWT验证中间件（普通用户）
 // 注意：实现已抽到 backend/middleware/authenticateToken.js，供多路由复用
@@ -1957,10 +1935,10 @@ function fetchHomepagePromotions(db, limit = 2) {
         AND pp.promotion_type IN ('discount')
         AND n.review_status = 'published'
       ORDER BY pp.discount_value ASC, pp.end_at ASC, pp.id DESC
-      LIMIT ?
+      LIMIT ${clampedLimit}
     `;
 
-  return Db.query(sql, [clampedLimit], { tag: 'homepage.promotions', idempotent: true })
+  return Db.query(sql, [], { tag: 'homepage.promotions', idempotent: true })
     .then(([rows]) => {
       const list = Array.isArray(rows) ? rows : [];
       return list.map((r) => {
@@ -1990,7 +1968,7 @@ function fetchHomepagePromotions(db, limit = 2) {
       });
     })
     .catch((err) => {
-      console.error('[homepage] promotions query failed:', { code: err && err.code, fatal: !!(err && err.fatal) });
+      console.error('[homepage] promotions query failed:', { tag: 'homepage.promotions', code: err && err.code, fatal: !!(err && err.fatal) });
       return [];
     });
 }
@@ -3104,34 +3082,9 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
 // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
 console.log('[Chapter API] ⚠️ 路由定义被加载，路由路径: /api/chapter/:chapterId');
 app.get('/api/chapter/:chapterId', async (req, res) => {
-  let db;
   try {
-    console.log('');
-    console.log('========================================================');
-    console.log('[Chapter API] 🚀🚀🚀 路由处理函数被调用！🚀🚀🚀');
-    console.log('[Chapter API] ============================================');
-    console.log('[Chapter API] 请求URL:', req.url);
-    console.log('[Chapter API] 请求路径:', req.path);
-    console.log('[Chapter API] 请求方法:', req.method);
-    // do not print request params/query to logs
-    
     const { chapterId } = req.params;
     const userId = req.query.userId ? parseInt(req.query.userId) : null;
-    
-    console.log('[Chapter API] 🚀 路由被调用');
-    console.log('[Chapter API] 请求章节ID:', chapterId, '| 类型:', typeof chapterId);
-    console.log('[Chapter API] 用户ID:', userId, '| 类型:', typeof userId);
-    console.log('[Chapter API] 请求时间:', new Date().toISOString());
-    
-    // 使用mysql2/promise进行异步查询
-    const mysql = require('mysql2/promise');
-    db = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '123456',
-      database: process.env.DB_NAME || 'kongfuworld',
-      charset: 'utf8mb4'
-    });
     
     const query = `
       SELECT 
@@ -3160,16 +3113,9 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     // 注意：这里不检查 is_released，因为我们需要在后续逻辑中检查它
     // 如果在这里就过滤掉，用户访问未发布章节时会得到 404，而不是明确的 403 错误
     
-    console.log('[Chapter API] 📝 SQL 查询准备执行');
-    console.log('[Chapter API] SQL 参数:', [chapterId]);
-    
-    const [results] = await db.execute(query, [chapterId]);
-    
-    console.log('[Chapter API] 📊 SQL 查询执行完成');
-    console.log('[Chapter API] 查询结果数量:', results.length);
+    const [results] = await Db.query(query, [chapterId], { tag: 'chapter.get', idempotent: true });
     
     if (results.length === 0) {
-      console.log('[Chapter API] ⚠️ 未找到章节，返回 404');
       return res.status(404).json({ 
         success: false,
         message: 'Chapter not found or hidden' 
@@ -3178,35 +3124,16 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     
     const chapter = results[0];
     
-    console.log('[Chapter API] ========== 原始查询结果 ==========');
-    console.log('[Chapter API] 章节ID:', chapter.id);
-    console.log('[Chapter API] 小说ID:', chapter.novel_id);
-    console.log('[Chapter API] 章节号:', chapter.chapter_number);
-    console.log('[Chapter API] 章节标题:', chapter.title);
-    console.log('[Chapter API] unlock_price:', chapter.unlock_price);
-    console.log('[Chapter API] is_released:', chapter.is_released);
-    console.log('[Chapter API] is_advance:', chapter.is_advance);
-    
     // 🔍 检查章节可见性（在解锁检查之前）
     const ChampionService = require('./services/championService');
     const championService = new ChampionService();
-    const visibility = await championService.getUserChapterVisibility(db, chapter.novel_id, userId);
-    
-    console.log('[Chapter API] ========== 可见性检查结果 ==========');
-    console.log('[Chapter API] championEnabled:', visibility.championEnabled);
-    console.log('[Chapter API] isChampion:', visibility.isChampion);
-    console.log('[Chapter API] visibleMaxChapterNumber:', visibility.visibleMaxChapterNumber);
-    console.log('[Chapter API] baseMaxChapterNumber:', visibility.baseMaxChapterNumber);
-    console.log('[Chapter API] userAdvanceChapters:', visibility.userAdvanceChapters);
+    const visibility = await championService.getUserChapterVisibility(Db.getPool(), chapter.novel_id, userId);
     
     // 1. 检查 is_released 和 review_status（已在 SQL 中过滤 review_status）
     // 确保 is_released 是数字类型，并严格检查是否为 1
     const isReleased = Number(chapter.is_released) === 1;
-    console.log('[Chapter API] is_released 原始值:', chapter.is_released, '类型:', typeof chapter.is_released);
-    console.log('[Chapter API] is_released 转换后:', isReleased);
     
     if (!isReleased) {
-      console.log('[Chapter API] ❌ 章节未发布，返回 403');
       return res.status(403).json({
         success: false,
         code: 'CHAPTER_NOT_RELEASED',
@@ -3229,15 +3156,12 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     }
     
     if (!canAccess) {
-      console.log('[Chapter API] ❌ 章节不在用户可见范围内，返回 403');
       return res.status(403).json({
         success: false,
         code: 'CHAPTER_NOT_ACCESSIBLE',
         message: 'This chapter is only available as Champion advance reading.'
       });
     }
-    
-    console.log('[Chapter API] ✅ 章节可见性检查通过');
     
     // 3. 计算上一章/下一章（基于可见性）
     // 注意：参数顺序必须与 SQL 中的 ? 占位符顺序一致
@@ -3261,48 +3185,27 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     prevParams.push(chapter.chapter_number);
     nextParams.push(chapter.chapter_number);
     
-    // 构建完整的 SQL 查询字符串用于调试
     const prevQuery = `SELECT id FROM chapter WHERE novel_id = ? AND ${prevVisibilityCondition} AND chapter_number < ? ORDER BY chapter_number DESC LIMIT 1`;
     const nextQuery = `SELECT id FROM chapter WHERE novel_id = ? AND ${nextVisibilityCondition} AND chapter_number > ? ORDER BY chapter_number ASC LIMIT 1`;
     
-    console.log('[Chapter API] ========== 上一章/下一章查询 ==========');
-    console.log('[Chapter API] prevQuery:', prevQuery);
-    console.log('[Chapter API] prevParams:', prevParams);
-    console.log('[Chapter API] nextQuery:', nextQuery);
-    console.log('[Chapter API] nextParams:', nextParams);
-    
-    const [prevResults] = await db.execute(prevQuery, prevParams);
-    
-    const [nextResults] = await db.execute(nextQuery, nextParams);
-    
-    console.log('[Chapter API] 上一章查询结果数量:', prevResults.length);
-    console.log('[Chapter API] 上一章查询结果:', prevResults.length > 0 ? prevResults[0] : null);
-    console.log('[Chapter API] 下一章查询结果数量:', nextResults.length);
-    console.log('[Chapter API] 下一章查询结果:', nextResults.length > 0 ? nextResults[0] : null);
+    const [prevResults] = await Db.query(prevQuery, prevParams, { tag: 'chapter.prev', idempotent: true });
+    const [nextResults] = await Db.query(nextQuery, nextParams, { tag: 'chapter.next', idempotent: true });
     
     // 额外验证：如果查询返回了结果，再次检查 is_released
     if (nextResults.length > 0) {
       const nextChapterId = nextResults[0].id;
-      const [verifyResults] = await db.execute(
+      const [verifyResults] = await Db.query(
         'SELECT id, chapter_number, is_released, review_status FROM chapter WHERE id = ?',
-        [nextChapterId]
+        [nextChapterId],
+        { tag: 'chapter.next.verify', idempotent: true }
       );
       if (verifyResults.length > 0) {
         const nextChapter = verifyResults[0];
-        console.log('[Chapter API] ⚠️ 下一章验证:', {
-          id: nextChapter.id,
-          chapter_number: nextChapter.chapter_number,
-          is_released: nextChapter.is_released,
-          review_status: nextChapter.review_status
-        });
         if (Number(nextChapter.is_released) !== 1 || nextChapter.review_status !== 'approved') {
-          console.log('[Chapter API] ❌ 下一章验证失败：章节不符合可见性条件，将返回 null');
           nextResults.length = 0; // 清空结果
         }
       }
     }
-    
-    console.log('[Chapter API] ======================================');
     
     const prevId = prevResults.length > 0 ? prevResults[0].id : null;
     const nextId = nextResults.length > 0 ? nextResults[0].id : null;
@@ -3314,25 +3217,19 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     // 如果章节有解锁价格，需要检查用户权限
     if (chapter.unlock_price && chapter.unlock_price > 0) {
       if (!userId) {
-        console.log('[Chapter API] 🔒 章节需要解锁，但用户未登录，返回预览内容');
         isLocked = true;
       } else {
         // 获取用户信息
-        const [users] = await db.execute('SELECT * FROM user WHERE id = ?', [userId]);
+        const [users] = await Db.query('SELECT * FROM user WHERE id = ?', [userId], { tag: 'chapter.user', idempotent: true });
         if (users.length === 0) {
-          console.log('[Chapter API] 🔒 用户不存在，返回预览内容');
           isLocked = true;
         } else {
           const user = users[0];
           // 检查解锁状态
-          const unlockStatus = await checkChapterUnlockStatus(db, userId, chapterId, chapter, user);
-          console.log('[Chapter API] 🔒 解锁状态检查结果:', unlockStatus);
+          const unlockStatus = await checkChapterUnlockStatus(Db.getPool(), userId, chapterId, chapter, user);
           
           if (!unlockStatus.isUnlocked) {
-            console.log('[Chapter API] 🔒 章节未解锁，返回预览内容');
             isLocked = true;
-          } else {
-            console.log('[Chapter API] ✅ 章节已解锁，返回完整内容');
           }
         }
       }
@@ -3343,7 +3240,6 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
       const paragraphs = fullContent.split('\n').filter(p => p.trim().length > 0);
       const previewParagraphs = paragraphs.slice(0, 6);
       fullContent = previewParagraphs.join('\n');
-      console.log('[Chapter API] 📝 返回预览内容，段落数:', previewParagraphs.length, '/', paragraphs.length);
     }
     
     // 构建返回对象
@@ -3369,28 +3265,17 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
       is_locked: isLocked
     };
     
-    console.log('[Chapter API] ========== 返回 JSON 对象 ==========');
-    console.log('[Chapter API] responseData.is_locked:', responseData.is_locked);
-    console.log('[Chapter API] =================================');
-    
     const finalResponse = {
       success: true,
       data: responseData
     };
-    
-    console.log('[Chapter API] ✅ 准备发送响应');
-    console.log('[Chapter API] ============================================');
-    
     res.json(finalResponse);
   } catch (error) {
-    console.error('[Chapter API] ❌ 错误:', error);
+    console.error('[Chapter API] failed:', { tag: 'chapter.get', code: error && error.code, fatal: !!(error && error.fatal) });
     res.status(500).json({ 
       success: false,
-      message: 'Failed to get chapter content',
-      error: error.message 
+      message: 'Failed to get chapter content'
     });
-  } finally {
-    if (db) await db.end();
   }
 });
 
@@ -4354,10 +4239,12 @@ app.put('/api/review/:reviewId', authenticateToken, (req, res) => {
 // ==================== 章节评论API ====================
 
 // 获取章节评论
-app.get('/api/chapter/:chapterId/comments', (req, res) => {
+app.get('/api/chapter/:chapterId/comments', async (req, res) => {
   const { chapterId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  const offset = (page - 1) * limit;
+  const safePage = Math.max(1, parseInt(page, 10) || 1);
+  const safeLimit = Math.max(1, Math.min(50, parseInt(limit, 10) || 10));
+  const safeOffset = (safePage - 1) * safeLimit;
 
   // 获取评论列表（comment表现在只存储章节评论，target_id就是chapter_id）
   const commentsQuery = `
@@ -4376,15 +4263,11 @@ app.get('/api/chapter/:chapterId/comments', (req, res) => {
     JOIN user u ON c.user_id = u.id
     WHERE c.target_id = ?
     ORDER BY c.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${safeLimit} OFFSET ${safeOffset}
   `;
 
-  db.query(commentsQuery, [chapterId, parseInt(limit), parseInt(offset)], (err, comments) => {
-    if (err) {
-      console.error('获取章节评论失败:', err);
-      return res.status(500).json({ message: '获取章节评论失败' });
-    }
-
+  try {
+    const [comments] = await Db.query(commentsQuery, [chapterId], { tag: 'chapter.comments.list', idempotent: true });
     // 获取评论统计
     const statsQuery = `
       SELECT 
@@ -4395,27 +4278,24 @@ app.get('/api/chapter/:chapterId/comments', (req, res) => {
       WHERE target_id = ?
     `;
 
-    db.query(statsQuery, [chapterId], (err2, stats) => {
-      if (err2) {
-        console.error('获取评论统计失败:', err2);
-        return res.status(500).json({ message: '获取评论统计失败' });
+    const [stats] = await Db.query(statsQuery, [chapterId], { tag: 'chapter.comments.stats', idempotent: true });
+    const stat = (stats && stats[0]) ? stats[0] : { total_comments: 0, liked_comments: 0, total_likes: 0 };
+    const likeRate = stat.total_comments > 0 ?
+      Math.round((stat.liked_comments / stat.total_comments) * 100) : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        comments: comments,
+        total: stat.total_comments,
+        like_rate: likeRate,
+        total_likes: stat.total_likes
       }
-
-      const stat = stats[0];
-      const likeRate = stat.total_comments > 0 ? 
-        Math.round((stat.liked_comments / stat.total_comments) * 100) : 0;
-
-      res.json({
-        success: true,
-        data: {
-          comments: comments,
-          total: stat.total_comments,
-          like_rate: likeRate,
-          total_likes: stat.total_likes
-        }
-      });
     });
-  });
+  } catch (err) {
+    console.error('[chapter.comments] failed:', { tag: 'chapter.comments.list', code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: '获取章节评论失败' });
+  }
 });
 
 // 提交章节评论
@@ -4762,7 +4642,7 @@ app.post('/api/comment/:commentId/dislike', authenticateToken, async (req, res) 
 // ==================== 段落评论API ====================
 
 // 获取章节的段落评论统计
-app.get('/api/chapter/:chapterId/paragraph-comments', (req, res) => {
+app.get('/api/chapter/:chapterId/paragraph-comments', async (req, res) => {
   const { chapterId } = req.params;
   
   const query = `
@@ -4775,31 +4655,32 @@ app.get('/api/chapter/:chapterId/paragraph-comments', (req, res) => {
     ORDER BY paragraph_index
   `;
   
-  db.query(query, [chapterId], (err, results) => {
-    if (err) {
-      console.error('获取段落评论统计失败:', err);
-      return res.status(500).json({ message: '获取段落评论统计失败' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [chapterId], { tag: 'chapter.paragraphComments.stats', idempotent: true });
     // 转换为对象格式，便于前端使用
     const commentStats = {};
     results.forEach(row => {
       commentStats[row.paragraph_index] = row.comment_count;
     });
     
-    res.json({
+    return res.json({
       success: true,
       data: commentStats
     });
-  });
+  } catch (err) {
+    console.error('[chapter.paragraphComments] failed:', { tag: 'chapter.paragraphComments.stats', code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: '获取段落评论统计失败' });
+  }
 });
 
 // 获取指定段落的评论（支持嵌套结构）
-app.get('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', (req, res) => {
+app.get('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', async (req, res) => {
   const { chapterId, paragraphIndex } = req.params;
   const { page = 1, limit = 20 } = req.query;
   
-  const offset = (page - 1) * limit;
+  const safePage = Math.max(1, parseInt(page, 10) || 1);
+  const safeLimit = Math.max(1, Math.min(50, parseInt(limit, 10) || 20));
+  const offset = (safePage - 1) * safeLimit;
   
   // 获取顶级评论（parent_id为NULL）
   const query = `
@@ -4819,81 +4700,66 @@ app.get('/api/chapter/:chapterId/paragraph/:paragraphIndex/comments', (req, res)
     JOIN user u ON pc.user_id = u.id
     WHERE pc.chapter_id = ? AND pc.paragraph_index = ? AND pc.is_deleted = 0 AND pc.parent_id IS NULL
     ORDER BY pc.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${safeLimit} OFFSET ${offset}
   `;
   
-  db.query(query, [chapterId, paragraphIndex, parseInt(limit), parseInt(offset)], (err, topLevelComments) => {
-    if (err) {
-      console.error('获取段落评论失败:', err);
-      return res.status(500).json({ message: '获取段落评论失败' });
+  try {
+    const [topLevelComments] = await Db.query(
+      query,
+      [chapterId, paragraphIndex],
+      { tag: 'chapter.paragraphComments.list', idempotent: true }
+    );
+
+    // 获取每个顶级评论的回复（保持原语义：逐条查询）
+    const repliesQuery = `
+      SELECT 
+        pc.id,
+        pc.content,
+        pc.created_at,
+        COALESCE(pc.like_count, 0) as like_count,
+        COALESCE(pc.dislike_count, 0) as dislike_count,
+        pc.parent_id,
+        pc.user_id,
+        u.username,
+        u.pen_name,
+        u.is_author,
+        u.avatar
+      FROM paragraph_comment pc
+      JOIN user u ON pc.user_id = u.id
+      WHERE pc.parent_id = ? AND pc.is_deleted = 0
+      ORDER BY pc.created_at ASC
+    `;
+
+    for (const comment of (topLevelComments || [])) {
+      const [replies] = await Db.query(repliesQuery, [comment.id], { tag: 'chapter.paragraphComments.replies', idempotent: true });
+      comment.replies = replies;
     }
-    
-    // 获取每个顶级评论的回复
-    const getReplies = async (comments) => {
-      for (let comment of comments) {
-        const repliesQuery = `
-          SELECT 
-            pc.id,
-            pc.content,
-            pc.created_at,
-            COALESCE(pc.like_count, 0) as like_count,
-            COALESCE(pc.dislike_count, 0) as dislike_count,
-            pc.parent_id,
-            pc.user_id,
-            u.username,
-            u.pen_name,
-            u.is_author,
-            u.avatar
-          FROM paragraph_comment pc
-          JOIN user u ON pc.user_id = u.id
-          WHERE pc.parent_id = ? AND pc.is_deleted = 0
-          ORDER BY pc.created_at ASC
-        `;
-        
-        const replies = await new Promise((resolve, reject) => {
-          db.query(repliesQuery, [comment.id], (err, result) => {
-            if (err) reject(err);
-            else resolve(result);
-          });
-        });
-        
-        comment.replies = replies;
-      }
-      return comments;
-    };
-    
-    getReplies(topLevelComments).then(commentsWithReplies => {
-      // 获取评论总数
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM paragraph_comment 
-        WHERE chapter_id = ? AND paragraph_index = ? AND is_deleted = 0 AND parent_id IS NULL
-      `;
-      
-      db.query(countQuery, [chapterId, paragraphIndex], (err2, countResult) => {
-        if (err2) {
-          console.error('获取评论总数失败:', err2);
-          return res.status(500).json({ message: '获取评论总数失败' });
+
+    // 获取评论总数
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM paragraph_comment 
+      WHERE chapter_id = ? AND paragraph_index = ? AND is_deleted = 0 AND parent_id IS NULL
+    `;
+    const [countResult] = await Db.query(countQuery, [chapterId, paragraphIndex], { tag: 'chapter.paragraphComments.count', idempotent: true });
+    const total = countResult?.[0]?.total ?? 0;
+
+    return res.json({
+      success: true,
+      data: {
+        comments: topLevelComments,
+        pagination: {
+          page: safePage,
+          limit: safeLimit,
+          total,
+          pages: Math.ceil(total / safeLimit)
         }
-        
-        res.json({
-          success: true,
-          data: {
-            comments: commentsWithReplies,
-            pagination: {
-              page: parseInt(page),
-              limit: parseInt(limit),
-              total: countResult[0].total,
-              pages: Math.ceil(countResult[0].total / limit)
-            }
-          }
-        });
-      });
-    }).catch(err => {
-      console.error('获取回复失败:', err);
-      return res.status(500).json({ message: '获取回复失败' });
+      }
     });
-  });
+  } catch (err) {
+    console.error('[chapter.paragraphComments.list] failed:', { tag: 'chapter.paragraphComments.list', code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: '获取段落评论失败' });
+  }
 });
 
 // 添加段落评论（支持回复）
