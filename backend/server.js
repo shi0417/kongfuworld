@@ -285,12 +285,26 @@ app.use('/covers', express.static(path.join(__dirname, '../avatars')));
 
 // 数据库连接池配置
 const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '123456',
-  database: 'kongfuworld',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'kongfuworld',
   connectionLimit: 10,
+  waitForConnections: true,
+  queueLimit: 0,
+  enableKeepAlive: true,
   charset: 'utf8mb4'
+});
+
+// Prevent Node process crash on transient RDS disconnects (e.g., PROTOCOL_CONNECTION_LOST)
+// - Do NOT log credentials / queries / payloads.
+db.on('connection', (conn) => {
+  conn.on('error', (err) => {
+    console.error('[DB] connection error:', {
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+  });
 });
 
 // 初始化点赞/点踩服务
@@ -5540,8 +5554,6 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
   } catch (error) {
     console.error('获取卷章节列表失败:', error);
     res.status(500).json({ message: '获取卷章节列表失败', error: error.message });
-  } finally {
-    if (db) await db.end();
   }
 });
 
