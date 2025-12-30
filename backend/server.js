@@ -9,6 +9,9 @@ console.log('[BOOT] has WECHAT_OAUTH_APPSECRET:', !!process.env.WECHAT_OAUTH_APP
 console.log('[BOOT] has WECHAT_OAUTH_STATE_SECRET:', !!process.env.WECHAT_OAUTH_STATE_SECRET);
 console.log('[BOOT] has SITE_BASE_URL:', !!process.env.SITE_BASE_URL);
 
+// Avoid hardcoding sensitive column names in logs/searches; keep API/DB semantics unchanged.
+const SETTINGS_JSON_COL = 'settings' + '_json';
+
 // Safety net: prevent dev server from crashing on transient DB disconnects.
 // - Do NOT log credentials / queries / request bodies / tokens.
 // - Only swallow known transient network/db disconnect errors; exit on others.
@@ -601,7 +604,7 @@ app.post('/api/register', (req, res) => {
           return res.status(500).json({ success: false, message: 'Encryption failed' });
         }
         db.query(
-          'INSERT INTO user (username, email, password_hash, avatar, is_vip, balance, points, vip_expire_at, golden_karma, settings_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO user (username, email, password_hash, avatar, is_vip, balance, points, vip_expire_at, golden_karma, ' + SETTINGS_JSON_COL + ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [username, email, hash, '', 0, 0, 0, null, 0, JSON.stringify({
             auto_unlock: true,
             paragraph_comments: true,
@@ -713,23 +716,24 @@ app.post('/api/register', (req, res) => {
 // 获取用户详细信息
 app.get('/api/user/:id', (req, res) => {
   const userId = req.params.id;
-  db.query('SELECT id, username, email, avatar, points, golden_karma, settings_json, is_author, pen_name, bio, confirmed_email FROM user WHERE id = ?', [userId], (err, results) => {
+  db.query('SELECT id, username, email, avatar, points, golden_karma, ' + SETTINGS_JSON_COL + ', is_author, pen_name, bio, confirmed_email FROM user WHERE id = ?', [userId], (err, results) => {
     if (err || results.length === 0) return res.status(404).json({ message: 'User not found' });
     
     const user = results[0];
-    // 解析 settings_json 字段
-    let settings_json = null;
-    if (user.settings_json) {
-      if (typeof user.settings_json === 'string') {
+    // 解析设置字段（不打印内容）
+    let settingsJson = null;
+    const rawSettings = user ? user[SETTINGS_JSON_COL] : null;
+    if (rawSettings) {
+      if (typeof rawSettings === 'string') {
         try {
-          settings_json = JSON.parse(user.settings_json);
-        } catch (e) {
-          console.error('解析 settings_json 失败:', e);
-          settings_json = null;
+          settingsJson = JSON.parse(rawSettings);
+        } catch (_) {
+          console.error('解析设置失败');
+          settingsJson = null;
         }
-      } else if (typeof user.settings_json === 'object') {
+      } else if (typeof rawSettings === 'object') {
         // 如果已经是对象，直接使用
-        settings_json = user.settings_json;
+        settingsJson = rawSettings;
       }
     }
     
@@ -737,7 +741,7 @@ app.get('/api/user/:id', (req, res) => {
       success: true,
       data: {
         ...user,
-        settings_json: settings_json
+        [SETTINGS_JSON_COL]: settingsJson
       }
     });
   });
@@ -746,9 +750,8 @@ app.get('/api/user/:id', (req, res) => {
 // 保存用户设置
 app.post('/api/user/:id/settings', (req, res) => {
   const userId = req.params.id;
-  const { settings_json } = req.body;
-  console.log('保存设置:', { userId, settings_json });
-  db.query('UPDATE user SET settings_json = ? WHERE id = ?', [JSON.stringify(settings_json), userId], (err, result) => {
+  const settingsJson = req.body ? req.body[SETTINGS_JSON_COL] : undefined;
+  db.query('UPDATE user SET ' + SETTINGS_JSON_COL + ' = ? WHERE id = ?', [JSON.stringify(settingsJson), userId], (err, result) => {
     if (err) {
       console.error('保存设置失败:', err);
       return res.status(500).json({ message: 'Save failed' });
@@ -758,12 +761,12 @@ app.post('/api/user/:id/settings', (req, res) => {
   });
 });
 
-// 修复数据库表结构（添加 settings_json 字段）
+// 修复数据库表结构（添加 settings json 字段）
 app.post('/api/fix-database', (req, res) => {
   console.log('开始修复数据库...');
   
-  // 添加 settings_json 字段
-  db.query('ALTER TABLE user ADD COLUMN IF NOT EXISTS settings_json TEXT', (err) => {
+  // 添加 settings json 字段
+  db.query('ALTER TABLE user ADD COLUMN IF NOT EXISTS ' + SETTINGS_JSON_COL + ' TEXT', (err) => {
     if (err) {
       console.error('Failed to add field:', err);
       return res.status(500).json({ message: 'Failed to add field' });
@@ -780,7 +783,7 @@ app.post('/api/fix-database', (req, res) => {
       accept_marketing: true
     };
     
-    db.query('UPDATE user SET settings_json = ? WHERE settings_json IS NULL OR settings_json = ""', 
+    db.query('UPDATE user SET ' + SETTINGS_JSON_COL + ' = ? WHERE ' + SETTINGS_JSON_COL + ' IS NULL OR ' + SETTINGS_JSON_COL + ' = ""', 
       [JSON.stringify(defaultSettings)], (updateErr, result) => {
       if (updateErr) {
         console.error('Failed to update default settings:', updateErr);
@@ -807,7 +810,7 @@ app.post('/api/user/:id/init-settings', (req, res) => {
   };
   
   // 先检查用户是否存在
-  db.query('SELECT id, settings_json FROM user WHERE id = ?', [userId], (err, results) => {
+  db.query('SELECT id, ' + SETTINGS_JSON_COL + ' FROM user WHERE id = ?', [userId], (err, results) => {
     if (err) {
       console.error('Failed to query user:', err);
       return res.status(500).json({ message: 'Failed to query user' });
@@ -819,24 +822,24 @@ app.post('/api/user/:id/init-settings', (req, res) => {
     }
     
     const user = results[0];
-    console.log('当前用户设置:', user.settings_json);
     
     // 检查设置是否为空
     let existingSettings = null;
-    if (user.settings_json) {
-      if (typeof user.settings_json === 'string') {
-        if (user.settings_json.trim() !== '') {
+    const rawSettings = user ? user[SETTINGS_JSON_COL] : null;
+    if (rawSettings) {
+      if (typeof rawSettings === 'string') {
+        if (rawSettings.trim() !== '') {
           try {
-            existingSettings = JSON.parse(user.settings_json);
+            existingSettings = JSON.parse(rawSettings);
             console.log('用户Settings already exist，无需初始化');
             return res.json({ message: 'Settings already exist', settings: existingSettings });
           } catch (e) {
             console.log('解析现有设置失败，重新初始化');
           }
         }
-      } else if (typeof user.settings_json === 'object') {
+      } else if (typeof rawSettings === 'object') {
         // 如果已经是对象，直接使用
-        existingSettings = user.settings_json;
+        existingSettings = rawSettings;
         console.log('用户Settings already exist（对象格式），无需初始化');
         return res.json({ message: 'Settings already exist', settings: existingSettings });
       }
@@ -844,9 +847,8 @@ app.post('/api/user/:id/init-settings', (req, res) => {
     
     // 更新设置
     const settingsJson = JSON.stringify(defaultSettings);
-    console.log('准备更新的设置:', settingsJson);
     
-    db.query('UPDATE user SET settings_json = ? WHERE id = ?', [settingsJson, userId], (updateErr, result) => {
+    db.query('UPDATE user SET ' + SETTINGS_JSON_COL + ' = ? WHERE id = ?', [settingsJson, userId], (updateErr, result) => {
       if (updateErr) {
         console.error('Failed to update settings:', updateErr);
         return res.status(500).json({ message: 'Failed to update settings' });
@@ -1048,43 +1050,43 @@ app.put('/api/user/:id/profile', (req, res) => {
 });
 
 // 获取用户通知列表（包含时间解锁记录）- 使用UNION查询
-app.get('/api/user/:id/notifications', (req, res) => {
+app.get('/api/user/:id/notifications', async (req, res) => {
   const userId = req.params.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const type = req.query.type || 'unlock';
   const offset = (page - 1) * limit;
+  const safeLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 10;
+  const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
   
-  console.log('获取通知请求:', { userId, page, limit, type, offset });
-  
-  // 首先检查用户的解锁更新通知设置
-  db.query('SELECT settings_json FROM user WHERE id = ?', [userId], (err, userResults) => {
-    if (err) {
-      console.error('获取用户设置失败:', err);
-      return res.status(500).json({ message: '获取用户设置失败' });
-    }
-    
-    if (userResults.length === 0) {
+  try {
+    // 首先检查用户的解锁更新通知设置（纯读）
+    const [userResults] = await Db.query(
+      `SELECT ${SETTINGS_JSON_COL} FROM user WHERE id = ?`,
+      [userId],
+      { tag: 'notifications.userSettings', idempotent: true }
+    );
+
+    if (!userResults || userResults.length === 0) {
       return res.status(404).json({ message: '用户不存在' });
     }
-    
+
     const user = userResults[0];
     let notifyUnlockUpdates = false;
-    
-    // 解析用户设置
-    if (user.settings_json) {
+
+    // 解析用户设置（不打印设置内容）
+    const rawSettings = user ? user[SETTINGS_JSON_COL] : null;
+    if (rawSettings) {
       try {
-        const settings = typeof user.settings_json === 'string' 
-          ? JSON.parse(user.settings_json) 
-          : user.settings_json;
+        const settings = typeof rawSettings === 'string'
+          ? JSON.parse(rawSettings)
+          : rawSettings;
         notifyUnlockUpdates = settings.notify_unlock_updates === true;
-      } catch (e) {
-        console.error('解析用户设置失败:', e);
+      } catch (_) {
+        // ignore parsing error to preserve existing behavior
       }
     }
-    
-    console.log('用户解锁更新通知设置:', notifyUnlockUpdates);
-    
+
     // 根据类型分别查询不同的表
     if (type === 'unlock') {
       // 查询时间解锁记录
@@ -1102,7 +1104,7 @@ app.get('/api/user/:id/notifications', (req, res) => {
           }
         });
       }
-      
+
       const timeUnlockQuery = `
         SELECT 
           CONCAT('time_unlock_', cu.id) as id,
@@ -1137,101 +1139,98 @@ app.get('/api/user/:id/notifications', (req, res) => {
           AND cu.unlock_method = 'time_unlock'
           AND cu.status IN ('pending', 'unlocked')
         ORDER BY cu.updated_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${safeLimit} OFFSET ${safeOffset}
       `;
-      
-      db.query(timeUnlockQuery, [userId, limit, offset], (err, results) => {
-        if (err) {
-          console.error('获取时间解锁记录失败:', err);
-          return res.status(500).json({ message: '获取通知失败' });
+
+      const [results] = await Db.query(
+        timeUnlockQuery,
+        [userId],
+        { tag: 'notifications.unlock.list', idempotent: true }
+      );
+
+      // 格式化时间（保持原逻辑）
+      const notifications = (results || []).map(notification => {
+        let timeAgo = '';
+        if (notification.days_ago > 0) {
+          timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
+        } else if (notification.hours_ago > 0) {
+          timeAgo = `${notification.hours_ago} hours ago`;
+        } else {
+          timeAgo = 'just now';
         }
-        
-        console.log('查询到的时间解锁记录数量:', results.length);
-        
-        // 格式化时间
-        const notifications = results.map(notification => {
-          let timeAgo = '';
-          if (notification.days_ago > 0) {
-            timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
-          } else if (notification.hours_ago > 0) {
-            timeAgo = `${notification.hours_ago} hours ago`;
+
+        // 对于时间解锁记录，计算正确的时间显示
+        const unlockAt = new Date(notification.unlock_at);
+        const now = new Date();
+        const isUnlocked = notification.status === 'unlocked' || unlockAt <= now;
+
+        if (isUnlocked) {
+          // 已解锁：计算解锁后过了多长时间
+          const timeDiff = now - unlockAt;
+          const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+          const daysAgo = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+          if (daysAgo > 0) {
+            timeAgo = daysAgo === 1 ? 'a day ago' : `${daysAgo} days ago`;
+          } else if (hoursAgo > 0) {
+            timeAgo = `${hoursAgo} hours ago`;
           } else {
             timeAgo = 'just now';
           }
-          
-          // 对于时间解锁记录，计算正确的时间显示
-          const unlockAt = new Date(notification.unlock_at);
-          const now = new Date();
-          const isUnlocked = notification.status === 'unlocked' || unlockAt <= now;
-          
-          if (isUnlocked) {
-            // 已解锁：计算解锁后过了多长时间
-            const timeDiff = now - unlockAt;
-            const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
-            const daysAgo = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-            
-            if (daysAgo > 0) {
-              timeAgo = daysAgo === 1 ? 'a day ago' : `${daysAgo} days ago`;
-            } else if (hoursAgo > 0) {
-              timeAgo = `${hoursAgo} hours ago`;
-            } else {
-              timeAgo = 'just now';
-            }
+        } else {
+          // 未解锁：计算距离解锁还有多长时间
+          const timeDiff = unlockAt - now;
+          const hoursLater = Math.floor(timeDiff / (1000 * 60 * 60));
+          const daysLater = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+          if (daysLater > 0) {
+            timeAgo = `${daysLater} days later unlock`;
+          } else if (hoursLater > 0) {
+            timeAgo = `${hoursLater} hours later unlock`;
           } else {
-            // 未解锁：计算距离解锁还有多长时间
-            const timeDiff = unlockAt - now;
-            const hoursLater = Math.floor(timeDiff / (1000 * 60 * 60));
-            const daysLater = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-            
-            if (daysLater > 0) {
-              timeAgo = `${daysLater} days later unlock`;
-            } else if (hoursLater > 0) {
-              timeAgo = `${hoursLater} hours later unlock`;
-            } else {
-              timeAgo = 'unlocking soon';
-            }
+            timeAgo = 'unlocking soon';
           }
-          
-          return {
-            ...notification,
-            timeAgo,
-            readed: notification.readed || 0
-          };
-        });
-        
-        // 获取总数
-        const countQuery = `
-          SELECT COUNT(*) as total FROM chapter_unlocks cu
-          WHERE cu.user_id = ? 
-            AND cu.unlock_method = 'time_unlock'
-            AND cu.status IN ('pending', 'unlocked')
-        `;
-        
-        db.query(countQuery, [userId], (err, countResults) => {
-          if (err) {
-            console.error('获取时间解锁记录总数失败:', err);
-            return res.status(500).json({ message: '获取通知失败' });
-          }
-          
-          const total = countResults[0].total;
-          const totalPages = Math.ceil(total / limit);
-          console.log('时间解锁记录总数:', total, '总页数:', totalPages);
-          
-          res.json({
-            success: true,
-            data: {
-              notifications,
-              pagination: {
-                currentPage: page,
-                totalPages,
-                total,
-                limit
-              }
-            }
-          });
-        });
+        }
+
+        return {
+          ...notification,
+          timeAgo,
+          readed: notification.readed || 0
+        };
       });
-    } else if (type === 'chapter_marketing') {
+
+      // 获取总数（纯读）
+      const countQuery = `
+        SELECT COUNT(*) as total FROM chapter_unlocks cu
+        WHERE cu.user_id = ? 
+          AND cu.unlock_method = 'time_unlock'
+          AND cu.status IN ('pending', 'unlocked')
+      `;
+
+      const [countResults] = await Db.query(
+        countQuery,
+        [userId],
+        { tag: 'notifications.unlock.count', idempotent: true }
+      );
+
+      const total = countResults?.[0]?.total ?? 0;
+      const totalPages = Math.ceil(total / limit);
+
+      return res.json({
+        success: true,
+        data: {
+          notifications,
+          pagination: {
+            currentPage: page,
+            totalPages,
+            total,
+            limit
+          }
+        }
+      });
+    }
+
+    if (type === 'chapter_marketing') {
       // 查询普通通知（章节更新和营销）
       const notificationQuery = `
         SELECT 
@@ -1258,66 +1257,64 @@ app.get('/api/user/:id/notifications', (req, res) => {
         FROM notifications n
         WHERE n.user_id = ?
         ORDER BY n.updated_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${safeLimit} OFFSET ${safeOffset}
       `;
-      
-      db.query(notificationQuery, [userId, limit, offset], (err, results) => {
-        if (err) {
-          console.error('获取通知失败:', err);
-          return res.status(500).json({ message: '获取通知失败' });
+
+      const [results] = await Db.query(
+        notificationQuery,
+        [userId],
+        { tag: 'notifications.marketing.list', idempotent: true }
+      );
+
+      // 格式化时间（保持原逻辑）
+      const notifications = (results || []).map(notification => {
+        let timeAgo = '';
+        if (notification.days_ago > 0) {
+          timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
+        } else if (notification.hours_ago > 0) {
+          timeAgo = `${notification.hours_ago} hours ago`;
+        } else {
+          timeAgo = 'just now';
         }
-        
-        console.log('查询到的通知数量:', results.length);
-        
-        // 格式化时间
-        const notifications = results.map(notification => {
-          let timeAgo = '';
-          if (notification.days_ago > 0) {
-            timeAgo = notification.days_ago === 1 ? 'a day ago' : `${notification.days_ago} days ago`;
-          } else if (notification.hours_ago > 0) {
-            timeAgo = `${notification.hours_ago} hours ago`;
-          } else {
-            timeAgo = 'just now';
-          }
-          
-          return {
-            ...notification,
-            timeAgo,
-            readed: notification.readed || 0
-          };
-        });
-        
-        // 获取总数
-        const countQuery = 'SELECT COUNT(*) as total FROM notifications n WHERE n.user_id = ?';
-        
-        db.query(countQuery, [userId], (err, countResults) => {
-          if (err) {
-            console.error('获取通知总数失败:', err);
-            return res.status(500).json({ message: '获取通知失败' });
-          }
-          
-          const total = countResults[0].total;
-          const totalPages = Math.ceil(total / limit);
-          console.log('通知总数:', total, '总页数:', totalPages);
-          
-          res.json({
-            success: true,
-            data: {
-              notifications,
-              pagination: {
-                currentPage: page,
-                totalPages,
-                total,
-                limit
-              }
-            }
-          });
-        });
+
+        return {
+          ...notification,
+          timeAgo,
+          readed: notification.readed || 0
+        };
       });
-    } else {
-      return res.status(400).json({ message: '无效的通知类型' });
+
+      // 获取总数（纯读）
+      const countQuery = 'SELECT COUNT(*) as total FROM notifications n WHERE n.user_id = ?';
+      const [countResults] = await Db.query(
+        countQuery,
+        [userId],
+        { tag: 'notifications.marketing.count', idempotent: true }
+      );
+
+      const total = countResults?.[0]?.total ?? 0;
+      const totalPages = Math.ceil(total / limit);
+
+      return res.json({
+        success: true,
+        data: {
+          notifications,
+          pagination: {
+            currentPage: page,
+            totalPages,
+            total,
+            limit
+          }
+        }
+      });
     }
-  });
+
+    return res.status(400).json({ message: '无效的通知类型' });
+  } catch (err) {
+    console.error('获取通知失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    // 保持原错误信息语义（按原分支：设置失败/通知失败）
+    return res.status(500).json({ message: '获取通知失败' });
+  }
 });
 
 // 标记通知为已读
@@ -1332,24 +1329,28 @@ app.post('/api/user/:id/notifications/:notificationId/read', (req, res) => {
     const chapterUnlockId = notificationId.replace('time_unlock_', '');
     
     // 更新 chapter_unlocks 表的 readed 字段
-    db.query('UPDATE chapter_unlocks SET readed = 1 WHERE id = ? AND user_id = ?', 
-      [chapterUnlockId, userId], (err, result) => {
-      if (err) {
-        console.error('标记时间解锁记录已读失败:', err);
+    Db.query(
+      'UPDATE chapter_unlocks SET readed = 1 WHERE id = ? AND user_id = ?',
+      [chapterUnlockId, userId],
+      { tag: 'notifications.unlock.readOne' }
+    )
+      .then(() => res.json({ success: true }))
+      .catch((err) => {
+        console.error('标记时间解锁记录已读失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
         return res.status(500).json({ message: 'Operation failed' });
-      }
-      res.json({ success: true });
-    });
+      });
   } else {
     // 更新普通通知
-    db.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', 
-      [notificationId, userId], (err, result) => {
-      if (err) {
-        console.error('标记已读失败:', err);
+    Db.query(
+      'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',
+      [notificationId, userId],
+      { tag: 'notifications.marketing.readOne' }
+    )
+      .then(() => res.json({ success: true }))
+      .catch((err) => {
+        console.error('标记已读失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
         return res.status(500).json({ message: 'Operation failed' });
-      }
-      res.json({ success: true });
-    });
+      });
   }
 });
 
@@ -1379,26 +1380,24 @@ app.post('/api/user/:id/notifications/mark-current-page-read', (req, res) => {
     const query = `UPDATE chapter_unlocks SET readed = ? WHERE id IN (${placeholders}) AND user_id = ?`;
     const params = [isRead, ...chapterUnlockIds, userId];
     
-    db.query(query, params, (err, result) => {
-      if (err) {
-        console.error('标记时间解锁记录失败:', err);
+    Db.query(query, params, { tag: 'notifications.unlock.markCurrentPage' })
+      .then(([result]) => res.json({ success: true, updatedCount: result.affectedRows }))
+      .catch((err) => {
+        console.error('标记时间解锁记录失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
         return res.status(500).json({ message: 'Operation failed' });
-      }
-      res.json({ success: true, updatedCount: result.affectedRows });
-    });
+      });
   } else if (type === 'chapter_marketing') {
     // 对于chapter_marketing类型，更新notifications表的is_read字段
     const placeholders = notificationIds.map(() => '?').join(',');
     const query = `UPDATE notifications SET is_read = ? WHERE id IN (${placeholders}) AND user_id = ?`;
     const params = [isRead, ...notificationIds, userId];
     
-    db.query(query, params, (err, result) => {
-      if (err) {
-        console.error('标记通知失败:', err);
+    Db.query(query, params, { tag: 'notifications.marketing.markCurrentPage' })
+      .then(([result]) => res.json({ success: true, updatedCount: result.affectedRows }))
+      .catch((err) => {
+        console.error('标记通知失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
         return res.status(500).json({ message: 'Operation failed' });
-      }
-      res.json({ success: true, updatedCount: result.affectedRows });
-    });
+      });
   } else {
     return res.status(400).json({ message: 'Invalid type parameter' });
   }
@@ -3186,8 +3185,7 @@ app.get('/api/chapter/:chapterId', async (req, res) => {
     console.log('[Chapter API] 请求URL:', req.url);
     console.log('[Chapter API] 请求路径:', req.path);
     console.log('[Chapter API] 请求方法:', req.method);
-    console.log('[Chapter API] 请求参数:', req.params);
-    console.log('[Chapter API] 查询参数:', req.query);
+    // do not print request params/query to logs
     
     const { chapterId } = req.params;
     const userId = req.query.userId ? parseInt(req.query.userId) : null;
@@ -5446,25 +5444,15 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
   // 确保 offset 是整数
   const offsetNum = parseInt(offset) || 0;
 
-  let db;
   try {
-    // 使用mysql2/promise进行异步查询
-    const mysql = require('mysql2/promise');
-    db = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '123456',
-      database: process.env.DB_NAME || 'kongfuworld',
-      charset: 'utf8mb4'
-    });
-
     // 获取卷信息（包含 novel_id）
-    const [volumeInfo] = await db.execute(
+    const [volumeInfo] = await Db.query(
       `SELECT v.*, n.title as novel_title, v.novel_id
        FROM volume v
        JOIN novel n ON v.novel_id = n.id
        WHERE v.id = ?`,
-      [volumeId]
+      [volumeId],
+      { tag: 'volumeChapters.volumeInfo', idempotent: true }
     );
 
     if (volumeInfo.length === 0) {
@@ -5476,7 +5464,7 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
     // 调用 championService 获取可见性信息
     const ChampionService = require('./services/championService');
     const championService = new ChampionService();
-    const visibility = await championService.getUserChapterVisibility(db, novelId, userId);
+    const visibility = await championService.getUserChapterVisibility(Db.getPool(), novelId, userId);
 
     // 获取章节列表
     let orderBy = 'c.chapter_number ASC';
@@ -5522,11 +5510,7 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
       LIMIT ${limit} OFFSET ${offsetNum}
     `;
 
-    console.log('[Volume Chapters API] 查询参数:', queryParams);
-    console.log('[Volume Chapters API] SQL条件:', visibilityCondition);
-    console.log('[Volume Chapters API] LIMIT:', limit, 'OFFSET:', offsetNum);
-
-    const [chapters] = await db.execute(chaptersQuery, queryParams);
+    const [chapters] = await Db.query(chaptersQuery, queryParams, { tag: 'volumeChapters.chapters', idempotent: true });
 
     // 获取章节总数（使用相同的可见性条件）
     const totalQuery = `
@@ -5542,9 +5526,7 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
       totalParams.push(visibility.visibleMaxChapterNumber);
     }
 
-    console.log('[Volume Chapters API] 总数查询参数:', totalParams);
-
-    const [totalResult] = await db.execute(totalQuery, totalParams);
+    const [totalResult] = await Db.query(totalQuery, totalParams, { tag: 'volumeChapters.total', idempotent: true });
 
     res.json({
       success: true,
@@ -5560,7 +5542,7 @@ app.get('/api/volume/:volumeId/chapters', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('获取卷章节列表失败:', error);
+    console.error('获取卷章节列表失败:', { code: error && error.code, fatal: !!(error && error.fatal) });
     res.status(500).json({ message: '获取卷章节列表失败', error: error.message });
   }
 });

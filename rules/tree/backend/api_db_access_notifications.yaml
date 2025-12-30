@@ -1,0 +1,102 @@
+id: BE-API-DB-NOTIF-001
+title: "Backend Notifications: DB 访问统一入口 + 脱敏日志 + LIMIT/OFFSET 兼容性"
+status: active
+owner: backend
+version: 1
+created_at: "2025-12-30"
+last_updated_at: "2025-12-30"
+
+applies_to:
+  - backend/server.js
+  - backend/routes/**/*.js
+  - "所有高频轮询接口（尤其 /api/user/:id/notifications）"
+
+intent: >
+  将“通知轮询接口（/api/user/:id/notifications）改造”的经验固化为可复用规则，避免 PROTOCOL_CONNECTION_LOST
+  等断连导致的进程不稳定，同时防止敏感信息（SQL/params/用户输入/settings 内容）泄露到日志与工单证据中。
+
+requirements:
+  must:
+    - id: DB-ACCESS-AWAIT-ONLY
+      rule: >
+        Express routes 禁止使用 db.query(sql, params, callback) 的回调形式。
+        统一使用 await Db.query(sql, params, opts)；保持 handler 为 async。
+      rationale: >
+        统一入口便于集中做连接池管理、可控重试、错误脱敏与 tag 追踪；避免 callback 风格散落造成难以治理。
+
+    - id: DB-SELECT-IDEMPOTENT-EXPLICIT
+      rule: >
+        所有 SELECT 查询如允许重试，必须显式设置 opts.idempotent === true，并提供 opts.tag。
+        写操作（UPDATE/INSERT/DELETE）必须使用 Db.query(..., { tag }) 且不得设置 idempotent。
+      rationale: >
+        是否重试由 Db 层控制且必须显式声明；写操作重试可能造成重复写入或竞态。
+      examples:
+        select_ok: "const [rows] = await Db.query(sql, params, { tag: 'notifications.list', idempotent: true });"
+        write_ok: "await Db.query(sql, params, { tag: 'notifications.markRead.single' });"
+
+    - id: LOG-REDACTION-NO-PARAMS
+      rule: >
+        禁止打印敏感日志：SQL、params、SQL 条件、settings_json、用户输入、token、request body。
+        日志仅允许输出脱敏元信息：{ tag, code, fatal }。
+      allowed_log_shape: "console.error('[<scope>] failed:', { tag, code, fatal });"
+      forbidden_examples:
+        - "console.log(req.query)"
+        - "console.log('SQL条件:', visibilityCondition)"
+        - "console.log('保存设置:', { userId, settings_json })"
+        - "console.error(err) // 如果 err 可能包含 SQL/params"
+
+    - id: MYSQL2-LIMIT-OFFSET-COMPAT
+      rule: >
+        mysql2 在部分场景对 LIMIT ? / OFFSET ? 存在 ER_WRONG_ARGUMENTS 风险。
+        一旦在高频接口出现该风险，允许将 LIMIT/OFFSET 改为“安全整数内联”：
+        - 必须对来源值做 parseInt + clamp（范围限制）
+        - 只能内联安全整数（safeLimit/safeOffset），不得内联用户原始字符串
+        - 不得改变分页/筛选参数的语义（page/limit/type/offset 含义不变）
+      required_pattern:
+        safe_vars: >
+          const safeLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 10;
+          const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+        sql_example: "LIMIT ${safeLimit} OFFSET ${safeOffset}"
+      note: >
+        仅对 LIMIT/OFFSET 做安全整数内联；WHERE 条件与其他字段仍必须使用参数化绑定（?）以避免注入风险。
+
+hard_gates:
+  - id: DELIVERABLES-EVIDENCE-PACK
+    name: "交付物标准（通知/轮询接口改动必备证据包）"
+    rule: >
+      每次改动必须附：
+      1) server.js diff（或相关路由文件 diff）
+      2) node --check exit=0
+      3) 3 条 curl（http_code only）
+      4) Select-String 0 命中（敏感日志关键词）
+    commands:
+      diff:
+        - "git diff backend/server.js"
+      syntax_check:
+        - "cd backend; node --check server.js; echo exit=$LASTEXITCODE"
+      smoke_http_code:
+        - "curl.exe --max-time 10 -sS -o NUL -w \"notif=%{http_code}`n\" \"http://localhost:5000/api/user/1/notifications?type=unlock&page=1&limit=5\""
+        - "curl.exe --max-time 10 -sS -o NUL -w \"vol=%{http_code}`n\" \"http://localhost:5000/api/volume/84/chapters?sort=chapter_number&page=1&limit=10&userId=1\""
+        - "curl.exe --max-time 10 -sS -o NUL -w \"news=%{http_code}`n\" \"http://localhost:5000/api/news\""
+      sensitive_log_scan:
+        - "cd backend; Select-String -Path .\\server.js -Pattern \"获取通知请求|查询参数|SQL条件|总数查询参数|通知总数|查询到的通知数量|settings_json\" -SimpleMatch"
+    pass_criteria:
+      - "node --check exit=0"
+      - "curl 三行均为 200（或按接口鉴权要求返回预期的 401/403/4xx，但不得超时）"
+      - "Select-String 0 命中；如非 0 必须先移除/改写后再交付"
+
+risk_notes:
+  - id: RISK-RETRY-WRITE
+    description: >
+      对写操作误加 idempotent（或 Db 层误判）会引入重复写入/竞态风险。
+    mitigation:
+      - "写操作 opts 不允许出现 idempotent"
+      - "SELECT 才允许 idempotent:true"
+
+  - id: RISK-LOG-LEAK
+    description: >
+      记录 req.query/req.params/SQL 条件/用户设置会泄露用户输入与内部结构，且会污染验收证据。
+    mitigation:
+      - "统一日志输出为 { tag, code, fatal }"
+
+

@@ -1,5 +1,11 @@
 version: 1
 tree:
+  backend:
+    api:
+      - id: BE-API-DB-NOTIF-001
+        title: "Backend Notifications: DB 访问统一入口 + 脱敏日志 + LIMIT/OFFSET 兼容性"
+        status: active
+        path: rules/tree/backend/api_db_access_notifications.yaml
   frontend:
     css:
       - id: FE-CSS-OVERRIDE-002
