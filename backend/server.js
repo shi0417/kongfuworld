@@ -355,8 +355,69 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5M
 
 // 小说上传API路由
 app.post('/api/novel/find-similar', findSimilarNovelsAPI);
-app.get('/api/novels', getAllNovelsAPI);
-app.post('/api/novels/search', searchNovelsAPI);
+// NOTE: db is mysql2/promise pool (Db.getPool). Do NOT use callback-style db.query(sql, params, cb) here,
+// otherwise requests may hang (callback is not supported on promise clients).
+app.get('/api/novels', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novels.list';
+  console.info('[API] start:', { tag });
+  try {
+    const [rows] = await Db.query(
+      `
+        SELECT id, title, author, description, chapters
+        FROM novel
+        ORDER BY id DESC
+      `,
+      [],
+      { tag, idempotent: true }
+    );
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({ success: true, novels: rows });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ error: '获取小说列表失败' });
+  }
+});
+
+app.post('/api/novels/search', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novels.search';
+  console.info('[API] start:', { tag });
+  try {
+    const title = req && req.body && req.body.title;
+    if (!title || String(title).trim() === '') {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'NO_TITLE' });
+      return res.status(400).json({ error: '请输入搜索关键词' });
+    }
+
+    const [rows] = await Db.query(
+      `
+        SELECT id, title, author, description, chapters
+        FROM novel
+        WHERE title LIKE ?
+        ORDER BY id DESC
+      `,
+      [`%${String(title).trim()}%`],
+      { tag, idempotent: true }
+    );
+
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({ success: true, novels: rows });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ error: '搜索小说失败' });
+  }
+});
 // Public Series/Novels 列表页接口（不影响旧的 /api/novels 与 /api/novels/search）
 const createPublicSeriesRouter = require('./routes/publicSeries');
 app.use('/api', createPublicSeriesRouter(db.promise()));
@@ -1503,52 +1564,76 @@ app.post('/api/create-test-notifications', (req, res) => {
 });
 
 // 根据小说名称搜索小说
-app.post('/api/novel/search-by-title', (req, res) => {
-  const { title } = req.body;
-  
-  if (!title || title.trim() === '') {
-    return res.status(400).json({ message: 'Please enter novel name' });
-  }
-  
-  const query = `
-    SELECT id, title, author, translator, description, chapters, licensed_from, status, cover, rating, reviews
-    FROM novel 
-    WHERE title LIKE ? 
-    ORDER BY title ASC
-  `;
-  
-  db.query(query, [`%${title.trim()}%`], (err, results) => {
-    if (err) {
-      console.error('搜索小说失败:', err);
-      return res.status(500).json({ message: 'Search failed' });
+app.post('/api/novel/search-by-title', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.searchByTitle';
+
+  try {
+    const title = req && req.body && req.body.title;
+    if (!title || String(title).trim() === '') {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'NO_TITLE' });
+      return res.status(400).json({ message: 'Please enter novel name' });
     }
-    
-    res.json({ novels: results });
-  });
+
+    const query = `
+      SELECT id, title, author, translator, description, chapters, licensed_from, status, cover, rating, reviews
+      FROM novel
+      WHERE title LIKE ?
+      ORDER BY title ASC
+    `;
+
+    const [rows] = await Db.query(query, [`%${String(title).trim()}%`], { tag, idempotent: true });
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({ novels: rows });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: 'Search failed' });
+  }
 });
 
 // 获取小说详细信息
-app.get('/api/novel/:id/details', (req, res) => {
-  const { id } = req.params;
-  
+app.get('/api/novel/:id/details', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.details';
+
+  const rawId = req.params && req.params.id;
+  const novelId = Number.parseInt(String(rawId), 10);
+  if (!Number.isFinite(novelId) || novelId <= 0) {
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'BAD_ID' });
+    return res.status(400).json({ message: 'Invalid novel id' });
+  }
+
+  console.info('[API] start:', { tag });
+
   const query = `
     SELECT id, title, author, translator, description, recommendation, languages, chapters, licensed_from, status, cover, rating, reviews, champion_status
-    FROM novel 
+    FROM novel
     WHERE id = ?
   `;
-  
-  db.query(query, [id], (err, results) => {
-    if (err) {
-      console.error('Failed to get novel details:', err);
-      return res.status(500).json({ message: 'Failed to get novel details' });
-    }
-    
-    if (results.length === 0) {
+
+  try {
+    const [rows] = await Db.query(query, [novelId], { tag, idempotent: true });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'NOT_FOUND' });
       return res.status(404).json({ message: 'Novel not found' });
     }
-    
-    res.json({ novel: results[0] });
-  });
+
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({ novel: rows[0] });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: 'Failed to get novel details' });
+  }
 });
 
 // 获取小说的章节数量
@@ -3964,38 +4049,58 @@ app.get('/api/novel/:novelId/reviews', (req, res) => {
 });
 
 // 获取小说的评论统计（只统计主评论，parent_id IS NULL）
-app.get('/api/novel/:novelId/review-stats', (req, res) => {
-  const { novelId } = req.params;
+app.get('/api/novel/:novelId/review-stats', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.reviewStats';
+
+  const rawId = req.params && req.params.novelId;
+  const novelId = Number.parseInt(String(rawId), 10);
+  if (!Number.isFinite(novelId) || novelId <= 0) {
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'BAD_ID' });
+    return res.status(400).json({ message: 'Invalid novel id' });
+  }
+
+  console.info('[API] start:', { tag });
 
   const query = `
-    SELECT 
+    SELECT
       COUNT(*) as total_reviews,
       AVG(rating) as average_rating,
       SUM(CASE WHEN is_recommended = 1 THEN 1 ELSE 0 END) as recommended_count,
       SUM(likes) as total_likes
-    FROM review 
+    FROM review
     WHERE novel_id = ? AND parent_id IS NULL
   `;
 
-  db.query(query, [novelId], (err, results) => {
-    if (err) {
-      console.error('获取评论统计失败:', err);
-      return res.status(500).json({ message: '获取评论统计失败' });
-    }
+  try {
+    const [rows] = await Db.query(query, [novelId], { tag, idempotent: true });
+    const stats = (Array.isArray(rows) && rows[0]) ? rows[0] : {};
 
-    const stats = results[0];
-    res.json({
+    const totalReviews = Number(stats.total_reviews || 0);
+    const recommendedCount = Number(stats.recommended_count || 0);
+
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({
       success: true,
       data: {
-        total_reviews: stats.total_reviews || 0,
-        average_rating: Math.round((stats.average_rating || 0) * 10) / 10,
-        recommended_count: stats.recommended_count || 0,
-        total_likes: stats.total_likes || 0,
-        recommendation_rate: stats.total_reviews > 0 ? 
-          Math.round((stats.recommended_count / stats.total_reviews) * 100) : 0
-      }
+        total_reviews: totalReviews,
+        average_rating: Math.round((Number(stats.average_rating || 0)) * 10) / 10,
+        recommended_count: recommendedCount,
+        total_likes: Number(stats.total_likes || 0),
+        recommendation_rate: totalReviews > 0
+          ? Math.round((recommendedCount / totalReviews) * 100)
+          : 0,
+      },
     });
-  });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: '获取评论统计失败' });
+  }
 });
 
 // 提交评论
