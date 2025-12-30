@@ -1935,8 +1935,7 @@ function fetchHomepagePromotions(db, limit = 2) {
   const clampedLimit = Math.max(0, Math.min(2, safeLimit));
   if (clampedLimit <= 0) return Promise.resolve([]);
 
-  return new Promise((resolve) => {
-    const sql = `
+  const sql = `
       SELECT
         pp.id AS promotion_id,
         pp.novel_id,
@@ -1961,14 +1960,10 @@ function fetchHomepagePromotions(db, limit = 2) {
       LIMIT ?
     `;
 
-    db.query(sql, [clampedLimit], (err, results) => {
-      if (err) {
-        console.error('[homepage] promotions query failed:', err);
-        return resolve([]);
-      }
-
-      const rows = Array.isArray(results) ? results : [];
-      const mapped = rows.map((r) => {
+  return Db.query(sql, [clampedLimit], { tag: 'homepage.promotions', idempotent: true })
+    .then(([rows]) => {
+      const list = Array.isArray(rows) ? rows : [];
+      return list.map((r) => {
         const discountValue = Number.parseFloat(r.discount_value);
         const safeDiscountValue = Number.isFinite(discountValue) ? discountValue : 1;
         const discountPercentage = Math.round((1 - safeDiscountValue) * 100);
@@ -1993,10 +1988,11 @@ function fetchHomepagePromotions(db, limit = 2) {
           },
         };
       });
-
-      resolve(mapped);
+    })
+    .catch((err) => {
+      console.error('[homepage] promotions query failed:', { code: err && err.code, fatal: !!(err && err.fatal) });
+      return [];
     });
-  });
 }
 
 // 计算 Because You Read（用户维度；不进入公共缓存）
@@ -2005,12 +2001,7 @@ function computeBecauseYouReadForUser(db, userId, baseBecauseYouRead, genreMapDe
   const GENRE_MAP_SQL = genreMapDerivedSql || HOMEPAGE_GENRE_MAP_DERIVED_SQL;
 
   const queryAsync = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-      db.query(sql, params, (err, results) => {
-        if (err) return reject(err);
-        resolve(results);
-      });
-    });
+    db.query(sql, params).then(([rows]) => rows);
 
   return (async () => {
     const result = {
@@ -2417,6 +2408,8 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
     }
 
     const { limit = 6 } = req.query;
+    const parsedLimit = Number.parseInt(limit, 10);
+    const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 6;
 
     // Helper: 最新章节（每本书取 1 章，按 created_at DESC, id DESC 解决同秒冲突）
     const LATEST_CHAPTER_DERIVED_SQL = `
@@ -2437,12 +2430,13 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
     `;
 
     // Helper: 判断 novel.created_at 是否存在（不同环境兼容）
-    const novelHasCreatedAtPromise = new Promise((resolve) => {
-      db.query(`SHOW COLUMNS FROM novel LIKE 'created_at'`, (err, results) => {
-        if (err) return resolve(false);
-        resolve(Array.isArray(results) && results.length > 0);
-      });
-    });
+    const novelHasCreatedAtPromise = Db.query(
+      `SHOW COLUMNS FROM novel LIKE 'created_at'`,
+      [],
+      { tag: 'homepage.novelHasCreatedAt', idempotent: true }
+    )
+      .then(([rows]) => Array.isArray(rows) && rows.length > 0)
+      .catch(() => false);
     
     // 并行获取所有数据
     const [
@@ -2460,277 +2454,215 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
       recentUpdatesResult,
       championFeaturedResult
     ] = await Promise.all([
-      new Promise((resolve, reject) => {
-        db.query(`
-          SELECT 
-            hb.id, hb.title, hb.subtitle, hb.image_url, hb.link_url,
-            n.id as novel_id, n.title as novel_title
-          FROM homepage_banners hb
-          LEFT JOIN novel n ON hb.novel_id = n.id
-          WHERE hb.is_active = 1 
-            AND (hb.start_date IS NULL OR hb.start_date <= NOW())
-            AND (hb.end_date IS NULL OR hb.end_date >= NOW())
-            AND (hb.novel_id IS NULL OR n.review_status = 'published')
-          ORDER BY hb.display_order ASC
-        `, (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      }),
-      new Promise((resolve, reject) => {
-        db.query(`
-          SELECT 
-            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
-            COALESCE(SUM(ns.views), 0) as weekly_views,
-            COALESCE(SUM(ns.reads), 0) as weekly_reads
-          FROM novel n
-          LEFT JOIN novel_statistics ns ON n.id = ns.novel_id 
-            AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-          WHERE n.review_status = 'published'
-          GROUP BY n.id
-          HAVING weekly_views > 0
-          ORDER BY weekly_views DESC, weekly_reads DESC
-          LIMIT ?
-        `, [parseInt(limit)], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      }),
-      new Promise((resolve, reject) => {
-        db.query(`
-          SELECT 
-            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
-            MAX(c.created_at) as latest_chapter_date
-          FROM novel n
-          LEFT JOIN chapter c ON n.id = c.novel_id
-          WHERE n.status = 'Ongoing'
-            AND n.review_status = 'published'
-          GROUP BY n.id
-          ORDER BY latest_chapter_date DESC, n.id DESC
-          LIMIT ?
-        `, [parseInt(limit)], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      }),
-      new Promise((resolve, reject) => {
-        db.query(`
-          SELECT 
-            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
-            n.chapters
-          FROM novel n
-          WHERE n.rating > 0
-            AND n.reviews > 0
-            AND n.review_status = 'published'
-          ORDER BY n.rating DESC, n.reviews DESC
-          LIMIT ?
-        `, [parseInt(limit)], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      }),
-      new Promise((resolve, reject) => {
-        db.query(`
-          SELECT section_name, section_title, display_limit, sort_by, is_active, description
-          FROM homepage_config
-          WHERE is_active = 1
-          ORDER BY id ASC
-        `, (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      }),
+      Db.query(`
+        SELECT 
+          hb.id, hb.title, hb.subtitle, hb.image_url, hb.link_url,
+          n.id as novel_id, n.title as novel_title
+        FROM homepage_banners hb
+        LEFT JOIN novel n ON hb.novel_id = n.id
+        WHERE hb.is_active = 1 
+          AND (hb.start_date IS NULL OR hb.start_date <= NOW())
+          AND (hb.end_date IS NULL OR hb.end_date >= NOW())
+          AND (hb.novel_id IS NULL OR n.review_status = 'published')
+        ORDER BY hb.display_order ASC
+      `, [], { tag: 'homepage.banners', idempotent: true }).then(([rows]) => rows),
+      Db.query(`
+        SELECT 
+          n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
+          COALESCE(SUM(ns.views), 0) as weekly_views,
+          COALESCE(SUM(ns.reads), 0) as weekly_reads
+        FROM novel n
+        LEFT JOIN novel_statistics ns ON n.id = ns.novel_id 
+          AND ns.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        WHERE n.review_status = 'published'
+        GROUP BY n.id
+        HAVING weekly_views > 0
+        ORDER BY weekly_views DESC, weekly_reads DESC
+        LIMIT ${safeLimit}
+      `, [], { tag: 'homepage.popular', idempotent: true }).then(([rows]) => rows),
+      Db.query(`
+        SELECT 
+          n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
+          MAX(c.created_at) as latest_chapter_date
+        FROM novel n
+        LEFT JOIN chapter c ON n.id = c.novel_id
+        WHERE n.status = 'Ongoing'
+          AND n.review_status = 'published'
+        GROUP BY n.id
+        ORDER BY latest_chapter_date DESC, n.id DESC
+        LIMIT ${safeLimit}
+      `, [], { tag: 'homepage.newReleases', idempotent: true }).then(([rows]) => rows),
+      Db.query(`
+        SELECT 
+          n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
+          n.chapters
+        FROM novel n
+        WHERE n.rating > 0
+          AND n.reviews > 0
+          AND n.review_status = 'published'
+        ORDER BY n.rating DESC, n.reviews DESC
+        LIMIT ${safeLimit}
+      `, [], { tag: 'homepage.topSeries', idempotent: true }).then(([rows]) => rows),
+      Db.query(`
+        SELECT section_name, section_title, display_limit, sort_by, is_active, description
+        FROM homepage_config
+        WHERE is_active = 1
+        ORDER BY id ASC
+      `, [], { tag: 'homepage.config', idempotent: true }).then(([rows]) => rows),
 
       // novel.created_at 是否存在
       novelHasCreatedAtPromise,
 
       // v2.hero: banners + novel详情 + latest chapter（避免 N+1）
-      new Promise((resolve, reject) => {
-        db.query(
-          `
-            SELECT
-              hb.id AS banner_id,
-              hb.title AS banner_title,
-              hb.subtitle AS banner_subtitle,
-              hb.image_url,
-              hb.link_url,
-              n.id AS novel_id,
-              n.title AS novel_title,
-              n.author,
-              n.translator,
-              n.cover,
-              n.status,
-              n.description,
-              n.chapters,
-              lc.id AS latest_chapter_id,
-              lc.chapter_number AS latest_chapter_number,
-              lc.title AS latest_chapter_title,
-              lc.created_at AS latest_chapter_created_at
-            FROM homepage_banners hb
-            LEFT JOIN novel n ON hb.novel_id = n.id
-            LEFT JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
-            WHERE hb.is_active = 1
-              AND (hb.start_date IS NULL OR hb.start_date <= NOW())
-              AND (hb.end_date IS NULL OR hb.end_date >= NOW())
-              AND (hb.novel_id IS NULL OR n.review_status = 'published')
-            ORDER BY hb.display_order ASC
-          `,
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      }),
+      Db.query(
+        `
+          SELECT
+            hb.id AS banner_id,
+            hb.title AS banner_title,
+            hb.subtitle AS banner_subtitle,
+            hb.image_url,
+            hb.link_url,
+            n.id AS novel_id,
+            n.title AS novel_title,
+            n.author,
+            n.translator,
+            n.cover,
+            n.status,
+            n.description,
+            n.chapters,
+            lc.id AS latest_chapter_id,
+            lc.chapter_number AS latest_chapter_number,
+            lc.title AS latest_chapter_title,
+            lc.created_at AS latest_chapter_created_at
+          FROM homepage_banners hb
+          LEFT JOIN novel n ON hb.novel_id = n.id
+          LEFT JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
+          WHERE hb.is_active = 1
+            AND (hb.start_date IS NULL OR hb.start_date <= NOW())
+            AND (hb.end_date IS NULL OR hb.end_date >= NOW())
+            AND (hb.novel_id IS NULL OR n.review_status = 'published')
+          ORDER BY hb.display_order ASC
+        `
+      , [], { tag: 'homepage.hero', idempotent: true }).then(([rows]) => rows),
 
       // v2.announcements: homepage_announcements（允许表不存在时返回空）
       // 只返回读者端公告，限制2条
-      new Promise((resolve) => {
-        db.query(
-          `
-            SELECT id, title, content, link_url, display_order, created_at
-            FROM homepage_announcements
-            WHERE is_active = 1
-              AND target_audience = 'reader'
-              AND (start_date IS NULL OR start_date <= NOW())
-              AND (end_date IS NULL OR end_date >= NOW())
-            ORDER BY display_order ASC, created_at DESC
-            LIMIT 2
-          `,
-          (err, results) => {
-            if (err) return resolve([]); // 不阻断旧首页
-            resolve(results);
-          }
-        );
-      }),
+      Db.query(
+        `
+          SELECT id, title, content, link_url, display_order, created_at
+          FROM homepage_announcements
+          WHERE is_active = 1
+            AND target_audience = 'reader'
+            AND (start_date IS NULL OR start_date <= NOW())
+            AND (end_date IS NULL OR end_date >= NOW())
+          ORDER BY display_order ASC, created_at DESC
+          LIMIT 2
+        `
+      , [], { tag: 'homepage.announcements', idempotent: true }).then(([rows]) => rows).catch(() => []), // 不阻断旧首页
 
       // v2.promotions: pricing_promotion（只读；失败不影响首页）
       fetchHomepagePromotions(db, 2).catch((e) => {
-        console.error('[homepage] fetchHomepagePromotions failed:', e);
+        console.error('[homepage] fetchHomepagePromotions failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
         return [];
       }),
 
       // v2.trending.tabs: 热门 genre（按已发布小说数排序）
-      new Promise((resolve, reject) => {
-        db.query(
-          `
-            SELECT g.id, g.slug, g.name, g.chinese_name, COUNT(*) AS novel_count
-            FROM genre g
-            JOIN ${GENRE_MAP_DERIVED_SQL} ON ngr.genre_id = g.id
-            JOIN novel n ON n.id = ngr.novel_id AND n.review_status = 'published'
-            WHERE g.is_active = 1
-            GROUP BY g.id
-            ORDER BY novel_count DESC
-            LIMIT 6
-          `,
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      }),
+      Db.query(
+        `
+          SELECT g.id, g.slug, g.name, g.chinese_name, COUNT(*) AS novel_count
+          FROM genre g
+          JOIN ${GENRE_MAP_DERIVED_SQL} ON ngr.genre_id = g.id
+          JOIN novel n ON n.id = ngr.novel_id AND n.review_status = 'published'
+          WHERE g.is_active = 1
+          GROUP BY g.id
+          ORDER BY novel_count DESC
+          LIMIT 6
+        `
+      , [], { tag: 'homepage.trendingTabs', idempotent: true }).then(([rows]) => rows),
 
       // v2.new_books: 真正新书（created_at 存在则按 created_at，否则按首章时间）
-      new Promise((resolve, reject) => {
-        // 先占位，下面根据 novelHasCreatedAt 再二次查询（保持并行结构）
-        resolve([]);
-      }),
+      // 先占位，下面根据 novelHasCreatedAt 再二次查询（保持并行结构）
+      Promise.resolve([]),
 
       // v2.recent_updates: 最新章节列表（每本 1 条，避免同秒冲突）
-      new Promise((resolve, reject) => {
-        db.query(
-          `
-            SELECT
-              n.id AS novel_id,
-              n.title AS novel_title,
-              n.cover,
-              n.translator,
-              lc.id AS chapter_id,
-              lc.chapter_number,
-              lc.title AS chapter_title,
-              lc.created_at AS chapter_created_at
-            FROM novel n
-            JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
-            WHERE n.review_status = 'published'
-            ORDER BY lc.created_at DESC, lc.id DESC
-            LIMIT 20
-          `,
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      }),
+      Db.query(
+        `
+          SELECT
+            n.id AS novel_id,
+            n.title AS novel_title,
+            n.cover,
+            n.translator,
+            lc.id AS chapter_id,
+            lc.chapter_number,
+            lc.title AS chapter_title,
+            lc.created_at AS chapter_created_at
+          FROM novel n
+          JOIN ${LATEST_CHAPTER_DERIVED_SQL} ON lc.novel_id = n.id
+          WHERE n.review_status = 'published'
+          ORDER BY lc.created_at DESC, lc.id DESC
+          LIMIT 20
+        `
+      , [], { tag: 'homepage.recentUpdates', idempotent: true }).then(([rows]) => rows),
 
       // v2.champion.items: 优先 featured(recommended)，fallback 用 topSeries
-      new Promise((resolve, reject) => {
-        db.query(
-          `
-            SELECT
-              n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
-              hfn.display_order, hfn.section_type
-            FROM homepage_featured_novels hfn
-            JOIN novel n ON hfn.novel_id = n.id
-            WHERE hfn.section_type = 'recommended'
-              AND hfn.is_active = 1
-              AND (hfn.start_date IS NULL OR hfn.start_date <= NOW())
-              AND (hfn.end_date IS NULL OR hfn.end_date >= NOW())
-              AND n.review_status = 'published'
-            ORDER BY hfn.display_order ASC
-            LIMIT 6
-          `,
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      })
+      Db.query(
+        `
+          SELECT
+            n.id, n.title, n.author, n.cover, n.rating, n.reviews, n.status,
+            hfn.display_order, hfn.section_type
+          FROM homepage_featured_novels hfn
+          JOIN novel n ON hfn.novel_id = n.id
+          WHERE hfn.section_type = 'recommended'
+            AND hfn.is_active = 1
+            AND (hfn.start_date IS NULL OR hfn.start_date <= NOW())
+            AND (hfn.end_date IS NULL OR hfn.end_date >= NOW())
+            AND n.review_status = 'published'
+          ORDER BY hfn.display_order ASC
+          LIMIT 6
+        `
+      , [], { tag: 'homepage.championFeatured', idempotent: true }).then(([rows]) => rows)
     ]);
 
     // new_books 二次查询（依赖 novelHasCreatedAt，不改变旧 SQL 口径）
-    const newBooksFinal = await new Promise((resolve, reject) => {
-      if (novelHasCreatedAt) {
-        db.query(
-          `
-            SELECT id, title, author, translator, description, chapters, status, cover, rating, reviews, created_at
-            FROM novel
-            WHERE review_status = 'published'
-            ORDER BY created_at DESC, id DESC
-            LIMIT ?
-          `,
-          [parseInt(limit)],
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      } else {
-        // fallback：按首章时间（MIN(chapter.created_at)）排序
-        db.query(
-          `
-            SELECT
-              n.id, n.title, n.author, n.translator, n.description, n.chapters, n.status, n.cover, n.rating, n.reviews,
-              MIN(c.created_at) AS first_chapter_created_at
-            FROM novel n
-            JOIN chapter c ON c.novel_id = n.id
-            WHERE n.review_status = 'published'
-            GROUP BY n.id
-            ORDER BY first_chapter_created_at DESC, n.id DESC
-            LIMIT ?
-          `,
-          [parseInt(limit)],
-          (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          }
-        );
-      }
-    });
+    let newBooksFinal;
+    if (novelHasCreatedAt) {
+      const [rows] = await Db.query(
+        `
+          SELECT id, title, author, translator, description, chapters, status, cover, rating, reviews, created_at
+          FROM novel
+          WHERE review_status = 'published'
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${safeLimit}
+        `,
+        [],
+        { tag: 'homepage.newBooks.createdAt', idempotent: true }
+      );
+      newBooksFinal = rows;
+    } else {
+      // fallback：按首章时间（MIN(chapter.created_at)）排序
+      const [rows] = await Db.query(
+        `
+          SELECT
+            n.id, n.title, n.author, n.translator, n.description, n.chapters, n.status, n.cover, n.rating, n.reviews,
+            MIN(c.created_at) AS first_chapter_created_at
+          FROM novel n
+          JOIN chapter c ON c.novel_id = n.id
+          WHERE n.review_status = 'published'
+          GROUP BY n.id
+          ORDER BY first_chapter_created_at DESC, n.id DESC
+          LIMIT ${safeLimit}
+        `,
+        [],
+        { tag: 'homepage.newBooks.fallbackFirstChapter', idempotent: true }
+      );
+      newBooksFinal = rows;
+    }
 
     // trending.items_by_tab + popular_genres.items_by_tab（按 tab 并行查；tab 数量固定 6，避免复杂 OR JOIN）
     const trendingTabs = Array.isArray(trendingTabsResult) ? trendingTabsResult : [];
     const trendingItemsByTabEntries = await Promise.all(
-      trendingTabs.map((g) => new Promise((resolve, reject) => {
-        db.query(
+      trendingTabs.map(async (g) => {
+        const [rows] = await Db.query(
           `
             SELECT
               n.id, n.title, n.author, n.cover, n.status, n.rating, n.reviews, n.chapters,
@@ -2744,12 +2676,10 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
             LIMIT 5
           `,
           [g.id],
-          (err, results) => {
-            if (err) reject(err);
-            else resolve([g.slug, results]);
-          }
+          { tag: 'homepage.trending.itemsByTab', idempotent: true }
         );
-      }))
+        return [g.slug, rows];
+      })
     );
 
     const trendingItemsByTab = Object.fromEntries(trendingItemsByTabEntries);
@@ -2757,8 +2687,8 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
     // popular_genres: 复用 trendingTabs（若不足则按现有数量）
     const popularGenresTabs = trendingTabs;
     const popularGenresItemsByTabEntries = await Promise.all(
-      popularGenresTabs.map((g) => new Promise((resolve, reject) => {
-        db.query(
+      popularGenresTabs.map(async (g) => {
+        const [rows] = await Db.query(
           `
             SELECT
               n.id, n.title, n.author, n.cover, n.status, n.rating, n.reviews, n.chapters,
@@ -2772,12 +2702,10 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
             LIMIT 6
           `,
           [g.id],
-          (err, results) => {
-            if (err) reject(err);
-            else resolve([g.slug, results]);
-          }
+          { tag: 'homepage.popularGenres.itemsByTab', idempotent: true }
         );
-      }))
+        return [g.slug, rows];
+      })
     );
 
     const popularGenresItemsByTab = Object.fromEntries(popularGenresItemsByTabEntries);
@@ -2864,7 +2792,7 @@ app.get('/api/homepage/all', optionalAuth, async (req, res) => {
     return res.json(payload);
 
   } catch (error) {
-    console.error('Failed to get homepage data:', error);
+    console.error('Failed to get homepage data:', { code: error && error.code, fatal: !!(error && error.fatal) });
     res.status(500).json({ message: 'Failed to get homepage data' });
   }
 });
