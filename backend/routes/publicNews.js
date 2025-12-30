@@ -1,15 +1,16 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const NewsLikeDislikeService = require('../services/newsLikeDislikeService');
+const Db = require('../db');
 
 /**
  * Public news router
  * 挂载方式（按需求）：
- *   app.use('/api', createPublicNewsRouter(db.promise()));
+ *   app.use('/api', createPublicNewsRouter());
  */
-function createPublicNewsRouter(promisePool) {
+function createPublicNewsRouter() {
   const router = express.Router();
-  const newsLikeDislikeService = new NewsLikeDislikeService(promisePool);
+  const newsLikeDislikeService = new NewsLikeDislikeService(Db.getPool());
 
   // 复用 server.js 的鉴权逻辑（JWT secret 与 payload 字段兼容 userId/id）
   const authenticateToken = (req, res, next) => {
@@ -50,11 +51,11 @@ function createPublicNewsRouter(promisePool) {
       
       sql += ' ORDER BY display_order ASC, created_at DESC';
       
-      const [rows] = await promisePool.execute(sql, params);
+      const [rows] = await Db.query(sql, params, { tag: 'publicNews.list', idempotent: true });
 
       return res.json({ success: true, data: { items: rows || [] } });
     } catch (e) {
-      console.error('[publicNews] GET /news failed:', e);
+      console.error('[publicNews] GET /news failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: 'Failed to load news list' });
     }
   });
@@ -65,7 +66,7 @@ function createPublicNewsRouter(promisePool) {
     if (Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
 
     try {
-      const [rows] = await promisePool.execute(
+      const [rows] = await Db.query(
         `SELECT id, title, content, content_format, created_at, updated_at, link_url, target_audience
          FROM homepage_announcements
          WHERE id = ?
@@ -73,7 +74,8 @@ function createPublicNewsRouter(promisePool) {
            AND (start_date IS NULL OR start_date <= NOW())
            AND (end_date IS NULL OR end_date >= NOW())
          LIMIT 1`,
-        [id]
+        [id],
+        { tag: 'publicNews.detail', idempotent: true }
       );
 
       if (!rows || rows.length === 0) {
@@ -82,7 +84,7 @@ function createPublicNewsRouter(promisePool) {
 
       return res.json({ success: true, data: { item: rows[0] } });
     } catch (e) {
-      console.error('[publicNews] GET /news/:id failed:', e);
+      console.error('[publicNews] GET /news/:id failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: 'Failed to load news' });
     }
   });
@@ -104,7 +106,7 @@ function createPublicNewsRouter(promisePool) {
       // NOTE: 某些 MySQL 环境对 prepared statement 的 LIMIT/OFFSET 占位符不兼容，
       // 会抛出 "Incorrect arguments to mysqld_stmt_execute"。
       // 这里将 LIMIT/OFFSET 作为已校验整数直接拼接，避免该错误。
-      const [rows] = await promisePool.execute(
+      const [rows] = await Db.query(
         `SELECT 
            nc.id,
            nc.content,
@@ -121,12 +123,14 @@ function createPublicNewsRouter(promisePool) {
          WHERE nc.homepage_announcements_id = ?
          ORDER BY nc.created_at DESC
          LIMIT ${safeLimit} OFFSET ${safeOffset}`,
-        [id]
+        [id],
+        { tag: 'publicNews.comments', idempotent: true }
       );
 
-      const [countRows] = await promisePool.execute(
+      const [countRows] = await Db.query(
         'SELECT COUNT(*) as total FROM newscomment WHERE homepage_announcements_id = ?',
-        [id]
+        [id],
+        { tag: 'publicNews.comments.count', idempotent: true }
       );
       const total = countRows?.[0]?.total ? Number(countRows[0].total) : 0;
       const totalPages = Math.ceil(total / safeLimit);
@@ -136,7 +140,7 @@ function createPublicNewsRouter(promisePool) {
         data: { comments: rows, total, page: safePage, limit: safeLimit, totalPages }
       });
     } catch (e) {
-      console.error('[publicNews] GET /news/:id/comments failed:', e);
+      console.error('[publicNews] GET /news/:id/comments failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: 'Failed to load comments' });
     }
   });
@@ -154,16 +158,17 @@ function createPublicNewsRouter(promisePool) {
     }
 
     try {
-      const [result] = await promisePool.execute(
+      const [result] = await Db.query(
         `INSERT INTO newscomment
            (user_id, target_id, homepage_announcements_id, parent_comment_id, content, created_at, likes, dislikes)
          VALUES
            (?, ?, ?, NULL, ?, NOW(), 0, 0)`,
-        [userId, id, id, String(content).trim()]
+        [userId, id, id, String(content).trim()],
+        { tag: 'publicNews.comment.create', idempotent: false }
       );
 
       const insertId = result.insertId;
-      const [rows] = await promisePool.execute(
+      const [rows] = await Db.query(
         `SELECT 
            nc.id, nc.content, nc.created_at, nc.likes, nc.dislikes, nc.parent_comment_id, nc.user_id,
            u.username, u.avatar, u.is_vip
@@ -171,7 +176,8 @@ function createPublicNewsRouter(promisePool) {
          JOIN user u ON nc.user_id = u.id
          WHERE nc.id = ?
          LIMIT 1`,
-        [insertId]
+        [insertId],
+        { tag: 'publicNews.comment.fetch', idempotent: true }
       );
 
       return res.json({
@@ -180,7 +186,7 @@ function createPublicNewsRouter(promisePool) {
         data: { comment: rows?.[0] || { id: insertId } }
       });
     } catch (e) {
-      console.error('[publicNews] POST /news/:id/comment failed:', e);
+      console.error('[publicNews] POST /news/:id/comment failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '提交评论失败' });
     }
   });
@@ -198,21 +204,23 @@ function createPublicNewsRouter(promisePool) {
     }
 
     try {
-      const [parentRows] = await promisePool.execute(
+      const [parentRows] = await Db.query(
         'SELECT id, homepage_announcements_id FROM newscomment WHERE id = ? LIMIT 1',
-        [commentId]
+        [commentId],
+        { tag: 'publicNews.reply.parent', idempotent: true }
       );
       if (!parentRows || parentRows.length === 0) {
         return res.status(404).json({ success: false, message: 'Not found' });
       }
       const newsId = Number(parentRows[0].homepage_announcements_id);
 
-      const [result] = await promisePool.execute(
+      const [result] = await Db.query(
         `INSERT INTO newscomment
            (user_id, target_id, homepage_announcements_id, parent_comment_id, content, created_at, likes, dislikes)
          VALUES
            (?, ?, ?, ?, ?, NOW(), 0, 0)`,
-        [userId, newsId, newsId, commentId, String(content).trim()]
+        [userId, newsId, newsId, commentId, String(content).trim()],
+        { tag: 'publicNews.reply.create', idempotent: false }
       );
 
       return res.json({
@@ -221,7 +229,7 @@ function createPublicNewsRouter(promisePool) {
         data: { reply_id: result.insertId }
       });
     } catch (e) {
-      console.error('[publicNews] POST /newscomment/:commentId/reply failed:', e);
+      console.error('[publicNews] POST /newscomment/:commentId/reply failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '回复失败' });
     }
   });
@@ -240,7 +248,7 @@ function createPublicNewsRouter(promisePool) {
     if (Number.isNaN(commentId)) return res.status(400).json({ success: false, message: 'Invalid commentId' });
 
     try {
-      const [rows] = await promisePool.execute(
+      const [rows] = await Db.query(
         `SELECT 
            nc.id,
            nc.content,
@@ -257,12 +265,13 @@ function createPublicNewsRouter(promisePool) {
          WHERE nc.parent_comment_id = ?
          ORDER BY nc.created_at ASC
          LIMIT ${safeLimit} OFFSET ${safeOffset}`,
-        [commentId]
+        [commentId],
+        { tag: 'publicNews.replies', idempotent: true }
       );
 
       return res.json({ success: true, data: rows });
     } catch (e) {
-      console.error('[publicNews] GET /newscomment/:commentId/replies failed:', e);
+      console.error('[publicNews] GET /newscomment/:commentId/replies failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '获取回复失败' });
     }
   });
@@ -280,19 +289,20 @@ function createPublicNewsRouter(promisePool) {
     }
 
     try {
-      const [rows] = await promisePool.execute(
+      const [rows] = await Db.query(
         'SELECT user_id FROM newscomment WHERE id = ? LIMIT 1',
-        [commentId]
+        [commentId],
+        { tag: 'publicNews.comment.owner', idempotent: true }
       );
       if (!rows || rows.length === 0) return res.status(404).json({ success: false, message: 'Not found' });
       if (Number(rows[0].user_id) !== Number(userId)) {
         return res.status(403).json({ success: false, message: '无权修改此评论' });
       }
 
-      await promisePool.execute('UPDATE newscomment SET content = ? WHERE id = ?', [String(content).trim(), commentId]);
+      await Db.query('UPDATE newscomment SET content = ? WHERE id = ?', [String(content).trim(), commentId], { tag: 'publicNews.comment.update', idempotent: false });
       return res.json({ success: true, message: '评论更新成功' });
     } catch (e) {
-      console.error('[publicNews] PUT /newscomment/:commentId failed:', e);
+      console.error('[publicNews] PUT /newscomment/:commentId failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '更新评论失败' });
     }
   });
@@ -313,7 +323,7 @@ function createPublicNewsRouter(promisePool) {
         data: { likes: result.likes, dislikes: result.dislikes }
       });
     } catch (e) {
-      console.error('[publicNews] POST /newscomment/:commentId/like failed:', e);
+      console.error('[publicNews] POST /newscomment/:commentId/like failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '点赞失败' });
     }
   });
@@ -334,7 +344,7 @@ function createPublicNewsRouter(promisePool) {
         data: { likes: result.likes, dislikes: result.dislikes }
       });
     } catch (e) {
-      console.error('[publicNews] POST /newscomment/:commentId/dislike failed:', e);
+      console.error('[publicNews] POST /newscomment/:commentId/dislike failed:', { code: e && e.code, fatal: !!(e && e.fatal) });
       return res.status(500).json({ success: false, message: '点踩失败' });
     }
   });

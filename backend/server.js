@@ -9,6 +9,34 @@ console.log('[BOOT] has WECHAT_OAUTH_APPSECRET:', !!process.env.WECHAT_OAUTH_APP
 console.log('[BOOT] has WECHAT_OAUTH_STATE_SECRET:', !!process.env.WECHAT_OAUTH_STATE_SECRET);
 console.log('[BOOT] has SITE_BASE_URL:', !!process.env.SITE_BASE_URL);
 
+// Safety net: prevent dev server from crashing on transient DB disconnects.
+// - Do NOT log credentials / queries / request bodies / tokens.
+// - Only swallow known transient network/db disconnect errors; exit on others.
+const TRANSIENT_DB_NETWORK_CODES = ['PROTOCOL_CONNECTION_LOST', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE'];
+
+process.on('uncaughtException', (err) => {
+  const code = err && err.code;
+  const fatal = !!(err && err.fatal);
+  if (TRANSIENT_DB_NETWORK_CODES.includes(code)) {
+    console.error('[UNCAUGHT] transient db/network error:', { code, fatal });
+    return;
+  }
+  console.error('[UNCAUGHT] fatal error:', { name: err && err.name, code });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : null;
+  const code = err && err.code;
+  const fatal = !!(err && err.fatal);
+  if (TRANSIENT_DB_NETWORK_CODES.includes(code)) {
+    console.error('[UNHANDLED_REJECTION] transient db/network error:', { code, fatal });
+    return;
+  }
+  console.error('[UNHANDLED_REJECTION] fatal rejection:', { code });
+  process.exit(1);
+});
+
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
@@ -284,28 +312,8 @@ app.use('/api', pricingRoutes);
 app.use('/covers', express.static(path.join(__dirname, '../avatars')));
 
 // 数据库连接池配置
-const db = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '123456',
-  database: process.env.DB_NAME || 'kongfuworld',
-  connectionLimit: 10,
-  waitForConnections: true,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  charset: 'utf8mb4'
-});
-
-// Prevent Node process crash on transient RDS disconnects (e.g., PROTOCOL_CONNECTION_LOST)
-// - Do NOT log credentials / queries / payloads.
-db.on('connection', (conn) => {
-  conn.on('error', (err) => {
-    console.error('[DB] connection error:', {
-      code: err && err.code,
-      fatal: !!(err && err.fatal),
-    });
-  });
-});
+const Db = require('./db');
+const db = Db.getPool();
 
 // 初始化点赞/点踩服务
 const likeDislikeService = new LikeDislikeService(db);
@@ -313,17 +321,17 @@ const likeDislikeService = new LikeDislikeService(db);
 // 公告详情页 + 公告评论（public news）
 // ⚠️ 必须在 db 初始化之后挂载，否则会出现 "Cannot access 'db' before initialization"
 const createPublicNewsRouter = require('./routes/publicNews');
-app.use('/api', createPublicNewsRouter(db.promise()));
+app.use('/api', createPublicNewsRouter());
 
 // 测试数据库连接
-db.getConnection((err, connection) => {
-  if (err) {
-    console.error('数据库连接失败:', err);
-    return;
-  }
-  console.log('数据库连接成功');
-  connection.release();
-});
+db.getConnection()
+  .then((connection) => {
+    console.log('数据库连接成功');
+    connection.release();
+  })
+  .catch((err) => {
+    console.error('数据库连接失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+  });
 
 // 设置上传模块的数据库连接
 setDatabase(db);
