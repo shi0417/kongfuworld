@@ -1,18 +1,14 @@
 const express = require('express');
-const mysql = require('mysql2');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 const authorDailyWordCountService = require('../services/authorDailyWordCountService');
 
-// 数据库配置
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'wuxiaworld'
-});
+// 数据库配置：已迁移到 backend/db/index.js 的 pool（Db.query / Db.getPool）
+// 目的：避免模块级单连接在断连后被复用，导致 EPIPE/closed state 错误
+const Db = require('../db');
+const pool = Db.getPool();
 
 // Multer配置用于封面图片上传
 const storage = multer.diskStorage({
@@ -70,35 +66,33 @@ function calculateChapterPrice(chapterNumber, wordCount, config) {
 }
 
 // 获取所有类型/genre
-router.get('/genre/all', (req, res) => {
+router.get('/genre/all', async (req, res) => {
   const query = 'SELECT id, name, chinese_name, slug FROM genre WHERE is_active = 1 ORDER BY name';
   
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('获取类型失败:', err);
-      return res.status(500).json({ message: 'Failed to fetch genres' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [], { tag: 'novelCreation.genre.all', idempotent: true });
     res.json(results);
-  });
+  } catch (err) {
+    console.error('获取类型失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: 'Failed to fetch genres' });
+  }
 });
 
 // 获取所有语言
-router.get('/languages/all', (req, res) => {
+router.get('/languages/all', async (req, res) => {
   const query = 'SELECT id, language FROM languages ORDER BY language';
   
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('获取语言失败:', err);
-      return res.status(500).json({ message: 'Failed to fetch languages' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [], { tag: 'novelCreation.languages.all', idempotent: true });
     res.json(results);
-  });
+  } catch (err) {
+    console.error('获取语言失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: 'Failed to fetch languages' });
+  }
 });
 
 // 创建新语言
-router.post('/languages/create', (req, res) => {
+router.post('/languages/create', async (req, res) => {
   const { language } = req.body;
   
   if (!language || !language.trim()) {
@@ -107,21 +101,20 @@ router.post('/languages/create', (req, res) => {
   
   const query = 'INSERT INTO languages (language) VALUES (?)';
   
-  db.query(query, [language.trim()], (err, result) => {
-    if (err) {
-      if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(400).json({ message: 'Language already exists' });
-      }
-      console.error('创建语言失败:', err);
-      return res.status(500).json({ message: 'Failed to create language' });
-    }
-    
+  try {
+    const [result] = await Db.query(query, [language.trim()], { tag: 'novelCreation.languages.create', idempotent: false });
     res.json({ id: result.insertId, language: language.trim() });
-  });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Language already exists' });
+    }
+    console.error('创建语言失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ message: 'Failed to create language' });
+  }
 });
 
 // 创建小说
-router.post('/novel/create', upload.single('cover'), (req, res) => {
+router.post('/novel/create', upload.single('cover'), async (req, res) => {
   const { 
     title, 
     description, 
@@ -158,243 +151,182 @@ router.post('/novel/create', upload.single('cover'), (req, res) => {
     coverUrl = `/covers/${req.file.filename}`;
   }
   
-  // 处理语言字段：如果languages表中没有该语言，先创建
-  const processLanguage = (languageName) => {
-    return new Promise((resolve, reject) => {
-      if (!languageName || !languageName.trim()) {
-        console.log('语言字段为空，将保存为null');
-        return resolve(null);
-      }
-      
-      const langName = languageName.trim();
+  const pool = Db.getPool();
+  let conn = null;
+  
+  try {
+    // 处理语言字段：如果languages表中没有该语言，先创建
+    let processedLanguage = null;
+    if (language && language.trim()) {
+      const langName = language.trim();
       console.log('处理语言字段:', langName);
       
-      // 先查询该语言是否存在
-      db.query('SELECT id FROM languages WHERE language = ?', [langName], (err, results) => {
-        if (err) {
-          return reject(err);
-        }
+      try {
+        const [langResults] = await Db.query('SELECT id FROM languages WHERE language = ?', [langName], { tag: 'novelCreation.language.check', idempotent: true });
         
-        if (results.length > 0) {
-          // 语言已存在，直接返回语言名称
+        if (langResults.length > 0) {
           console.log('语言已存在:', langName);
-          resolve(langName);
+          processedLanguage = langName;
         } else {
-          // 语言不存在，创建新语言
-          console.log('创建新语言:', langName);
-          db.query('INSERT INTO languages (language) VALUES (?)', [langName], (err, result) => {
-            if (err) {
-              // 如果是因为唯一约束冲突（并发情况下可能发生），查询现有记录
-              if (err.code === 'ER_DUP_ENTRY') {
-                db.query('SELECT id FROM languages WHERE language = ?', [langName], (err2, results2) => {
-                  if (err2) return reject(err2);
-                  resolve(langName);
-                });
-              } else {
-                return reject(err);
-              }
+          try {
+            await Db.query('INSERT INTO languages (language) VALUES (?)', [langName], { tag: 'novelCreation.language.create', idempotent: false });
+            console.log('创建新语言:', langName);
+            processedLanguage = langName;
+          } catch (insertErr) {
+            if (insertErr.code === 'ER_DUP_ENTRY') {
+              // 并发情况下可能已创建，重新查询
+              const [recheckResults] = await Db.query('SELECT id FROM languages WHERE language = ?', [langName], { tag: 'novelCreation.language.recheck', idempotent: true });
+              processedLanguage = langName;
             } else {
-              resolve(langName);
+              throw insertErr;
             }
-          });
+          }
         }
-      });
+      } catch (langErr) {
+        console.error('处理语言失败:', langErr);
+        return res.status(500).json({ message: 'Failed to process language' });
+      }
+    } else {
+      console.log('语言字段为空，将保存为null');
+    }
+    
+    // 获取连接并开始事务
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    
+    console.log('处理后的语言值:', processedLanguage);
+    
+    // 1. 插入小说基本信息
+    const novelQuery = `
+      INSERT INTO novel (
+        title, 
+        description, 
+        recommendation, 
+        languages, 
+        status, 
+        cover, 
+        user_id,
+        chapters,
+        rating,
+        reviews,
+        review_status,
+        licensed_from
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+    `;
+    
+    const novelValues = [
+      title.trim(),
+      description ? description.trim() : null,
+      recommendation ? recommendation.trim() : null,
+      processedLanguage || null, // languages字段
+      status || 'ongoing',
+      coverUrl,
+      parseInt(user_id),
+      'created', // review_status 默认状态（新建小说为草稿状态）
+      'KongFuWorld' // licensed_from 固定值
+    ];
+    
+    console.log('准备插入小说，languages字段值:', processedLanguage || null);
+    const [novelResult] = await conn.execute(novelQuery, novelValues);
+    
+    const novelId = novelResult.insertId;
+    console.log('小说创建成功，ID:', novelId, 'languages字段已保存为:', processedLanguage || null);
+    
+    // 2. 插入类型关联
+    const genrePromises = [];
+    
+    if (genre_id_1) {
+      genrePromises.push(
+        conn.execute('INSERT INTO novel_genre_relation (novel_id, genre_id_1) VALUES (?, ?)', [novelId, parseInt(genre_id_1)])
+      );
+    }
+    
+    // 更新 genre_id_2（如果提供了第二个类型）
+    if (genre_id_2) {
+      const [checkResults] = await conn.execute('SELECT id FROM novel_genre_relation WHERE novel_id = ?', [novelId]);
+      
+      if (checkResults.length > 0) {
+        // 更新已有记录
+        genrePromises.push(
+          conn.execute('UPDATE novel_genre_relation SET genre_id_2 = ? WHERE novel_id = ?', [parseInt(genre_id_2), novelId])
+        );
+      } else {
+        // 如果没有记录（不应该发生），创建一个新的
+        genrePromises.push(
+          conn.execute('INSERT INTO novel_genre_relation (novel_id, genre_id_1, genre_id_2) VALUES (?, ?, ?)', [novelId, parseInt(genre_id_1), parseInt(genre_id_2)])
+        );
+      }
+    }
+    
+    // 3. 插入主角名
+    const protagonistPromises = [];
+    const protagonistKeys = Object.keys(req.body).filter(key => key.startsWith('protagonist_'));
+    
+    for (const key of protagonistKeys) {
+      const name = req.body[key];
+      if (name && name.trim()) {
+        protagonistPromises.push(
+          conn.execute('INSERT INTO protagonist (novel_id, name) VALUES (?, ?)', [novelId, name.trim()])
+        );
+      }
+    }
+    
+    // 执行所有插入操作
+    await Promise.all([...genrePromises, ...protagonistPromises]);
+    
+    // 提交事务
+    await conn.commit();
+    
+    // 事务提交成功后，查询并创建unlockprice记录（如果不存在）
+    try {
+      const [unlockResults] = await Db.query(
+        'SELECT id FROM unlockprice WHERE novel_id = ? AND user_id = ?',
+        [novelId, parseInt(user_id)],
+        { tag: 'novelCreation.unlockprice.check', idempotent: true }
+      );
+      
+      // 使用 INSERT ... ON DUPLICATE KEY UPDATE 确保唯一性
+      await Db.query(
+        `INSERT INTO unlockprice 
+         (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style, created_at, updated_at)
+         VALUES (?, ?, 6, 5, 30, 50, 'per_word', NOW(), NOW())
+         ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+        [parseInt(user_id), novelId],
+        { tag: 'novelCreation.unlockprice.create', idempotent: false }
+      );
+      
+      console.log('成功创建或更新unlockprice记录，novel_id:', novelId, 'user_id:', user_id);
+    } catch (unlockErr) {
+      console.error('创建unlockprice记录失败:', unlockErr);
+      // 即使创建失败，也返回成功（不影响小说创建）
+    }
+    
+    res.json({ 
+      success: true, 
+      id: novelId,
+      data: { id: novelId },
+      message: 'Novel created successfully'
     });
-  };
-  
-  // 先处理语言，然后再开始事务
-  console.log('接收到的language字段:', language);
-  processLanguage(language)
-    .then((processedLanguage) => {
-      console.log('处理后的语言值:', processedLanguage);
-      // 开始事务
-      db.beginTransaction((err) => {
-        if (err) {
-          console.error('开始事务失败:', err);
-          return res.status(500).json({ message: 'Failed to start transaction' });
-        }
-        
-        // 1. 插入小说基本信息
-        const novelQuery = `
-          INSERT INTO novel (
-            title, 
-            description, 
-            recommendation, 
-            languages, 
-            status, 
-            cover, 
-            user_id,
-            chapters,
-            rating,
-            reviews,
-            review_status,
-            licensed_from
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
-        `;
-        
-        const novelValues = [
-          title.trim(),
-          description ? description.trim() : null,
-          recommendation ? recommendation.trim() : null,
-          processedLanguage || null, // languages字段
-          status || 'ongoing',
-          coverUrl,
-          parseInt(user_id),
-          'created', // review_status 默认状态（新建小说为草稿状态）
-          'KongFuWorld' // licensed_from 固定值
-        ];
-        
-        console.log('准备插入小说，languages字段值:', processedLanguage || null);
-        db.query(novelQuery, novelValues, (err, novelResult) => {
-          if (err) {
-            return db.rollback(() => {
-              console.error('创建小说失败:', err);
-              res.status(500).json({ message: 'Failed to create novel' });
-            });
-          }
-          
-          const novelId = novelResult.insertId;
-          console.log('小说创建成功，ID:', novelId, 'languages字段已保存为:', processedLanguage || null);
-          
-          // 2. 插入类型关联
-          const genrePromises = [];
-          
-          if (genre_id_1) {
-            genrePromises.push(
-              new Promise((resolve, reject) => {
-                const genreQuery = 'INSERT INTO novel_genre_relation (novel_id, genre_id_1) VALUES (?, ?)';
-                db.query(genreQuery, [novelId, parseInt(genre_id_1)], (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                });
-              })
-            );
-          }
-          
-          // 更新 genre_id_2（如果提供了第二个类型）
-          if (genre_id_2) {
-            genrePromises.push(
-              new Promise((resolve, reject) => {
-                // 先检查是否已有记录
-                const checkQuery = 'SELECT id FROM novel_genre_relation WHERE novel_id = ?';
-                db.query(checkQuery, [novelId], (err, results) => {
-                  if (err) {
-                    reject(err);
-                    return;
-                  }
-                  
-                  if (results.length > 0) {
-                    // 更新已有记录
-                    const updateQuery = 'UPDATE novel_genre_relation SET genre_id_2 = ? WHERE novel_id = ?';
-                    db.query(updateQuery, [parseInt(genre_id_2), novelId], (err) => {
-                      if (err) reject(err);
-                      else resolve();
-                    });
-                  } else {
-                    // 如果没有记录（不应该发生），创建一个新的
-                    const insertQuery = 'INSERT INTO novel_genre_relation (novel_id, genre_id_1, genre_id_2) VALUES (?, ?, ?)';
-                    db.query(insertQuery, [novelId, parseInt(genre_id_1), parseInt(genre_id_2)], (err) => {
-                      if (err) reject(err);
-                      else resolve();
-                    });
-                  }
-                });
-              })
-            );
-          }
-          
-          // 3. 插入主角名
-          const protagonistPromises = [];
-          const protagonistKeys = Object.keys(req.body).filter(key => key.startsWith('protagonist_'));
-          
-          protagonistKeys.forEach((key, index) => {
-            const name = req.body[key];
-            if (name && name.trim()) {
-              protagonistPromises.push(
-                new Promise((resolve, reject) => {
-                  const protagonistQuery = 'INSERT INTO protagonist (novel_id, name) VALUES (?, ?)';
-                  db.query(protagonistQuery, [novelId, name.trim()], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                  });
-                })
-              );
-            }
-          });
-          
-          // 执行所有插入操作
-          Promise.all([...genrePromises, ...protagonistPromises])
-            .then(() => {
-              // 提交事务
-              db.commit((err) => {
-                if (err) {
-                  return db.rollback(() => {
-                    console.error('提交事务失败:', err);
-                    res.status(500).json({ message: 'Failed to commit transaction' });
-                  });
-                }
-                
-                // 事务提交成功后，查询并创建unlockprice记录（如果不存在）
-                db.query(
-                  'SELECT id FROM unlockprice WHERE novel_id = ? AND user_id = ?',
-                  [novelId, parseInt(user_id)],
-                  (unlockErr, unlockResults) => {
-                    if (unlockErr) {
-                      console.error('查询unlockprice失败:', unlockErr);
-                      // 即使查询失败，也返回成功（不影响小说创建）
-                      return res.json({ 
-                        success: true, 
-                        id: novelId,
-                        data: { id: novelId },
-                        message: 'Novel created successfully'
-                      });
-                    }
-                    
-                    // 使用 INSERT ... ON DUPLICATE KEY UPDATE 确保唯一性
-                    // 如果记录已存在，则更新（虽然实际上不会更新，因为值相同）
-                    db.query(
-                      `INSERT INTO unlockprice 
-                       (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style, created_at, updated_at)
-                       VALUES (?, ?, 6, 5, 30, 50, 'per_word', NOW(), NOW())
-                       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-                      [parseInt(user_id), novelId],
-                      (insertErr) => {
-                        if (insertErr) {
-                          console.error('创建unlockprice记录失败:', insertErr);
-                          // 即使创建失败，也返回成功（不影响小说创建）
-                        } else {
-                          console.log('成功创建或更新unlockprice记录，novel_id:', novelId, 'user_id:', user_id);
-                        }
-                        
-                        res.json({ 
-                          success: true, 
-                          id: novelId,
-                          data: { id: novelId },
-                          message: 'Novel created successfully'
-                        });
-                      }
-                    );
-                  }
-                );
-              });
-            })
-            .catch((err) => {
-              return db.rollback(() => {
-                console.error('插入关联数据失败:', err);
-                res.status(500).json({ message: 'Failed to create novel relations' });
-              });
-            });
-        });
-      });
-    })
-    .catch((err) => {
-      console.error('处理语言失败:', err);
-      res.status(500).json({ message: 'Failed to process language' });
-    });
+    
+  } catch (err) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        console.error('回滚事务失败:', rollbackErr);
+      }
+    }
+    console.error('创建小说失败:', err);
+    res.status(500).json({ message: err.message || 'Failed to create novel' });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
 });
 
 // 获取用户的小说列表（带统计信息）
-router.get('/novels/user/:user_id', (req, res) => {
+router.get('/novels/user/:user_id', async (req, res) => {
   const { user_id } = req.params;
   console.log('获取用户小说列表，user_id:', user_id);
   
@@ -458,15 +390,8 @@ router.get('/novels/user/:user_id', (req, res) => {
     ORDER BY n.id DESC
   `;
   
-  db.query(query, [parseInt(user_id), parseInt(user_id), parseInt(user_id)], (err, results) => {
-    if (err) {
-      console.error('获取用户小说列表失败:', err);
-      return res.status(500).json({ 
-        success: false,
-        message: 'Failed to fetch user novels',
-        error: err.message 
-      });
-    }
+  try {
+    const [results] = await Db.query(query, [parseInt(user_id), parseInt(user_id), parseInt(user_id)], { tag: 'novelCreation.novels.user', idempotent: true });
     
     console.log(`找到 ${results.length} 本小说`);
     
@@ -485,11 +410,17 @@ router.get('/novels/user/:user_id', (req, res) => {
       data: novels,
       count: novels.length
     });
-  });
+  } catch (err) {
+    console.error('获取用户小说列表失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch user novels'
+    });
+  }
 });
 
 // 获取小说详细信息（包括标签、主角等）
-router.get('/novel/:id', (req, res) => {
+router.get('/novel/:id', async (req, res) => {
   const { id } = req.params;
   
   const query = `
@@ -501,22 +432,20 @@ router.get('/novel/:id', (req, res) => {
     WHERE n.id = ?
   `;
   
-  db.query(query, [parseInt(id)], (err, results) => {
-    if (err) {
-      console.error('获取小说信息失败:', err);
-      return res.status(500).json({ success: false, message: '获取小说信息失败' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [parseInt(id)], { tag: 'novelCreation.novel.id', idempotent: true });
     if (results.length === 0) {
       return res.status(404).json({ success: false, message: '小说不存在' });
     }
-    
     res.json({ success: true, data: results[0] });
-  });
+  } catch (err) {
+    console.error('获取小说信息失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ success: false, message: '获取小说信息失败' });
+  }
 });
 
 // 获取小说详细信息（包括标签、主角、类型等）
-router.get('/novel/:id/detail', (req, res) => {
+router.get('/novel/:id/detail', async (req, res) => {
   const { id } = req.params;
   
   const query = `
@@ -532,16 +461,11 @@ router.get('/novel/:id/detail', (req, res) => {
     GROUP BY n.id
   `;
   
-  db.query(query, [parseInt(id)], (err, results) => {
-    if (err) {
-      console.error('获取小说详细信息失败:', err);
-      return res.status(500).json({ success: false, message: '获取小说详细信息失败' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [parseInt(id)], { tag: 'novelCreation.novel.detail', idempotent: true });
     if (results.length === 0) {
       return res.status(404).json({ success: false, message: '小说不存在' });
     }
-    
     const novel = results[0];
     
     // 获取标签信息
@@ -564,36 +488,33 @@ router.get('/novel/:id/detail', (req, res) => {
     
     // 查询主角信息
     const protagonistQuery = 'SELECT id, name FROM protagonist WHERE novel_id = ? ORDER BY created_at ASC';
-    db.query(protagonistQuery, [parseInt(id)], (protagonistErr, protagonistResults) => {
-      if (protagonistErr) {
-        console.error('查询主角信息失败:', protagonistErr);
-        // 即使查询主角失败，也返回其他数据
-        return res.json({
-          success: true,
-          data: {
-            ...novel,
-            genres,
-            protagonists: []
-          }
-        });
+    let protagonistResults = [];
+    try {
+      const [protagonistRows] = await Db.query(protagonistQuery, [parseInt(id)], { tag: 'novelCreation.novel.detail.protagonist', idempotent: true });
+      protagonistResults = protagonistRows;
+    } catch (protagonistErr) {
+      console.error('查询主角信息失败:', { code: protagonistErr && protagonistErr.code, fatal: !!(protagonistErr && protagonistErr.fatal) });
+      // 即使查询主角失败，也返回其他数据
+    }
+    
+    const protagonistNames = protagonistResults.map((p) => p.name);
+    
+    res.json({
+      success: true,
+      data: {
+        ...novel,
+        genres,
+        protagonists: protagonistNames
       }
-      
-      const protagonistNames = protagonistResults.map((p) => p.name);
-      
-      res.json({
-        success: true,
-        data: {
-          ...novel,
-          genres,
-          protagonists: protagonistNames
-        }
-      });
     });
-  });
+  } catch (err) {
+    console.error('获取小说详细信息失败:', { code: err && err.code, fatal: !!(err && err.fatal) });
+    return res.status(500).json({ success: false, message: '获取小说详细信息失败' });
+  }
 });
 
 // 更新小说信息
-router.post('/novel/update', upload.single('cover'), (req, res) => {
+router.post('/novel/update', upload.single('cover'), async (req, res) => {
   const { 
     novel_id,
     title, 
@@ -630,186 +551,142 @@ router.post('/novel/update', upload.single('cover'), (req, res) => {
     coverUrl = `/covers/${req.file.filename}`;
   }
   
-  // 处理语言字段：如果languages表中没有该语言，先创建
-  const processLanguage = (languageName) => {
-    return new Promise((resolve, reject) => {
-      if (!languageName || !languageName.trim()) {
-        console.log('语言字段为空，将保存为null');
-        return resolve(null);
-      }
-      
-      const langName = languageName.trim();
+  const pool = Db.getPool();
+  let conn = null;
+  
+  try {
+    // 处理语言字段：如果languages表中没有该语言，先创建
+    let processedLanguage = null;
+    if (language && language.trim()) {
+      const langName = language.trim();
       console.log('处理语言字段:', langName);
       
-      // 先查询该语言是否存在
-      db.query('SELECT id FROM languages WHERE language = ?', [langName], (err, results) => {
-        if (err) {
-          return reject(err);
-        }
+      try {
+        const [langResults] = await Db.query('SELECT id FROM languages WHERE language = ?', [langName], { tag: 'novelCreation.update.language.check', idempotent: true });
         
-        if (results.length > 0) {
-          // 语言已存在，直接返回语言名称
+        if (langResults.length > 0) {
           console.log('语言已存在:', langName);
-          resolve(langName);
+          processedLanguage = langName;
         } else {
-          // 语言不存在，创建新语言
-          console.log('创建新语言:', langName);
-          db.query('INSERT INTO languages (language) VALUES (?)', [langName], (err, result) => {
-            if (err) {
-              // 如果是因为唯一约束冲突（并发情况下可能发生），查询现有记录
-              if (err.code === 'ER_DUP_ENTRY') {
-                db.query('SELECT id FROM languages WHERE language = ?', [langName], (err2, results2) => {
-                  if (err2) return reject(err2);
-                  resolve(langName);
-                });
-              } else {
-                return reject(err);
-              }
+          try {
+            await Db.query('INSERT INTO languages (language) VALUES (?)', [langName], { tag: 'novelCreation.update.language.create', idempotent: false });
+            console.log('创建新语言:', langName);
+            processedLanguage = langName;
+          } catch (insertErr) {
+            if (insertErr.code === 'ER_DUP_ENTRY') {
+              // 并发情况下可能已创建，重新查询
+              const [recheckResults] = await Db.query('SELECT id FROM languages WHERE language = ?', [langName], { tag: 'novelCreation.update.language.recheck', idempotent: true });
+              processedLanguage = langName;
             } else {
-              resolve(langName);
+              throw insertErr;
             }
-          });
-        }
-      });
-    });
-  };
-  
-  // 先处理语言，然后再开始事务
-  console.log('接收到的language字段:', language);
-  processLanguage(language)
-    .then((processedLanguage) => {
-      console.log('处理后的语言值:', processedLanguage);
-      // 开始事务
-      db.beginTransaction((err) => {
-        if (err) {
-          console.error('开始事务失败:', err);
-          return res.status(500).json({ success: false, message: 'Failed to start transaction' });
-        }
-        
-        // 1. 更新小说基本信息
-        const novelQuery = `
-          UPDATE novel SET
-            title = ?,
-            description = ?,
-            recommendation = ?,
-            languages = ?,
-            status = ?
-            ${coverUrl ? ', cover = ?' : ''}
-          WHERE id = ?
-        `;
-        
-        const novelValues = [
-          title.trim(),
-          description ? description.trim() : null,
-          recommendation ? recommendation.trim() : null,
-          processedLanguage || null,
-          status || 'ongoing',
-          ...(coverUrl ? [coverUrl] : []),
-          parseInt(novel_id)
-        ];
-        
-        console.log('准备更新小说，languages字段值:', processedLanguage || null);
-        db.query(novelQuery, novelValues, (err, result) => {
-          if (err) {
-            return db.rollback(() => {
-              console.error('更新小说失败:', err);
-              res.status(500).json({ success: false, message: 'Failed to update novel' });
-            });
           }
-          
-          console.log('小说更新成功，ID:', novel_id, 'languages字段已更新为:', processedLanguage || null);
-          
-          // 2. 更新类型关联（先删除旧的，再插入新的）
-          const genrePromises = [];
-          
-          // 先删除旧的标签关联
-          genrePromises.push(
-            new Promise((resolve, reject) => {
-              db.query('DELETE FROM novel_genre_relation WHERE novel_id = ?', [parseInt(novel_id)], (err) => {
-                if (err) reject(err);
-                else resolve();
-              });
-            })
-          );
-          
-          // 插入新的标签关联
-          if (genre_id_1) {
-            genrePromises.push(
-              new Promise((resolve, reject) => {
-                const genreQuery = 'INSERT INTO novel_genre_relation (novel_id, genre_id_1, genre_id_2) VALUES (?, ?, ?)';
-                db.query(genreQuery, [parseInt(novel_id), parseInt(genre_id_1), genre_id_2 ? parseInt(genre_id_2) : null], (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                });
-              })
-            );
-          }
-          
-          // 3. 更新主角名（先删除旧的，再插入新的）
-          const protagonistPromises = [];
-          
-          // 先删除旧的主角
-          protagonistPromises.push(
-            new Promise((resolve, reject) => {
-              db.query('DELETE FROM protagonist WHERE novel_id = ?', [parseInt(novel_id)], (err) => {
-                if (err) reject(err);
-                else resolve();
-              });
-            })
-          );
-          
-          // 插入新的主角
-          const protagonistKeys = Object.keys(req.body).filter(key => key.startsWith('protagonist_'));
-          protagonistKeys.forEach((key, index) => {
-            const name = req.body[key];
-            if (name && name.trim()) {
-              protagonistPromises.push(
-                new Promise((resolve, reject) => {
-                  const protagonistQuery = 'INSERT INTO protagonist (novel_id, name) VALUES (?, ?)';
-                  db.query(protagonistQuery, [parseInt(novel_id), name.trim()], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                  });
-                })
-              );
-            }
-          });
-          
-          // 执行所有更新操作
-          Promise.all([...genrePromises, ...protagonistPromises])
-            .then(() => {
-              // 提交事务
-              db.commit((err) => {
-                if (err) {
-                  return db.rollback(() => {
-                    console.error('提交事务失败:', err);
-                    res.status(500).json({ success: false, message: 'Failed to commit transaction' });
-                  });
-                }
-                
-                res.json({ 
-                  success: true,
-                  message: 'Novel updated successfully'
-                });
-              });
-            })
-            .catch((err) => {
-              return db.rollback(() => {
-                console.error('更新关联数据失败:', err);
-                res.status(500).json({ success: false, message: 'Failed to update novel relations' });
-              });
-            });
-        });
-      });
-    })
-    .catch((err) => {
-      console.error('处理语言失败:', err);
-      res.status(500).json({ success: false, message: 'Failed to process language' });
+        }
+      } catch (langErr) {
+        console.error('处理语言失败:', langErr);
+        return res.status(500).json({ success: false, message: 'Failed to process language' });
+      }
+    } else {
+      console.log('语言字段为空，将保存为null');
+    }
+    
+    // 获取连接并开始事务
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    
+    console.log('处理后的语言值:', processedLanguage);
+    
+    // 1. 更新小说基本信息
+    const novelQuery = `
+      UPDATE novel SET
+        title = ?,
+        description = ?,
+        recommendation = ?,
+        languages = ?,
+        status = ?
+        ${coverUrl ? ', cover = ?' : ''}
+      WHERE id = ?
+    `;
+    
+    const novelValues = [
+      title.trim(),
+      description ? description.trim() : null,
+      recommendation ? recommendation.trim() : null,
+      processedLanguage || null,
+      status || 'ongoing',
+      ...(coverUrl ? [coverUrl] : []),
+      parseInt(novel_id)
+    ];
+    
+    console.log('准备更新小说，languages字段值:', processedLanguage || null);
+    await conn.execute(novelQuery, novelValues);
+    
+    console.log('小说更新成功，ID:', novel_id, 'languages字段已更新为:', processedLanguage || null);
+    
+    // 2. 更新类型关联（先删除旧的，再插入新的）
+    const genrePromises = [];
+    
+    // 先删除旧的标签关联
+    genrePromises.push(
+      conn.execute('DELETE FROM novel_genre_relation WHERE novel_id = ?', [parseInt(novel_id)])
+    );
+    
+    // 插入新的标签关联
+    if (genre_id_1) {
+      genrePromises.push(
+        conn.execute('INSERT INTO novel_genre_relation (novel_id, genre_id_1, genre_id_2) VALUES (?, ?, ?)', [parseInt(novel_id), parseInt(genre_id_1), genre_id_2 ? parseInt(genre_id_2) : null])
+      );
+    }
+    
+    // 3. 更新主角名（先删除旧的，再插入新的）
+    const protagonistPromises = [];
+    
+    // 先删除旧的主角
+    protagonistPromises.push(
+      conn.execute('DELETE FROM protagonist WHERE novel_id = ?', [parseInt(novel_id)])
+    );
+    
+    // 插入新的主角
+    const protagonistKeys = Object.keys(req.body).filter(key => key.startsWith('protagonist_'));
+    for (const key of protagonistKeys) {
+      const name = req.body[key];
+      if (name && name.trim()) {
+        protagonistPromises.push(
+          conn.execute('INSERT INTO protagonist (novel_id, name) VALUES (?, ?)', [parseInt(novel_id), name.trim()])
+        );
+      }
+    }
+    
+    // 执行所有更新操作
+    await Promise.all([...genrePromises, ...protagonistPromises]);
+    
+    // 提交事务
+    await conn.commit();
+    
+    res.json({ 
+      success: true,
+      message: 'Novel updated successfully'
     });
+    
+  } catch (err) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        console.error('回滚事务失败:', rollbackErr);
+      }
+    }
+    console.error('更新小说失败:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to update novel' });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
 });
 
 // 获取下一个章节号（用于上传章节页面，查询所有状态的章节）
-router.get('/chapters/novel/:novelId/next-number', (req, res) => {
+router.get('/chapters/novel/:novelId/next-number', async (req, res) => {
   const { novelId } = req.params;
   
   const query = `
@@ -818,11 +695,8 @@ router.get('/chapters/novel/:novelId/next-number', (req, res) => {
     WHERE novel_id = ?
   `;
   
-  db.query(query, [parseInt(novelId)], (err, results) => {
-    if (err) {
-      console.error('获取下一个章节号失败:', err);
-      return res.status(500).json({ success: false, message: '获取下一个章节号失败' });
-    }
+  try {
+    const [results] = await Db.query(query, [parseInt(novelId)], { tag: 'novelCreation.nextChapterNumber', idempotent: true });
     
     const maxChapterNumber = results[0]?.max_chapter_number || 0;
     const nextChapterNumber = maxChapterNumber + 1;
@@ -834,11 +708,14 @@ router.get('/chapters/novel/:novelId/next-number', (req, res) => {
         max_chapter_number: maxChapterNumber
       }
     });
-  });
+  } catch (err) {
+    console.error('获取下一个章节号失败:', err);
+    return res.status(500).json({ success: false, message: '获取下一个章节号失败' });
+  }
 });
 
 // 获取小说的最后一章节状态（用于判断按钮是否可用）
-router.get('/chapters/novel/:novelId/last-chapter-status', (req, res) => {
+router.get('/chapters/novel/:novelId/last-chapter-status', async (req, res) => {
   const { novelId } = req.params;
   const query = `
     SELECT 
@@ -854,11 +731,8 @@ router.get('/chapters/novel/:novelId/last-chapter-status', (req, res) => {
     LIMIT 1
   `;
   
-  db.query(query, [parseInt(novelId)], (err, results) => {
-    if (err) {
-      console.error('获取最新章节状态失败:', err);
-      return res.status(500).json({ success: false, message: 'Failed to get last chapter status' });
-    }
+  try {
+    const [results] = await Db.query(query, [parseInt(novelId)], { tag: 'novelCreation.lastChapterStatus', idempotent: true });
 
     if (results.length === 0) {
       // 没有章节，返回null表示所有按钮都可用（第一个章节）
@@ -866,21 +740,23 @@ router.get('/chapters/novel/:novelId/last-chapter-status', (req, res) => {
     }
 
     res.json({ success: true, data: results[0] });
-  });
+  } catch (err) {
+    console.error('获取最新章节状态失败:', err);
+    return res.status(500).json({ success: false, message: 'Failed to get last chapter status' });
+  }
 });
 
 // 获取指定章节的前一章节状态
-router.get('/chapters/novel/:novelId/chapter/:chapterId/prev-chapter-status', (req, res) => {
+router.get('/chapters/novel/:novelId/chapter/:chapterId/prev-chapter-status', async (req, res) => {
   const { novelId, chapterId } = req.params;
   
-  // 首先获取当前章节的chapter_number
-  const currentChapterQuery = `SELECT chapter_number FROM chapter WHERE id = ? AND novel_id = ?`;
-  
-  db.query(currentChapterQuery, [parseInt(chapterId), parseInt(novelId)], (err, currentResults) => {
-    if (err) {
-      console.error('获取当前章节失败:', err);
-      return res.status(500).json({ success: false, message: 'Failed to get current chapter' });
-    }
+  try {
+    // 首先获取当前章节的chapter_number
+    const [currentResults] = await Db.query(
+      'SELECT chapter_number FROM chapter WHERE id = ? AND novel_id = ?',
+      [parseInt(chapterId), parseInt(novelId)],
+      { tag: 'novelCreation.currentChapter', idempotent: true }
+    );
 
     if (currentResults.length === 0) {
       return res.status(404).json({ success: false, message: 'Chapter not found' });
@@ -895,8 +771,8 @@ router.get('/chapters/novel/:novelId/chapter/:chapterId/prev-chapter-status', (r
     }
 
     // 获取前一章节的状态
-    const prevChapterQuery = `
-      SELECT 
+    const [prevResults] = await Db.query(
+      `SELECT 
         id,
         chapter_number,
         title,
@@ -905,22 +781,20 @@ router.get('/chapters/novel/:novelId/chapter/:chapterId/prev-chapter-status', (r
         release_date
       FROM chapter
       WHERE novel_id = ? AND chapter_number = ?
-      LIMIT 1
-    `;
+      LIMIT 1`,
+      [parseInt(novelId), prevChapterNumber],
+      { tag: 'novelCreation.prevChapterStatus', idempotent: true }
+    );
 
-    db.query(prevChapterQuery, [parseInt(novelId), prevChapterNumber], (prevErr, prevResults) => {
-      if (prevErr) {
-        console.error('获取前一章节状态失败:', prevErr);
-        return res.status(500).json({ success: false, message: 'Failed to get previous chapter status' });
-      }
+    if (prevResults.length === 0) {
+      return res.json({ success: true, data: null });
+    }
 
-      if (prevResults.length === 0) {
-        return res.json({ success: true, data: null });
-      }
-
-      res.json({ success: true, data: prevResults[0] });
-    });
-  });
+    res.json({ success: true, data: prevResults[0] });
+  } catch (err) {
+    console.error('获取前一章节状态失败:', err);
+    return res.status(500).json({ success: false, message: 'Failed to get previous chapter status' });
+  }
 });
 
 // 获取小说的章节列表（章节管理选项卡：review_status != 'draft'）
@@ -958,14 +832,14 @@ router.get('/chapters/novel/:novelId', (req, res) => {
   
   query += ` ORDER BY c.chapter_number ${sort === 'asc' ? 'ASC' : 'DESC'}`;
   
-  db.query(query, params, (err, results) => {
-    if (err) {
+  Db.query(query, params, { tag: 'novelCreation.chapters.list', idempotent: true })
+    .then(([results]) => {
+      res.json({ success: true, data: results });
+    })
+    .catch((err) => {
       console.error('获取章节列表失败:', err);
       return res.status(500).json({ success: false, message: '获取章节列表失败' });
-    }
-    
-    res.json({ success: true, data: results });
-  });
+    });
 });
 
 // 获取草稿列表（草稿箱选项卡：review_status = 'draft'）
@@ -986,14 +860,14 @@ router.get('/chapters/novel/:novelId/drafts', (req, res) => {
     ORDER BY chapter_number ${sort === 'asc' ? 'ASC' : 'DESC'}
   `;
   
-  db.query(query, [parseInt(novelId)], (err, results) => {
-    if (err) {
+  Db.query(query, [parseInt(novelId)], { tag: 'novelCreation.chapters.drafts', idempotent: true })
+    .then(([results]) => {
+      res.json({ success: true, data: results });
+    })
+    .catch((err) => {
       console.error('获取草稿列表失败:', err);
       return res.status(500).json({ success: false, message: '获取草稿列表失败' });
-    }
-    
-    res.json({ success: true, data: results });
-  });
+    });
 });
 
 // 提交草稿审核（将 review_status 从 'draft' 改为 'submitted'）
@@ -1003,40 +877,36 @@ router.post('/chapter/:chapterId/submit', (req, res) => {
   // 先检查章节是否存在且为草稿状态
   const checkQuery = 'SELECT id, review_status FROM chapter WHERE id = ?';
   
-  db.query(checkQuery, [parseInt(chapterId)], (err, results) => {
-    if (err) {
-      console.error('查询章节失败:', err);
-      return res.status(500).json({ success: false, message: '查询章节失败' });
-    }
-    
-    if (results.length === 0) {
-      return res.status(404).json({ success: false, message: '章节不存在' });
-    }
-    
-    if (results[0].review_status !== 'draft') {
-      return res.status(400).json({ success: false, message: '只能提交草稿状态的章节' });
-    }
-    
-    // 更新状态为 submitted
-    const updateQuery = `
-      UPDATE chapter 
-      SET review_status = 'submitted'
-      WHERE id = ?
-    `;
-    
-    db.query(updateQuery, [parseInt(chapterId)], (updateErr, updateResult) => {
-      if (updateErr) {
-        console.error('提交章节审核失败:', updateErr);
-        return res.status(500).json({ success: false, message: '提交章节审核失败' });
+  Db.query(checkQuery, [parseInt(chapterId)], { tag: 'novelCreation.chapter.submit.check', idempotent: true })
+    .then(([results]) => {
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, message: '章节不存在' });
       }
       
+      if (results[0].review_status !== 'draft') {
+        return res.status(400).json({ success: false, message: '只能提交草稿状态的章节' });
+      }
+      
+      // 更新状态为 submitted
+      const updateQuery = `
+        UPDATE chapter 
+        SET review_status = 'submitted'
+        WHERE id = ?
+      `;
+      
+      return Db.query(updateQuery, [parseInt(chapterId)], { tag: 'novelCreation.chapter.submit.update', idempotent: false });
+    })
+    .then(() => {
       res.json({ success: true, message: '章节已提交审核' });
+    })
+    .catch((err) => {
+      console.error('提交章节审核失败:', err);
+      return res.status(500).json({ success: false, message: err.message || '提交章节审核失败' });
     });
-  });
 });
 
 // 获取小说的卷列表（用于章节管理）
-router.get('/novels/:novelId/volumes', (req, res) => {
+router.get('/novels/:novelId/volumes', async (req, res) => {
   const { novelId } = req.params;
   
   const query = `
@@ -1050,29 +920,23 @@ router.get('/novels/:novelId/volumes', (req, res) => {
     ORDER BY volume_id ASC
   `;
   
-  db.query(query, [parseInt(novelId)], (err, results) => {
-    if (err) {
-      console.error('获取卷列表失败:', err);
-      return res.status(500).json({ success: false, message: '获取卷列表失败' });
-    }
-    
+  try {
+    const [results] = await Db.query(query, [parseInt(novelId)], { tag: 'novelCreation.volumes.list', idempotent: true });
     res.json({ success: true, data: results });
-  });
+  } catch (err) {
+    console.error('获取卷列表失败:', err);
+    return res.status(500).json({ success: false, message: '获取卷列表失败' });
+  }
 });
 
 // 更新章节所属卷
-router.patch('/chapter/:chapterId/volume', (req, res) => {
+router.patch('/chapter/:chapterId/volume', async (req, res) => {
   const { chapterId } = req.params;
   const { volume_id } = req.body;
   
-  // 先检查章节是否存在
-  const checkQuery = 'SELECT id, novel_id FROM chapter WHERE id = ?';
-  
-  db.query(checkQuery, [parseInt(chapterId)], (err, results) => {
-    if (err) {
-      console.error('查询章节失败:', err);
-      return res.status(500).json({ success: false, message: '查询章节失败' });
-    }
+  try {
+    // 先检查章节是否存在
+    const [results] = await Db.query('SELECT id, novel_id FROM chapter WHERE id = ?', [parseInt(chapterId)], { tag: 'novelCreation.chapter.check', idempotent: true });
     
     if (results.length === 0) {
       return res.status(404).json({ success: false, message: '章节不存在' });
@@ -1082,42 +946,38 @@ router.patch('/chapter/:chapterId/volume', (req, res) => {
     
     // 如果指定了volume_id，验证卷是否存在
     if (volume_id !== null && volume_id !== undefined) {
-      const volumeCheckQuery = 'SELECT id FROM volume WHERE id = ? AND novel_id = ?';
-      db.query(volumeCheckQuery, [parseInt(volume_id), novelId], (volErr, volResults) => {
-        if (volErr) {
-          console.error('查询卷失败:', volErr);
-          return res.status(500).json({ success: false, message: '查询卷失败' });
-        }
-        
-        if (volResults.length === 0) {
-          return res.status(400).json({ success: false, message: '指定的卷不存在' });
-        }
-        
-        // 更新章节的volume_id
-        updateChapterVolume(chapterId, volume_id, res);
-      });
+      const [volResults] = await Db.query('SELECT id FROM volume WHERE id = ? AND novel_id = ?', [parseInt(volume_id), novelId], { tag: 'novelCreation.volume.check', idempotent: true });
+      
+      if (volResults.length === 0) {
+        return res.status(400).json({ success: false, message: '指定的卷不存在' });
+      }
+      
+      // 更新章节的volume_id
+      await updateChapterVolume(chapterId, volume_id, res);
     } else {
       // volume_id为null，表示"无卷"
-      updateChapterVolume(chapterId, null, res);
+      await updateChapterVolume(chapterId, null, res);
     }
-  });
+  } catch (err) {
+    console.error('更新章节卷失败:', err);
+    return res.status(500).json({ success: false, message: '更新章节卷失败' });
+  }
 });
 
-function updateChapterVolume(chapterId, volumeId, res) {
+async function updateChapterVolume(chapterId, volumeId, res) {
   const updateQuery = `
     UPDATE chapter 
     SET volume_id = ?
     WHERE id = ?
   `;
   
-  db.query(updateQuery, [volumeId, parseInt(chapterId)], (updateErr, updateResult) => {
-    if (updateErr) {
-      console.error('更新章节卷失败:', updateErr);
-      return res.status(500).json({ success: false, message: '更新章节卷失败' });
-    }
-    
+  try {
+    await Db.query(updateQuery, [volumeId, parseInt(chapterId)], { tag: 'novelCreation.chapter.updateVolume', idempotent: false });
     res.json({ success: true, message: '卷轴已更新' });
-  });
+  } catch (updateErr) {
+    console.error('更新章节卷失败:', updateErr);
+    return res.status(500).json({ success: false, message: '更新章节卷失败' });
+  }
 }
 
 // Multer配置用于处理FormData（文本字段）
@@ -1198,12 +1058,7 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
 
   try {
     // 1. 先获取 user_id
-    const novelUserResults = await new Promise((resolve, reject) => {
-      db.query('SELECT user_id FROM novel WHERE id = ?', [novelId], (err, results) => {
-        if (err) reject(err);
-        else resolve(results);
-      });
-    });
+    const [novelUserResults] = await Db.query('SELECT user_id FROM novel WHERE id = ?', [novelId], { tag: 'novelCreation.chapter.create.novelUser', idempotent: true });
 
     // 检查查询结果
     if (!novelUserResults || novelUserResults.length === 0) {
@@ -1218,33 +1073,23 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
     }
 
     // 2. 查询 unlockprice 表（新版本：按字数计价），获取免费章节数配置
-    const unlockPriceResults = await new Promise((resolve, reject) => {
-      db.query(`
-        SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
-        FROM unlockprice
-        WHERE novel_id = ? AND user_id = ?
-        LIMIT 1
-      `, [novelId, userId], (err, results) => {
-        if (err) reject(err);
-        else resolve(results);
-      });
-    });
+    const [unlockPriceResults] = await Db.query(`
+      SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
+      FROM unlockprice
+      WHERE novel_id = ? AND user_id = ?
+      LIMIT 1
+    `, [novelId, userId], { tag: 'novelCreation.chapter.create.unlockPrice', idempotent: true });
 
     // 获取或创建 unlockprice 配置
     let config;
     if (!unlockPriceResults || unlockPriceResults.length === 0) {
       // 如果没有数据，创建一条默认数据（使用ON DUPLICATE KEY UPDATE防止重复）
       try {
-        await new Promise((resolve, reject) => {
-          db.query(`
-            INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
-            VALUES (?, ?, 6, 5, 30, 50, 'per_word')
-            ON DUPLICATE KEY UPDATE updated_at = NOW()
-          `, [userId, novelId], (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          });
-        });
+        await Db.query(`
+          INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
+          VALUES (?, ?, 6, 5, 30, 50, 'per_word')
+          ON DUPLICATE KEY UPDATE updated_at = NOW()
+        `, [userId, novelId], { tag: 'novelCreation.chapter.create.unlockPriceCreate', idempotent: false });
         // 使用默认配置
         config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
       } catch (err) {
@@ -1272,12 +1117,7 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
 
       // 处理 is_advance 逻辑（只有收费章节才考虑预读）
       // 1. 查询小说的 champion_status
-      const novelResults = await new Promise((resolve, reject) => {
-        db.query('SELECT champion_status FROM novel WHERE id = ?', [novelId], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      });
+      const [novelResults] = await Db.query('SELECT champion_status FROM novel WHERE id = ?', [novelId], { tag: 'novelCreation.chapter.create.championStatus', idempotent: true });
 
       const championStatus = novelResults[0]?.champion_status || 'invalid';
 
@@ -1286,38 +1126,28 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
       if (championStatus === 'approved') {
         // 2. 查询最大 tier_level 的 advance_chapters 值（设为A）
         // 先找到最大 tier_level，然后获取该 tier_level 的 advance_chapters
-        const tierResults = await new Promise((resolve, reject) => {
-          db.query(`
-            SELECT advance_chapters
-            FROM novel_champion_tiers
-            WHERE novel_id = ? AND is_active = 1
-              AND tier_level = (
-                SELECT MAX(tier_level)
-                FROM novel_champion_tiers
-                WHERE novel_id = ? AND is_active = 1
-              )
-            LIMIT 1
-          `, [novelId, novelId], (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          });
-        });
+        const [tierResults] = await Db.query(`
+          SELECT advance_chapters
+          FROM novel_champion_tiers
+          WHERE novel_id = ? AND is_active = 1
+            AND tier_level = (
+              SELECT MAX(tier_level)
+              FROM novel_champion_tiers
+              WHERE novel_id = ? AND is_active = 1
+            )
+          LIMIT 1
+        `, [novelId, novelId], { tag: 'novelCreation.chapter.create.tierLevel', idempotent: true });
 
         const maxAdvanceChapters = tierResults[0]?.advance_chapters || 0;
         console.log(`Max advance chapters: ${maxAdvanceChapters}`);
 
         if (maxAdvanceChapters > 0) {
           // 3. 查询该小说 chapter 表中 is_advance=1 的数据条数（设为B）
-          const advanceCountResults = await new Promise((resolve, reject) => {
-            db.query(`
-              SELECT COUNT(*) as count
-              FROM chapter
-              WHERE novel_id = ? AND is_advance = 1
-            `, [novelId], (err, results) => {
-              if (err) reject(err);
-              else resolve(results);
-            });
-          });
+          const [advanceCountResults] = await Db.query(`
+            SELECT COUNT(*) as count
+            FROM chapter
+            WHERE novel_id = ? AND is_advance = 1
+          `, [novelId], { tag: 'novelCreation.chapter.create.advanceCount', idempotent: true });
 
           const currentAdvanceCount = advanceCountResults[0]?.count || 0;
           console.log(`Current advance count: ${currentAdvanceCount}`);
@@ -1333,31 +1163,21 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
             
             // 查找倒数第 A+1 条 is_advance=1 的数据
             // 如果 A=5，那么倒数第1条是OFFSET 0，倒数第6条（A+1）是OFFSET 5
-            const oldAdvanceChapters = await new Promise((resolve, reject) => {
-              db.query(`
-                SELECT id
-                FROM chapter
-                WHERE novel_id = ? AND is_advance = 1
-                ORDER BY chapter_number DESC
-                LIMIT 1 OFFSET ?
-              `, [novelId, maxAdvanceChapters], (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-              });
-            });
+            const [oldAdvanceChapters] = await Db.query(`
+              SELECT id
+              FROM chapter
+              WHERE novel_id = ? AND is_advance = 1
+              ORDER BY chapter_number DESC
+              LIMIT 1 OFFSET ?
+            `, [novelId, maxAdvanceChapters], { tag: 'novelCreation.chapter.create.oldAdvance', idempotent: true });
 
             if (oldAdvanceChapters && oldAdvanceChapters.length > 0) {
               // 更新倒数第 A+1 条数据的 is_advance=0
-              await new Promise((resolve, reject) => {
-                db.query(`
-                  UPDATE chapter
-                  SET is_advance = 0
-                  WHERE id = ?
-                `, [oldAdvanceChapters[0].id], (err, results) => {
-                  if (err) reject(err);
-                  else resolve(results);
-                });
-              });
+              await Db.query(`
+                UPDATE chapter
+                SET is_advance = 0
+                WHERE id = ?
+              `, [oldAdvanceChapters[0].id], { tag: 'novelCreation.chapter.create.updateAdvance', idempotent: false });
               console.log(`Updated chapter ${oldAdvanceChapters[0].id} is_advance to 0`);
             }
           } else {
@@ -1387,11 +1207,8 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
       LIMIT 1
     `;
 
-    db.query(checkQuery, [novelId, chapterNumber], (checkErr, checkResults) => {
-      if (checkErr) {
-        console.error('检查章节是否存在失败:', checkErr);
-        return res.status(500).json({ success: false, message: 'Failed to check chapter existence', error: checkErr.message });
-      }
+    try {
+      const [checkResults] = await Db.query(checkQuery, [novelId, chapterNumber], { tag: 'novelCreation.chapter.create.checkDuplicate', idempotent: true });
 
       // 如果存在相同章节号的章节，返回需要确认的信息
       if (checkResults && checkResults.length > 0) {
@@ -1446,88 +1263,98 @@ router.post('/chapter/create', textFieldsMulter.none(), async (req, res) => {
         releaseDate
       ];
 
-      db.query(query, values, (err, result) => {
-        if (err) {
-          // 检查是否是唯一约束错误
-          if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
-            // 再次查询现有章节信息
-            db.query(checkQuery, [novelId, chapterNumber], (dupCheckErr, dupCheckResults) => {
-              if (dupCheckErr || !dupCheckResults || dupCheckResults.length === 0) {
-                return res.status(409).json({
-                  success: false,
-                  code: 'CHAPTER_EXISTS',
-                  message: 'A chapter with this number already exists'
-                });
-              }
-              const existingChapter = dupCheckResults[0];
-              return res.status(409).json({
-                success: false,
-                code: 'CHAPTER_EXISTS',
-                message: 'A chapter with this number already exists',
-                existingChapter: {
-                  id: existingChapter.id,
-                  title: existingChapter.title,
-                  review_status: existingChapter.review_status,
-                  is_released: existingChapter.is_released,
-                  release_date: existingChapter.release_date,
-                  created_at: existingChapter.created_at
-                }
-              });
-            });
-            return;
-          }
-          console.error('创建章节失败:', err);
-          return res.status(500).json({ success: false, message: 'Failed to create chapter', error: err.message });
-        }
+      try {
+        const [result] = await Db.query(query, values, { tag: 'novelCreation.chapter.create.insert', idempotent: false });
+        const newChapterId = result.insertId;
 
-      const newChapterId = result.insertId;
-
-      // 如果是定时发布，插入scheduledrelease表
-      if (releaseDate && isReleased === 0) {
-        const scheduledReleaseQuery = `
-          INSERT INTO scheduledrelease (novel_id, chapter_id, release_time, is_released)
-          VALUES (?, ?, ?, 0)
-        `;
-        
-        db.query(scheduledReleaseQuery, [novelId, newChapterId, releaseDate], (scheduledErr) => {
-          if (scheduledErr) {
+        // 如果是定时发布，插入scheduledrelease表
+        if (releaseDate && isReleased === 0) {
+          try {
+            await Db.query(`
+              INSERT INTO scheduledrelease (novel_id, chapter_id, release_time, is_released)
+              VALUES (?, ?, ?, 0)
+            `, [novelId, newChapterId, releaseDate], { tag: 'novelCreation.chapter.create.scheduledRelease', idempotent: false });
+          } catch (scheduledErr) {
             console.error('创建定时发布记录失败:', scheduledErr);
             // 即使scheduledrelease插入失败，也返回成功（章节已创建）
           }
-        });
-      }
+        }
 
-      // 如果章节已发布（is_released === 1 且 release_date 不为空），记录字数变更
-      if (isReleased === 1 && releaseDate) {
-        // 获取作者ID
-        db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [novelId], async (authorErr, authorResults) => {
-          if (!authorErr && authorResults && authorResults.length > 0) {
-            const authorId = authorResults[0].user_id;
-            if (authorId) {
-              try {
-                await authorDailyWordCountService.recordChapterReleaseChange({
-                  authorId,
-                  novelId,
-                  chapterId: newChapterId,
-                  wordCount: calculatedWordCount,
-                  releaseDate: releaseDate,
-                });
-              } catch (wordCountErr) {
-                console.error('记录章节字数变更失败:', wordCountErr);
-                // 不影响主流程，继续返回成功
+        // 如果章节已发布（is_released === 1 且 release_date 不为空），记录字数变更
+        if (isReleased === 1 && releaseDate) {
+          try {
+            // 获取作者ID
+            const [authorResults] = await Db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [novelId], { tag: 'novelCreation.chapter.create.authorId', idempotent: true });
+            if (authorResults && authorResults.length > 0) {
+              const authorId = authorResults[0].user_id;
+              if (authorId) {
+                try {
+                  await authorDailyWordCountService.recordChapterReleaseChange({
+                    authorId,
+                    novelId,
+                    chapterId: newChapterId,
+                    wordCount: calculatedWordCount,
+                    releaseDate: releaseDate,
+                  });
+                } catch (wordCountErr) {
+                  console.error('记录章节字数变更失败:', wordCountErr);
+                  // 不影响主流程，继续返回成功
+                }
               }
             }
+          } catch (authorErr) {
+            console.error('获取作者ID失败:', authorErr);
+            // 不影响主流程，继续返回成功
           }
-        });
-      }
+        }
 
-      res.json({ 
-        success: true, 
-        message: 'Chapter created successfully',
-        chapter_id: newChapterId
-      });
-    });
-    }); // 闭合外部的 db.query(checkQuery, ...) 回调函数
+        res.json({ 
+          success: true, 
+          message: 'Chapter created successfully',
+          chapter_id: newChapterId
+        });
+      } catch (err) {
+        // 检查是否是唯一约束错误
+        if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
+          // 再次查询现有章节信息
+          try {
+            const [dupCheckResults] = await Db.query(checkQuery, [novelId, chapterNumber], { tag: 'novelCreation.chapter.create.dupCheck', idempotent: true });
+            if (!dupCheckResults || dupCheckResults.length === 0) {
+              return res.status(409).json({
+                success: false,
+                code: 'CHAPTER_EXISTS',
+                message: 'A chapter with this number already exists'
+              });
+            }
+            const existingChapter = dupCheckResults[0];
+            return res.status(409).json({
+              success: false,
+              code: 'CHAPTER_EXISTS',
+              message: 'A chapter with this number already exists',
+              existingChapter: {
+                id: existingChapter.id,
+                title: existingChapter.title,
+                review_status: existingChapter.review_status,
+                is_released: existingChapter.is_released,
+                release_date: existingChapter.release_date,
+                created_at: existingChapter.created_at
+              }
+            });
+          } catch (dupCheckErr) {
+            return res.status(409).json({
+              success: false,
+              code: 'CHAPTER_EXISTS',
+              message: 'A chapter with this number already exists'
+            });
+          }
+        }
+        console.error('创建章节失败:', err);
+        return res.status(500).json({ success: false, message: 'Failed to create chapter', error: err.message });
+      }
+    } catch (checkErr) {
+      console.error('检查章节是否存在失败:', checkErr);
+      return res.status(500).json({ success: false, message: 'Failed to check chapter existence', error: checkErr.message });
+    }
   } catch (error) {
     console.error('创建章节时出错:', error);
     return res.status(500).json({ success: false, message: 'Failed to create chapter', error: error.message });
@@ -1571,16 +1398,11 @@ router.post('/chapter/update', textFieldsMulter.none(), async (req, res) => {
   // 在更新之前先查出旧状态
   let oldChapter = null;
   try {
-    const [oldRows] = await new Promise((resolve, reject) => {
-      db.query(
-        'SELECT novel_id, is_released, word_count, release_date FROM chapter WHERE id = ? LIMIT 1',
-        [chapterId],
-        (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        }
-      );
-    });
+    const [oldRows] = await Db.query(
+      'SELECT novel_id, is_released, word_count, release_date FROM chapter WHERE id = ? LIMIT 1',
+      [chapterId],
+      { tag: 'novelCreation.chapter.update.oldState', idempotent: true }
+    );
     oldChapter = oldRows && oldRows.length > 0 ? oldRows[0] : null;
   } catch (err) {
     console.error('查询章节旧状态失败:', err);
@@ -1667,90 +1489,74 @@ router.post('/chapter/update', textFieldsMulter.none(), async (req, res) => {
   }
   
   // 如果是发布操作（立即发布或定时发布），需要计算unlock_price
-  // 使用立即执行函数（IIFE）来异步处理
   if ((action === 'publish' || action === 'schedule') && chapterNumber) {
     // 先获取章节信息，然后计算unlock_price
-    db.query('SELECT novel_id FROM chapter WHERE id = ?', [parseInt(chapterId)], async (chapterErr, chapterResults) => {
-      if (chapterErr || !chapterResults || chapterResults.length === 0) {
-        console.error('无法获取章节信息:', chapterErr);
-        return;
-      }
+    try {
+      const [chapterResults] = await Db.query('SELECT novel_id FROM chapter WHERE id = ?', [parseInt(chapterId)], { tag: 'novelCreation.chapter.update.novelId', idempotent: true });
+      if (!chapterResults || chapterResults.length === 0) {
+        console.error('无法获取章节信息');
+      } else {
+        const currentNovelId = chapterResults[0].novel_id;
+        const currentChapterNumber = parseInt(chapterNumber);
 
-      const currentNovelId = chapterResults[0].novel_id;
-      const currentChapterNumber = parseInt(chapterNumber);
-
-      try {
-        // 获取user_id
-        const novelInfo = await new Promise((resolve, reject) => {
-          db.query('SELECT user_id FROM novel WHERE id = ?', [currentNovelId], (err, results) => {
-            if (err) reject(err);
-            else resolve(results[0]);
-          });
-        });
-
-        if (!novelInfo || !novelInfo.user_id) {
-          console.error('无法获取小说信息');
-          return;
-        }
-
-        const userId = novelInfo.user_id;
-
-        // 查询unlockprice表
-        const unlockPriceResults = await new Promise((resolve, reject) => {
-          db.query(`
-            SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
-            FROM unlockprice
-            WHERE novel_id = ? AND user_id = ?
-            LIMIT 1
-          `, [currentNovelId, userId], (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-          });
-        });
-
-        let unlockPrice = 0;
-        if (!unlockPriceResults || unlockPriceResults.length === 0) {
-          // 如果没有数据，创建一条默认数据（使用ON DUPLICATE KEY UPDATE防止重复）
-          try {
-            await new Promise((resolve, reject) => {
-              db.query(`
-                INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
-                VALUES (?, ?, 6, 5, 30, 50, 'per_word')
-                ON DUPLICATE KEY UPDATE updated_at = NOW()
-              `, [userId, currentNovelId], (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-              });
-            });
-            // 使用默认配置计算价格
-            const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
-            unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
-          } catch (err) {
-            console.error('创建 unlockprice 记录失败:', err);
-            // 使用默认值计算
-            const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
-            unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
-          }
-        } else {
-          const config = unlockPriceResults[0];
-          // 如果章节序号大于免费章节数，则计算价格
-          if (currentChapterNumber > config.default_free_chapters) {
-            unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
+        try {
+          // 获取user_id
+          const [novelInfoRows] = await Db.query('SELECT user_id FROM novel WHERE id = ?', [currentNovelId], { tag: 'novelCreation.chapter.update.userId', idempotent: true });
+          if (!novelInfoRows || !novelInfoRows[0] || !novelInfoRows[0].user_id) {
+            console.error('无法获取小说信息');
           } else {
-            unlockPrice = 0; // 免费章节
-          }
-        }
+            const userId = novelInfoRows[0].user_id;
 
-        // 更新unlock_price
-        db.query('UPDATE chapter SET unlock_price = ? WHERE id = ?', [unlockPrice, parseInt(chapterId)], (updateErr) => {
-          if (updateErr) {
-            console.error('更新unlock_price失败:', updateErr);
+            // 查询unlockprice表
+            const [unlockPriceResults] = await Db.query(`
+              SELECT karma_per_1000, min_karma, max_karma, default_free_chapters
+              FROM unlockprice
+              WHERE novel_id = ? AND user_id = ?
+              LIMIT 1
+            `, [currentNovelId, userId], { tag: 'novelCreation.chapter.update.unlockPrice', idempotent: true });
+
+            let unlockPrice = 0;
+            if (!unlockPriceResults || unlockPriceResults.length === 0) {
+              // 如果没有数据，创建一条默认数据（使用ON DUPLICATE KEY UPDATE防止重复）
+              try {
+                await Db.query(`
+                  INSERT INTO unlockprice (user_id, novel_id, karma_per_1000, min_karma, max_karma, default_free_chapters, pricing_style)
+                  VALUES (?, ?, 6, 5, 30, 50, 'per_word')
+                  ON DUPLICATE KEY UPDATE updated_at = NOW()
+                `, [userId, currentNovelId], { tag: 'novelCreation.chapter.update.unlockPriceCreate', idempotent: false });
+                // 使用默认配置计算价格
+                const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
+                unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
+              } catch (err) {
+                console.error('创建 unlockprice 记录失败:', err);
+                // 使用默认值计算
+                const config = { karma_per_1000: 6, min_karma: 5, max_karma: 30, default_free_chapters: 50 };
+                unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
+              }
+            } else {
+              const config = unlockPriceResults[0];
+              // 如果章节序号大于免费章节数，则计算价格
+              if (currentChapterNumber > config.default_free_chapters) {
+                unlockPrice = calculateChapterPrice(currentChapterNumber, parseInt(calculatedWordCount) || 0, config);
+              } else {
+                unlockPrice = 0; // 免费章节
+              }
+            }
+
+            // 更新unlock_price
+            try {
+              await Db.query('UPDATE chapter SET unlock_price = ? WHERE id = ?', [unlockPrice, parseInt(chapterId)], { tag: 'novelCreation.chapter.update.unlockPriceUpdate', idempotent: false });
+            } catch (updateErr) {
+              console.error('更新unlock_price失败:', updateErr);
+            }
           }
-        });
-      } catch (error) {
-        console.error('计算unlock_price时出错:', error);
+        } catch (error) {
+          console.error('计算unlock_price时出错:', error);
+        }
       }
-    });
+    } catch (chapterErr) {
+      console.error('无法获取章节信息:', chapterErr);
+    }
   }
   
   if (updateFields.length === 0) {
@@ -1761,225 +1567,110 @@ router.post('/chapter/update', textFieldsMulter.none(), async (req, res) => {
 
   const updateQuery = `UPDATE chapter SET ${updateFields.join(', ')} WHERE id = ?`;
 
-  db.query(updateQuery, updateValues, (err, result) => {
-    if (err) {
-      console.error('更新章节失败:', err);
-      return res.status(500).json({ success: false, message: 'Failed to update chapter', error: err.message });
-    }
+  try {
+    await Db.query(updateQuery, updateValues, { tag: 'novelCreation.chapter.update.main', idempotent: false });
 
     // 处理scheduledrelease表
     if (action === 'schedule' && release_date) {
-      // 检查是否已存在定时发布记录
-      const checkQuery = `SELECT id FROM scheduledrelease WHERE chapter_id = ? LIMIT 1`;
-      db.query(checkQuery, [parseInt(chapterId)], (checkErr, checkResults) => {
-        if (checkErr) {
-          console.error('检查定时发布记录失败:', checkErr);
-          return;
-        }
+      try {
+        // 检查是否已存在定时发布记录
+        const [checkResults] = await Db.query(`SELECT id FROM scheduledrelease WHERE chapter_id = ? LIMIT 1`, [parseInt(chapterId)], { tag: 'novelCreation.chapter.update.scheduledCheck', idempotent: true });
         
         if (checkResults && checkResults.length > 0) {
           // 更新现有记录
-          const updateQuery = `
+          await Db.query(`
             UPDATE scheduledrelease
             SET release_time = ?, is_released = 0, updated_at = CURRENT_TIMESTAMP
             WHERE chapter_id = ?
-          `;
-          db.query(updateQuery, [release_date, parseInt(chapterId)], (updateErr) => {
-            if (updateErr) {
-              console.error('更新定时发布记录失败:', updateErr);
-            }
-          });
+          `, [release_date, parseInt(chapterId)], { tag: 'novelCreation.chapter.update.scheduledUpdate', idempotent: false });
         } else {
           // 插入新记录
-          const insertQuery = `
+          await Db.query(`
             INSERT INTO scheduledrelease (novel_id, chapter_id, release_time, is_released)
             VALUES (?, ?, ?, 0)
-          `;
-          db.query(insertQuery, [parseInt(novelId) || 0, parseInt(chapterId), release_date], (insertErr) => {
-            if (insertErr) {
-              console.error('创建定时发布记录失败:', insertErr);
-            }
-          });
+          `, [parseInt(novelId) || 0, parseInt(chapterId), release_date], { tag: 'novelCreation.chapter.update.scheduledInsert', idempotent: false });
         }
-      });
+      } catch (scheduledErr) {
+        console.error('处理定时发布记录失败:', scheduledErr);
+        // 不影响主流程
+      }
     } else if (action === 'publish') {
-      // 立即发布时，检查章节是否是从定时发布状态转为立即发布
-      // 如果是，需要更新scheduledrelease表的is_released=1
-      // 如果是从草稿状态直接发布，scheduledrelease表中没有数据，不需要处理
-      const checkScheduledQuery = `SELECT id FROM scheduledrelease WHERE chapter_id = ? LIMIT 1`;
-      db.query(checkScheduledQuery, [parseInt(chapterId)], (checkErr, checkResults) => {
-        if (checkErr) {
-          console.error('检查定时发布记录失败:', checkErr);
-          return;
-        }
+      try {
+        // 立即发布时，检查章节是否是从定时发布状态转为立即发布
+        const [checkScheduledResults] = await Db.query(`SELECT id FROM scheduledrelease WHERE chapter_id = ? LIMIT 1`, [parseInt(chapterId)], { tag: 'novelCreation.chapter.update.scheduledPublishCheck', idempotent: true });
         
         // 如果存在定时发布记录，则更新为已发布
-        if (checkResults && checkResults.length > 0) {
-          const updateScheduledQuery = `
+        if (checkScheduledResults && checkScheduledResults.length > 0) {
+          await Db.query(`
             UPDATE scheduledrelease
             SET is_released = 1, updated_at = CURRENT_TIMESTAMP
             WHERE chapter_id = ?
-          `;
-          
-          db.query(updateScheduledQuery, [parseInt(chapterId)], (updateScheduledErr) => {
-            if (updateScheduledErr) {
-              console.error('更新定时发布记录失败:', updateScheduledErr);
-            }
-          });
+          `, [parseInt(chapterId)], { tag: 'novelCreation.chapter.update.scheduledPublishUpdate', idempotent: false });
         }
-        // 如果不存在定时发布记录（从草稿直接发布），不需要处理scheduledrelease表
-      });
+      } catch (scheduledErr) {
+        console.error('处理定时发布记录失败:', scheduledErr);
+        // 不影响主流程
+      }
     }
 
     // 更新完成后，再查一次最新章节状态（保证拿到数据库中的最终值）
-    db.query(
+    const [newRows] = await Db.query(
       'SELECT novel_id, is_released, word_count, release_date FROM chapter WHERE id = ? LIMIT 1',
       [parseInt(chapterId)],
-      async (queryErr, newRows) => {
-        if (queryErr) {
-          console.error('查询章节新状态失败:', queryErr);
-          return res.json({ 
-            success: true, 
-            message: 'Chapter updated successfully'
-          });
-        }
-
-        const newChapter = newRows && newRows.length > 0 ? newRows[0] : null;
-        
-        if (newChapter) {
-          // 需要记录发布变更的场景：
-          // A. 原来未发布，更新后已发布
-          // B. 原来已发布，这次修改后字数发生变化
-          const shouldRecord = 
-            (!oldChapter || !oldChapter.is_released) && newChapter.is_released == 1 ||
-            (oldChapter && oldChapter.is_released == 1 && newChapter.is_released == 1 && 
-             (oldChapter.word_count || 0) !== (newChapter.word_count || 0));
-
-          if (shouldRecord) {
-            // 获取作者ID
-            db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [newChapter.novel_id], async (authorErr, authorResults) => {
-              if (!authorErr && authorResults && authorResults.length > 0) {
-                const authorId = authorResults[0].user_id;
-                if (authorId) {
-                  try {
-                    await authorDailyWordCountService.recordChapterReleaseChange({
-                      authorId,
-                      novelId: newChapter.novel_id,
-                      chapterId: parseInt(chapterId),
-                      wordCount: newChapter.word_count || 0,
-                      releaseDate: newChapter.release_date || new Date(),
-                    });
-                  } catch (wordCountErr) {
-                    console.error('记录章节字数变更失败:', wordCountErr);
-                    // 不影响主流程
-                  }
-                }
-              }
-            });
-          }
-        }
-
-        res.json({ 
-          success: true, 
-          message: 'Chapter updated successfully'
-        });
-      }
+      { tag: 'novelCreation.chapter.update.finalState', idempotent: true }
     );
-  });
-});
 
-// 获取章节详情
-router.get('/chapter/:chapterId', (req, res) => {
-  const { chapterId } = req.params;
+    const newChapter = newRows && newRows.length > 0 ? newRows[0] : null;
+    
+    if (newChapter) {
+      // 需要记录发布变更的场景：
+      // A. 原来未发布，更新后已发布
+      // B. 原来已发布，这次修改后字数发生变化
+      const shouldRecord = 
+        (!oldChapter || !oldChapter.is_released) && newChapter.is_released == 1 ||
+        (oldChapter && oldChapter.is_released == 1 && newChapter.is_released == 1 && 
+         (oldChapter.word_count || 0) !== (newChapter.word_count || 0));
 
-  const query = `
-    SELECT 
-      c.id,
-      c.novel_id,
-      c.volume_id,
-      c.chapter_number,
-      c.title,
-      c.content,
-      c.unlock_price,
-      c.translator_note,
-      c.review_status,
-      c.word_count,
-      c.is_released,
-      c.release_date,
-      c.created_at,
-      n.title as novel_title,
-      n.author,
-      n.translator,
-      v.title as volume_title,
-      (SELECT id
-       FROM chapter
-       WHERE novel_id = c.novel_id
-         AND review_status = 'approved'
-         AND is_released = 1
-         AND chapter_number < c.chapter_number
-       ORDER BY chapter_number DESC
-       LIMIT 1) AS prev_chapter_id,
-      (SELECT id
-       FROM chapter
-       WHERE novel_id = c.novel_id
-         AND review_status = 'approved'
-         AND is_released = 1
-         AND chapter_number > c.chapter_number
-       ORDER BY chapter_number ASC
-       LIMIT 1) AS next_chapter_id
-    FROM chapter c
-    JOIN novel n ON c.novel_id = n.id
-    LEFT JOIN volume v ON c.volume_id = v.id AND v.novel_id = c.novel_id
-    WHERE c.id = ?
-  `;
-
-  db.query(query, [parseInt(chapterId)], (err, results) => {
-    if (err) {
-      console.error('获取章节详情失败:', err);
-      return res.status(500).json({ success: false, message: 'Failed to get chapter' });
+      if (shouldRecord) {
+        try {
+          // 获取作者ID
+          const [authorResults] = await Db.query('SELECT user_id FROM novel WHERE id = ? LIMIT 1', [newChapter.novel_id], { tag: 'novelCreation.chapter.update.authorId', idempotent: true });
+          if (authorResults && authorResults.length > 0) {
+            const authorId = authorResults[0].user_id;
+            if (authorId) {
+              try {
+                await authorDailyWordCountService.recordChapterReleaseChange({
+                  authorId,
+                  novelId: newChapter.novel_id,
+                  chapterId: parseInt(chapterId),
+                  wordCount: newChapter.word_count || 0,
+                  releaseDate: newChapter.release_date || new Date(),
+                });
+              } catch (wordCountErr) {
+                console.error('记录章节字数变更失败:', wordCountErr);
+                // 不影响主流程
+              }
+            }
+          }
+        } catch (authorErr) {
+          console.error('获取作者ID失败:', authorErr);
+          // 不影响主流程
+        }
+      }
     }
 
-    if (results.length === 0) {
-      return res.status(404).json({ success: false, message: 'Chapter not found' });
-    }
-
-    const chapter = results[0];
-    
-    console.log('📖 [novelCreation.js] ========== 章节数据查询结果 ==========');
-    console.log('📖 [novelCreation.js] 章节ID:', chapter.id);
-    console.log('📖 [novelCreation.js] 章节标题:', chapter.title);
-    console.log('📖 [novelCreation.js] unlock_price (数据库原始值):', chapter.unlock_price);
-    console.log('📖 [novelCreation.js] unlock_price (类型):', typeof chapter.unlock_price);
-    console.log('📖 [novelCreation.js] unlock_price === null?:', chapter.unlock_price === null);
-    console.log('📖 [novelCreation.js] unlock_price === undefined?:', chapter.unlock_price === undefined);
-    console.log('📖 [novelCreation.js] unlock_price > 0?:', (chapter.unlock_price && chapter.unlock_price > 0));
-    console.log('📖 [novelCreation.js] ======================================');
-    
-    // 处理 prev_chapter_id 和 next_chapter_id
-    const prevId = (chapter.prev_chapter_id !== null && chapter.prev_chapter_id !== undefined) 
-      ? chapter.prev_chapter_id 
-      : null;
-    const nextId = (chapter.next_chapter_id !== null && chapter.next_chapter_id !== undefined) 
-      ? chapter.next_chapter_id 
-      : null;
-    
-    // 构建返回对象，包含导航字段
-    const responseData = {
-      ...chapter,
-      prev_chapter_id: prevId,
-      next_chapter_id: nextId,
-      has_prev: Boolean(prevId),
-      has_next: Boolean(nextId)
-    };
-
-    console.log('📖 [novelCreation.js] ========== 返回给前端的数据 ==========');
-    console.log('📖 [novelCreation.js] responseData.unlock_price:', responseData.unlock_price);
-    console.log('📖 [novelCreation.js] responseData.unlock_price (类型):', typeof responseData.unlock_price);
-    console.log('📖 [novelCreation.js] ======================================');
-
-    res.json({ success: true, data: responseData });
-  });
+    res.json({ 
+      success: true, 
+      message: 'Chapter updated successfully'
+    });
+  } catch (err) {
+    console.error('更新章节失败:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update chapter', error: err.message });
+  }
 });
+
+// 章节详情 API 已迁移到 backend/server.js 的权威入口：GET /api/chapter/:chapterId
+// 目的：避免在 server.js 与 novelCreation.js 两处同时定义导致的覆盖/冲突，以及避免此处模块级单连接 db 在断连后被持续复用。
 
 // 删除章节
 router.delete('/chapter/:chapterId', (req, res) => {
@@ -1988,27 +1679,23 @@ router.delete('/chapter/:chapterId', (req, res) => {
   // 首先检查章节是否存在
   const checkQuery = `SELECT id, novel_id, chapter_number, title FROM chapter WHERE id = ?`;
   
-  db.query(checkQuery, [parseInt(chapterId)], (err, results) => {
-    if (err) {
-      console.error('检查章节失败:', err);
-      return res.status(500).json({ success: false, message: 'Failed to check chapter' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ success: false, message: 'Chapter not found' });
-    }
-
-    const chapter = results[0];
-
-    // 删除章节
-    const deleteQuery = `DELETE FROM chapter WHERE id = ?`;
-    
-    db.query(deleteQuery, [parseInt(chapterId)], (deleteErr) => {
-      if (deleteErr) {
-        console.error('删除章节失败:', deleteErr);
-        return res.status(500).json({ success: false, message: 'Failed to delete chapter' });
+  Db.query(checkQuery, [parseInt(chapterId)], { tag: 'novelCreation.chapter.delete.check', idempotent: true })
+    .then(([results]) => {
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, message: 'Chapter not found' });
       }
 
+      const chapter = results[0];
+
+      // 删除章节
+      const deleteQuery = `DELETE FROM chapter WHERE id = ?`;
+      
+      return Promise.all([
+        Promise.resolve(chapter),
+        Db.query(deleteQuery, [parseInt(chapterId)], { tag: 'novelCreation.chapter.delete', idempotent: false })
+      ]);
+    })
+    .then(([chapter]) => {
       res.json({ 
         success: true, 
         message: 'Chapter deleted successfully',
@@ -2019,8 +1706,11 @@ router.delete('/chapter/:chapterId', (req, res) => {
           title: chapter.title
         }
       });
+    })
+    .catch((err) => {
+      console.error('删除章节失败:', err);
+      return res.status(500).json({ success: false, message: err.message || 'Failed to delete chapter' });
     });
-  });
 });
 
 // ==================== 收费管理相关API ====================
@@ -2041,35 +1731,31 @@ router.get('/chapters/novel/:novelId/paid', (req, res) => {
     WHERE novel_id = ? AND chapter_number >= 51
   `;
   
-  db.query(countQuery, [parseInt(novelId)], (countErr, countResults) => {
-    if (countErr) {
-      console.error('获取付费章节总数失败:', countErr);
-      return res.status(500).json({ success: false, message: '获取章节总数失败' });
-    }
-    
-    const total = countResults[0].total;
-    
-    // 获取分页数据
-    const query = `
-      SELECT 
-        id,
-        chapter_number,
-        title,
-        unlock_price,
-        review_status,
-        created_at
-      FROM chapter
-      WHERE novel_id = ? AND chapter_number >= 51
-      ORDER BY chapter_number ASC
-      LIMIT ? OFFSET ?
-    `;
-    
-    db.query(query, [parseInt(novelId), limit, offset], (err, results) => {
-      if (err) {
-        console.error('获取付费章节列表失败:', err);
-        return res.status(500).json({ success: false, message: '获取付费章节列表失败' });
-      }
+  Db.query(countQuery, [parseInt(novelId)], { tag: 'novelCreation.chapters.paid.count', idempotent: true })
+    .then(([countResults]) => {
+      const total = countResults[0].total;
       
+      // 获取分页数据
+      const query = `
+        SELECT 
+          id,
+          chapter_number,
+          title,
+          unlock_price,
+          review_status,
+          created_at
+        FROM chapter
+        WHERE novel_id = ? AND chapter_number >= 51
+        ORDER BY chapter_number ASC
+        LIMIT ? OFFSET ?
+      `;
+      
+      return Promise.all([
+        Promise.resolve(total),
+        Db.query(query, [parseInt(novelId), limit, offset], { tag: 'novelCreation.chapters.paid.list', idempotent: true })
+      ]);
+    })
+    .then(([total, [results]]) => {
       res.json({ 
         success: true, 
         data: results,
@@ -2080,8 +1766,11 @@ router.get('/chapters/novel/:novelId/paid', (req, res) => {
           totalPages: Math.ceil(total / limit)
         }
       });
+    })
+    .catch((err) => {
+      console.error('获取付费章节列表失败:', err);
+      return res.status(500).json({ success: false, message: '获取付费章节列表失败' });
     });
-  });
 });
 
 // 批量更新章节的unlock_price（新版本：按字数计价）
@@ -2100,46 +1789,38 @@ router.post('/chapters/batch-update-unlock-price', (req, res) => {
     LIMIT 1
   `;
   
-  db.query(getConfigQuery, [parseInt(novel_id), parseInt(user_id)], (configErr, configResults) => {
-    if (configErr) {
-      console.error('获取unlockprice配置失败:', configErr);
-      return res.status(500).json({ success: false, message: '获取价格配置失败' });
-    }
-    
-    if (configResults.length === 0) {
-      return res.status(404).json({ success: false, message: '未找到价格配置，请先设置费用规则' });
-    }
-    
-    const config = configResults[0];
-    
-    // 获取所有章节（需要 word_count 和 chapter_number）
-    const getChaptersQuery = `
-      SELECT id, chapter_number, 
-             CASE 
-               WHEN word_count IS NULL OR word_count = 0 THEN LENGTH(REPLACE(COALESCE(content, ''), ' ', ''))
-               ELSE word_count
-             END as word_count
-      FROM chapter 
-      WHERE novel_id = ?
-      ORDER BY chapter_number ASC
-    `;
-    
-    db.query(getChaptersQuery, [parseInt(novel_id)], (err, chapters) => {
-      if (err) {
-        console.error('获取章节列表失败:', err);
-        return res.status(500).json({ success: false, message: '获取章节列表失败' });
+  Db.query(getConfigQuery, [parseInt(novel_id), parseInt(user_id)], { tag: 'novelCreation.batchUpdate.config', idempotent: true })
+    .then(([configResults]) => {
+      if (configResults.length === 0) {
+        return res.status(404).json({ success: false, message: '未找到价格配置，请先设置费用规则' });
       }
       
+      const config = configResults[0];
+      
+      // 获取所有章节（需要 word_count 和 chapter_number）
+      const getChaptersQuery = `
+        SELECT id, chapter_number, 
+               CASE 
+                 WHEN word_count IS NULL OR word_count = 0 THEN LENGTH(REPLACE(COALESCE(content, ''), ' ', ''))
+                 ELSE word_count
+               END as word_count
+        FROM chapter 
+        WHERE novel_id = ?
+        ORDER BY chapter_number ASC
+      `;
+      
+      return Promise.all([
+        Promise.resolve(config),
+        Db.query(getChaptersQuery, [parseInt(novel_id)], { tag: 'novelCreation.batchUpdate.chapters', idempotent: true })
+      ]);
+    })
+    .then(([config, [chapters]]) => {
       if (chapters.length === 0) {
         return res.json({ success: true, message: '没有需要更新的章节', updated: 0 });
       }
       
       // 批量更新
-      let updatedCount = 0;
-      let errorCount = 0;
-      let completedCount = 0;
-      
-      chapters.forEach((chapter) => {
+      const updatePromises = chapters.map((chapter) => {
         const newPrice = calculateChapterPrice(
           chapter.chapter_number,
           chapter.word_count || 0,
@@ -2157,37 +1838,39 @@ router.post('/chapters/batch-update-unlock-price', (req, res) => {
           WHERE id = ?
         `;
         
-        db.query(updateQuery, [newPrice, chapter.word_count || 0, chapter.id], (updateErr) => {
-          completedCount++;
-          
-          if (updateErr) {
-            console.error(`更新章节 ${chapter.id} 失败:`, updateErr);
-            errorCount++;
-          } else {
-            updatedCount++;
-          }
-          
-          // 当所有更新完成时
-          if (completedCount === chapters.length) {
-            if (errorCount > 0) {
-              return res.status(500).json({ 
-                success: false, 
-                message: `部分章节更新失败，成功: ${updatedCount}, 失败: ${errorCount}`,
-                updated: updatedCount,
-                failed: errorCount
-              });
-            }
-            
-            res.json({ 
-              success: true, 
-              message: `成功更新 ${updatedCount} 个章节的解锁价格`,
-              updated: updatedCount
-            });
-          }
-        });
+        return Db.query(updateQuery, [newPrice, chapter.word_count || 0, chapter.id], { tag: 'novelCreation.batchUpdate.update', idempotent: false })
+          .then(() => ({ success: true, id: chapter.id }))
+          .catch((err) => {
+            console.error(`更新章节 ${chapter.id} 失败:`, err);
+            return { success: false, id: chapter.id };
+          });
       });
+      
+      return Promise.all(updatePromises);
+    })
+    .then((results) => {
+      const updatedCount = results.filter(r => r.success).length;
+      const errorCount = results.filter(r => !r.success).length;
+      
+      if (errorCount > 0) {
+        return res.status(500).json({ 
+          success: false, 
+          message: `部分章节更新失败，成功: ${updatedCount}, 失败: ${errorCount}`,
+          updated: updatedCount,
+          failed: errorCount
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `成功更新 ${updatedCount} 个章节的解锁价格`,
+        updated: updatedCount
+      });
+    })
+    .catch((err) => {
+      console.error('批量更新章节价格失败:', err);
+      return res.status(500).json({ success: false, message: err.message || '批量更新章节价格失败' });
     });
-  });
 });
 
 // 单独更新某个章节的unlock_price
@@ -2204,18 +1887,18 @@ router.post('/chapter/update-unlock-price', (req, res) => {
   
   const updateQuery = 'UPDATE chapter SET unlock_price = ? WHERE id = ?';
   
-  db.query(updateQuery, [parseInt(unlock_price), parseInt(chapter_id)], (err, result) => {
-    if (err) {
+  Db.query(updateQuery, [parseInt(unlock_price), parseInt(chapter_id)], { tag: 'novelCreation.chapter.updateUnlockPrice', idempotent: false })
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: '章节不存在' });
+      }
+      
+      res.json({ success: true, message: '章节解锁价格更新成功' });
+    })
+    .catch((err) => {
       console.error('更新章节解锁价格失败:', err);
       return res.status(500).json({ success: false, message: '更新章节解锁价格失败' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: '章节不存在' });
-    }
-    
-    res.json({ success: true, message: '章节解锁价格更新成功' });
-  });
+    });
 });
 
 module.exports = router;

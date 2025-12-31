@@ -3007,18 +3007,9 @@ app.get('/api/mission-v2/user/:userId', async (req, res) => {
     }
     
     // 2. 获取用户任务列表
-    const mysql = require('mysql2/promise');
-    const db = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '123456',
-      database: process.env.DB_NAME || 'kongfuworld',
-      charset: 'utf8mb4'
-    });
-    
     const targetDate = date || new Date().toISOString().slice(0, 10);
     
-    const [missions] = await db.execute(`
+    const [missions] = await Db.query(`
       SELECT 
         mc.id,
         mc.mission_key,
@@ -3037,9 +3028,7 @@ app.get('/api/mission-v2/user/:userId', async (req, res) => {
         AND ump.user_id = ? AND ump.progress_date = ?
       WHERE mc.is_active = 1
       ORDER BY mc.id ASC
-    `, [userId, targetDate]);
-    
-    await db.end();
+    `, [userId, targetDate], { tag: 'server.mission-v2.list', idempotent: true });
     
     // 3. 处理任务数据
     const processedMissions = missions.map(mission => ({
@@ -3231,6 +3220,8 @@ app.get('/api/user/:userId/novel/:novelId/last-read', (req, res) => {
 // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
 console.log('[Chapter API] ⚠️ 路由定义被加载，路由路径: /api/chapter/:chapterId');
 app.get('/api/chapter/:chapterId', async (req, res) => {
+  // Minimal marker log (no params) for Stage 1 verification
+  console.log('[chapter handler] server.js');
   try {
     const { chapterId } = req.params;
     const userId = req.query.userId ? parseInt(req.query.userId) : null;
@@ -3437,34 +3428,28 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     return res.status(400).json({ message: 'Please provide chapter ID' });
   }
   
-  let db;
+  const pool = Db.getPool();
+  let conn = null;
   try {
-    // 使用新的数据库连接
-    const mysql = require('mysql2/promise');
-    db = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '123456',
-      database: process.env.DB_NAME || 'kongfuworld',
-      charset: 'utf8mb4'
-    });
+    // 获取连接（用于传递给需要连接的函数）
+    conn = await pool.getConnection();
     
     // 1. 检查章节是否存在
-    const [chapters] = await db.execute('SELECT id, novel_id, unlock_price FROM chapter WHERE id = ?', [chapterId]);
+    const [chapters] = await conn.execute('SELECT id, novel_id, unlock_price FROM chapter WHERE id = ?', [chapterId]);
     if (chapters.length === 0) {
       return res.status(404).json({ message: 'Chapter not found' });
     }
     const chapter = chapters[0];
     
     // 2. 获取用户信息
-    const [userResults] = await db.execute('SELECT id, points, golden_karma, username FROM user WHERE id = ?', [userId]);
+    const [userResults] = await conn.execute('SELECT id, points, golden_karma, username FROM user WHERE id = ?', [userId]);
     if (userResults.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
     const user = userResults[0];
     
     // 3. 先检查并处理时间解锁状态（关键修复）
-    await checkAndUpdateTimeUnlock(db, userId, chapterId);
+    await checkAndUpdateTimeUnlock(conn, userId, chapterId);
     
     // 4. 判断章节解锁状态（修复免费章节处理）
     let isUnlocked, unlockTime, hasValidChampion = false;
@@ -3477,7 +3462,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
       console.log(`[DEBUG] 免费章节 ${chapterId}，解锁状态: ${isUnlocked}, 解锁时间: ${unlockTime}`);
     } else {
       // 付费章节：检查解锁记录和Champion会员
-      const [unlockInfo] = await db.execute(`
+      const [unlockInfo] = await conn.execute(`
         SELECT 
           CASE 
             WHEN COUNT(*) > 0 THEN 1 
@@ -3488,7 +3473,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
         WHERE user_id = ? AND chapter_id = ? AND status = 'unlocked'
       `, [userId, chapterId]);
       
-      const [championSubs] = await db.execute(`
+      const [championSubs] = await conn.execute(`
         SELECT * FROM user_champion_subscription 
         WHERE user_id = ? AND novel_id = ? AND is_active = 1 AND end_date > NOW()
       `, [userId, chapter.novel_id]);
@@ -3501,7 +3486,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     }
     
     // 5. 检查是否有历史阅读记录
-    const [existingRecords] = await db.execute(`
+    const [existingRecords] = await conn.execute(`
       SELECT COUNT(*) as count FROM reading_log 
       WHERE user_id = ? AND chapter_id = ?
     `, [userId, chapterId]);
@@ -3509,7 +3494,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     const hasHistoryRecords = existingRecords[0].count > 0;
     
     // 6. 记录阅读日志（每次访问都插入新记录）
-    const [insertResult] = await db.execute(`
+    const [insertResult] = await conn.execute(`
       INSERT INTO reading_log (user_id, chapter_id, read_at, is_unlocked, unlock_time, page_enter_time) 
       VALUES (?, ?, NOW(), ?, ?, NOW())
     `, [userId, chapterId, isUnlocked, unlockTime]);
@@ -3518,7 +3503,7 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
     console.log(`[DEBUG] 用户 ${userId} 访问章节 ${chapterId}，创建新记录 ID: ${recordId}，解锁状态: ${isUnlocked}, 解锁时间: ${unlockTime}`);
     
     // 6. 使用正确的新章节判断逻辑（在记录阅读日志之后）
-    const newChapterCheck = await checkIsNewChapterImproved(db, userId, chapterId, hasValidChampion);
+    const newChapterCheck = await checkIsNewChapterImproved(conn, userId, chapterId, hasValidChampion);
     
     // 5. 更新任务进度（使用新的任务管理系统）
     if (newChapterCheck.isNewChapter) {
@@ -3556,13 +3541,9 @@ app.post('/api/user/:userId/read-chapter', async (req, res) => {
       res.status(500).json({ message: 'Failed to record reading log', error: error.message });
     }
   } finally {
-    // 确保数据库连接被正确关闭
-    if (db) {
-      try {
-        await db.end();
-      } catch (closeError) {
-        console.error('Failed to close database connection:', closeError);
-      }
+    // 确保数据库连接被正确释放
+    if (conn) {
+      conn.release();
     }
   }
 });
