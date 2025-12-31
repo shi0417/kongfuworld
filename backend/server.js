@@ -421,7 +421,57 @@ app.post('/api/novels/search', async (req, res) => {
 // Public Series/Novels 列表页接口（不影响旧的 /api/novels 与 /api/novels/search）
 const createPublicSeriesRouter = require('./routes/publicSeries');
 app.use('/api', createPublicSeriesRouter(db.promise()));
-app.get('/api/novel/:novelId/info', getNovelInfoAPI);
+// NOTE: upload_novel.getNovelInfoAPI uses legacy callback-style db access and may hang under mysql2/promise pool.
+// Provide a promise-based implementation here to avoid pending requests.
+app.get('/api/novel/:novelId/info', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.info';
+
+  const rawId = req.params && req.params.novelId;
+  const novelId = Number.parseInt(String(rawId), 10);
+  if (!Number.isFinite(novelId) || novelId <= 0) {
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'BAD_ID' });
+    return res.status(400).json({ error: '请提供小说ID' });
+  }
+
+  console.info('[API] start:', { tag });
+
+  try {
+    const maxChapterPromise = Db.query(
+      'SELECT MAX(chapter_number) as maxChapter FROM chapter WHERE novel_id = ?',
+      [novelId],
+      { tag: 'novel.info.maxChapter', idempotent: true }
+    ).then(([rows]) => (Array.isArray(rows) && rows[0] && rows[0].maxChapter) ? rows[0].maxChapter : 0);
+
+    const volumesPromise = Db.query(
+      `
+        SELECT id, title, volume_id
+        FROM volume
+        WHERE novel_id = ?
+        ORDER BY volume_id ASC
+      `,
+      [novelId],
+      { tag: 'novel.info.volumes', idempotent: true }
+    ).then(([rows]) => rows);
+
+    const [maxChapterNumber, volumes] = await Promise.all([maxChapterPromise, volumesPromise]);
+
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({
+      success: true,
+      maxChapterNumber,
+      volumes,
+    });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ error: '获取小说信息失败' });
+  }
+});
 app.get('/api/novel/:novelId/chapters', getNovelChaptersAPI);
 app.post('/api/novel/parse-chapters', novelUpload.single('file'), parseChaptersAPI);
 // 创建带有更大字段限制的 multer 实例用于小说上传
@@ -465,79 +515,93 @@ app.post('/api/novel/parse-multiple-files', novelUploadWithLimits.array('files')
 app.post('/api/novel/upload', novelUploadWithLimits.array('files'), uploadNovelAPI);
 
 // 登录API
-app.post('/api/login', (req, res) => {
-  console.log('收到登录请求:', { username: req.body.username, password: req.body.password ? '***' : 'undefined' });
-  const { username, password } = req.body;
-  db.getConnection((err, connection) => {
-    if (err) {
-      console.error('获取数据库连接失败:', err);
-      return res.status(500).json({ message: 'Database connection error' });
-    }
-    
-    connection.query(
-      'SELECT * FROM user WHERE username = ? OR email = ?',
-      [username, username],
-      (queryErr, results) => {
-        connection.release();
-        
-        if (queryErr) {
-          console.error('登录查询失败:', queryErr);
-          return res.status(500).json({ message: 'Database error' });
-        }
-        
-        if (results.length === 0) return res.status(401).json({ message: 'User not found' });
+app.post('/api/login', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'auth.login';
+  console.info('[API] start:', { tag });
 
-        const user = results[0];
-        // 这里要用 password_hash 字段
-        // 确保 password_hash 是字符串类型（可能是 Buffer 或对象）
-        const passwordHash = user.password_hash 
-          ? (Buffer.isBuffer(user.password_hash) 
-              ? user.password_hash.toString('utf8') 
-              : typeof user.password_hash === 'string' 
-                ? user.password_hash 
-                : String(user.password_hash))
-          : null;
-        
-        if (!passwordHash) {
-          console.error('用户密码哈希不存在');
-          return res.status(500).json({ message: 'Password hash not found' });
-        }
-        
-        bcrypt.compare(password, passwordHash, (bcryptErr, isMatch) => {
-          if (bcryptErr) {
-            console.error('密码比较失败:', bcryptErr);
-            console.error('password类型:', typeof password, 'passwordHash类型:', typeof passwordHash);
-            return res.status(500).json({ message: 'Password verification error' });
-          }
-          
-          if (isMatch) {
-            // 生成JWT token
-            const token = jwt.sign(
-              { userId: user.id, username: user.username },
-              'your-secret-key',
-              { expiresIn: '7d' }
-            );
-            
-            // 记录登录日志（异步，不阻塞响应）
-            logUserLogin(db, user.id, req, 'password', 'success');
-            
-            res.json({ 
-              success: true,
-              message: 'Login successful', 
-              user: { id: user.id, username: user.username, email: user.email, avatar: user.avatar, points: user.points, golden_karma: user.golden_karma },
-              token: token
-            });
-          } else {
-            // 记录登录失败日志
-            if (results.length > 0) {
-              logUserLogin(db, results[0].id, req, 'password', 'failed');
-            }
-            res.status(401).json({ message: 'Incorrect password' });
-          }
-        });
-      }
+  try {
+    const username = req && req.body && req.body.username;
+    const password = req && req.body && req.body.password;
+
+    if (!username || !password) {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'MISSING_CREDENTIALS' });
+      return res.status(400).json({ message: 'Missing username or password' });
+    }
+
+    const [rows] = await Db.query(
+      'SELECT * FROM user WHERE username = ? OR email = ?',
+      [String(username), String(username)],
+      { tag: 'auth.login.userLookup', idempotent: true }
     );
-  });
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'USER_NOT_FOUND' });
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const user = rows[0];
+    const passwordHash = user.password_hash
+      ? (Buffer.isBuffer(user.password_hash)
+        ? user.password_hash.toString('utf8')
+        : typeof user.password_hash === 'string'
+          ? user.password_hash
+          : String(user.password_hash))
+      : null;
+
+    if (!passwordHash) {
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'NO_PASSWORD_HASH' });
+      return res.status(500).json({ message: 'Password hash not found' });
+    }
+
+    // bcryptjs 支持 sync；避免 callback + promise 混杂导致“pending”类问题
+    const isMatch = bcrypt.compareSync(String(password), passwordHash);
+    if (!isMatch) {
+      // 记录登录失败日志（异步，不阻塞响应）
+      try {
+        const { logUserLoginAsync } = require('./utils/loginLogger');
+        logUserLoginAsync(Db.getPool(), user.id, req, 'password', 'failed').catch(() => {});
+      } catch (_) {}
+
+      console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'INVALID_PASSWORD' });
+      return res.status(401).json({ message: 'Incorrect password' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    // 记录登录成功日志（异步，不阻塞响应）
+    try {
+      const { logUserLoginAsync } = require('./utils/loginLogger');
+      logUserLoginAsync(Db.getPool(), user.id, req, 'password', 'success').catch(() => {});
+    } catch (_) {}
+
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        points: user.points,
+        golden_karma: user.golden_karma
+      },
+      token
+    });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: 'Database error' });
+  }
 });
 
 // 注册接口
@@ -3924,13 +3988,27 @@ app.get('/api', (req, res) => {
 // ==================== 评论系统API ====================
 
 // 获取小说的评论列表（只返回主评论，parent_id IS NULL）
-app.get('/api/novel/:novelId/reviews', (req, res) => {
-  const { novelId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-  const offset = (page - 1) * limit;
+app.get('/api/novel/:novelId/reviews', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.reviews';
 
-  const query = `
-    SELECT 
+  const rawId = req.params && req.params.novelId;
+  const novelId = Number.parseInt(String(rawId), 10);
+  if (!Number.isFinite(novelId) || novelId <= 0) {
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'BAD_ID' });
+    return res.status(400).json({ message: 'Invalid novel id' });
+  }
+
+  const pageNum = Number.parseInt(String(req.query && req.query.page ? req.query.page : 1), 10);
+  const limitNum = Number.parseInt(String(req.query && req.query.limit ? req.query.limit : 10), 10);
+  const safePage = Number.isFinite(pageNum) && pageNum > 0 ? Math.floor(pageNum) : 1;
+  const safeLimit = Number.isFinite(limitNum) ? Math.max(1, Math.min(50, Math.floor(limitNum))) : 10;
+  const safeOffset = (safePage - 1) * safeLimit;
+
+  console.info('[API] start:', { tag });
+
+  const listSql = `
+    SELECT
       r.id,
       r.content,
       r.rating,
@@ -3948,104 +4026,62 @@ app.get('/api/novel/:novelId/reviews', (req, res) => {
     JOIN user u ON r.user_id = u.id
     WHERE r.novel_id = ? AND r.parent_id IS NULL
     ORDER BY r.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${safeLimit} OFFSET ${safeOffset}
   `;
 
-  db.query(query, [novelId, parseInt(limit), parseInt(offset)], (err, results) => {
-    if (err) {
-      console.error('获取评论失败:', err);
-      return res.status(500).json({ message: '获取评论失败' });
+  const totalSql = `
+    SELECT COUNT(*) as total
+    FROM review
+    WHERE novel_id = ? AND parent_id IS NULL
+  `;
+
+  // 递归统计所有层级回复数量
+  const countRepliesAll = async (parentId) => {
+    const [children] = await Db.query(
+      'SELECT id FROM review WHERE parent_id = ?',
+      [parentId],
+      { tag: 'novel.reviews.replyIds', idempotent: true }
+    );
+    if (!Array.isArray(children) || children.length === 0) return 0;
+    const subCounts = await Promise.all(children.map((c) => countRepliesAll(c.id)));
+    const subTotal = subCounts.reduce((sum, n) => sum + n, 0);
+    return children.length + subTotal;
+  };
+
+  try {
+    const [[reviews], [countRows]] = await Promise.all([
+      Db.query(listSql, [novelId], { tag: 'novel.reviews.list', idempotent: true }),
+      Db.query(totalSql, [novelId], { tag: 'novel.reviews.total', idempotent: true }),
+    ]);
+
+    const total = (Array.isArray(countRows) && countRows[0] && countRows[0].total) ? Number(countRows[0].total) : 0;
+
+    if (Array.isArray(reviews) && reviews.length > 0) {
+      const counts = await Promise.all(reviews.map((r) => countRepliesAll(r.id)));
+      for (let i = 0; i < reviews.length; i++) {
+        reviews[i].comments = counts[i];
+      }
     }
 
-    // 递归统计每个评论的所有层级回复数量
-    const countAllReplies = (reviewId, callback) => {
-      // 递归函数：统计所有层级的回复
-      const countRepliesRecursive = (parentId, callback) => {
-        db.query('SELECT id FROM review WHERE parent_id = ?', [parentId], (err, children) => {
-          if (err) {
-            console.error('查询子回复失败:', err);
-            callback(0);
-            return;
-          }
-          
-          if (children.length === 0) {
-            callback(0);
-            return;
-          }
-          
-          let processed = 0;
-          let childCount = children.length; // 直接子回复数量
-          
-          // 递归统计每个子回复的子回复
-          children.forEach((child) => {
-            countRepliesRecursive(child.id, (subCount) => {
-              childCount += subCount; // 累加子回复的子回复数量
-              processed++;
-              if (processed === children.length) {
-                callback(childCount);
-              }
-            });
-          });
-        });
-      };
-      
-      countRepliesRecursive(reviewId, (count) => {
-        console.log(`评论 ${reviewId} 的总回复数: ${count}`);
-        callback(count);
-      });
-    };
-
-    // 为每个评论计算总回复数
-    let processedCount = 0;
-    if (results.length === 0) {
-      // 如果没有评论，直接返回
-      db.query('SELECT COUNT(*) as total FROM review WHERE novel_id = ? AND parent_id IS NULL', [novelId], (err2, countResult) => {
-        if (err2) {
-          console.error('获取评论总数失败:', err2);
-          return res.status(500).json({ message: '获取评论总数失败' });
-        }
-        res.json({
-          success: true,
-          data: {
-            reviews: [],
-            total: countResult[0].total,
-            page: parseInt(page),
-            limit: parseInt(limit)
-          }
-        });
-      });
-      return;
-    }
-
-    results.forEach((review, index) => {
-      countAllReplies(review.id, (totalReplies) => {
-        review.comments = totalReplies;
-        console.log(`评论 ${review.id} 的comments字段更新为: ${totalReplies}`);
-        processedCount++;
-        
-        // 所有评论都处理完成后返回结果
-        if (processedCount === results.length) {
-          console.log('所有评论的回复数统计完成，返回结果');
-          db.query('SELECT COUNT(*) as total FROM review WHERE novel_id = ? AND parent_id IS NULL', [novelId], (err2, countResult) => {
-            if (err2) {
-              console.error('获取评论总数失败:', err2);
-              return res.status(500).json({ message: '获取评论总数失败' });
-            }
-            console.log('返回的评论数据:', results.map(r => ({ id: r.id, comments: r.comments })));
-            res.json({
-              success: true,
-              data: {
-                reviews: results,
-                total: countResult[0].total,
-                page: parseInt(page),
-                limit: parseInt(limit)
-              }
-            });
-          });
-        }
-      });
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({
+      success: true,
+      data: {
+        reviews: Array.isArray(reviews) ? reviews : [],
+        total,
+        page: safePage,
+        limit: safeLimit,
+      },
     });
-  });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: '获取评论失败' });
+  }
 });
 
 // 获取小说的评论统计（只统计主评论，parent_id IS NULL）
@@ -5258,20 +5294,25 @@ app.post('/api/report', authenticateToken, (req, res) => {
 // - Mapping rule: chapter.volume_id = volume.id (same novel_id)
 
 // 获取小说的卷和章节信息
-app.get('/api/novel/:novelId/volumes', (req, res) => {
-  const { novelId } = req.params;
-  const { sort = 'newest' } = req.query;
+app.get('/api/novel/:novelId/volumes', async (req, res) => {
+  const startedAt = Date.now();
+  const tag = 'novel.volumes';
 
-  let orderBy = 'v.volume_id DESC';
-  if (sort === 'oldest') {
-    orderBy = 'v.volume_id ASC';
-  } else if (sort === 'newest') {
-    orderBy = 'v.volume_id DESC';
+  const rawId = req.params && req.params.novelId;
+  const novelId = Number.parseInt(String(rawId), 10);
+  if (!Number.isFinite(novelId) || novelId <= 0) {
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: false, code: 'BAD_ID' });
+    return res.status(400).json({ message: 'Invalid novel id' });
   }
+
+  const sort = String((req.query && req.query.sort) || 'newest');
+  const orderBy = sort === 'oldest' ? 'v.volume_id ASC' : 'v.volume_id DESC';
+
+  console.info('[API] start:', { tag });
 
   // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
   const volumesQuery = `
-    SELECT 
+    SELECT
       v.id,
       v.volume_id,
       v.title,
@@ -5289,45 +5330,45 @@ app.get('/api/novel/:novelId/volumes', (req, res) => {
     ORDER BY ${orderBy}
   `;
 
-  db.query(volumesQuery, [novelId], (err, volumes) => {
-    if (err) {
-      console.error('获取卷信息失败:', err);
-      return res.status(500).json({ message: '获取卷信息失败' });
-    }
+  const latestChapterQuery = `
+    SELECT
+      c.id,
+      c.chapter_number,
+      c.title,
+      c.created_at,
+      v.volume_id
+    FROM chapter c
+    JOIN volume v ON c.volume_id = v.id
+      AND v.novel_id = c.novel_id
+    WHERE c.novel_id = ? AND c.review_status = 'approved'
+    ORDER BY c.created_at DESC
+    LIMIT 1
+  `;
 
-    // 获取最新章节信息
-    // Volume-Chapter mapping updated: chapter.volume_id = volume.id AND same novel_id
-    const latestChapterQuery = `
-      SELECT 
-        c.id,
-        c.chapter_number,
-        c.title,
-        c.created_at,
-        v.volume_id
-      FROM chapter c
-      JOIN volume v ON c.volume_id = v.id
-        AND v.novel_id = c.novel_id
-      WHERE c.novel_id = ? AND c.review_status = 'approved'
-      ORDER BY c.created_at DESC
-      LIMIT 1
-    `;
+  try {
+    const [[volumes], [latestChapter]] = await Promise.all([
+      Db.query(volumesQuery, [novelId], { tag: 'novel.volumes.list', idempotent: true }),
+      Db.query(latestChapterQuery, [novelId], { tag: 'novel.volumes.latestChapter', idempotent: true }),
+    ]);
 
-    db.query(latestChapterQuery, [novelId], (err2, latestChapter) => {
-      if (err2) {
-        console.error('获取最新章节失败:', err2);
-        return res.status(500).json({ message: '获取最新章节失败' });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          volumes,
-          latest_chapter: latestChapter[0] || null,
-          total_volumes: volumes.length
-        }
-      });
+    console.info('[API] done:', { tag, ms: Date.now() - startedAt, ok: true });
+    return res.json({
+      success: true,
+      data: {
+        volumes: Array.isArray(volumes) ? volumes : [],
+        latest_chapter: (Array.isArray(latestChapter) && latestChapter[0]) ? latestChapter[0] : null,
+        total_volumes: Array.isArray(volumes) ? volumes.length : 0,
+      },
     });
-  });
+  } catch (err) {
+    console.error('[API] failed:', {
+      tag,
+      ms: Date.now() - startedAt,
+      code: err && err.code,
+      fatal: !!(err && err.fatal),
+    });
+    return res.status(500).json({ message: '获取卷信息失败' });
+  }
 });
 
 // 获取指定卷的章节列表
