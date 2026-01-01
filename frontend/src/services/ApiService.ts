@@ -51,7 +51,18 @@ export interface ApiError {
 }
 
 class ApiService {
-  private static baseURL = `${API_BASE_URL}/api`;
+  /**
+   * 获取 API Base URL（运行时计算，支持生产环境同源）
+   */
+  private static getBaseURL(): string {
+    // 如果 API_BASE_URL 为空（生产环境且未设置环境变量），使用相对路径
+    if (!API_BASE_URL) {
+      return '/api';
+    }
+    // 确保 baseURL 末尾没有斜杠
+    const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    return `${base}/api`;
+  }
 
   /**
    * 统一API调用方法
@@ -61,8 +72,15 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      console.log('ApiService请求URL:', url);
+      const baseURL = this.getBaseURL();
+      // 确保 endpoint 以 / 开头
+      const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      const url = `${baseURL}${normalizedEndpoint}`;
+      
+      // 只在开发环境打印日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('ApiService请求URL:', url);
+      }
       
       // 检查是否是管理员API，如果是则使用管理员Token
       const isAdminApi = endpoint.startsWith('/admin');
@@ -140,7 +158,10 @@ class ApiService {
       }
 
       const data = await response.json();
-      console.log('ApiService响应数据:', data);
+      // 只在开发环境打印日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('ApiService响应数据:', data);
+      }
       return data;
     } catch (error) {
       console.error('API请求失败:', error);

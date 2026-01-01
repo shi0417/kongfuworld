@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './EditorManagement.module.css';
+import ApiService from '../../../services/ApiService';
 
 interface Editor {
   id: number;
@@ -28,47 +29,45 @@ const EditorManagement: React.FC<EditorManagementProps> = ({ onError }) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const result = await ApiService.request(endpoint, {
       ...options,
-      headers,
+      headers
     });
 
-    if (response.status === 403) {
+    if (result.status === 403) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
       throw new Error('Token无效或已过期');
     }
 
-    const data = await response.json();
-
-    if (!data.success && data.message && 
-        (data.message.includes('Token') || data.message.includes('token') || 
+    if (!result.success && result.message && 
+        (result.message.includes('Token') || result.message.includes('token') || 
          data.message.includes('登录') || data.message.includes('无效') || 
          data.message.includes('过期'))) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
-      throw new Error(data.message || 'Token无效或已过期');
+      throw new Error(result.message || 'Token无效或已过期');
     }
 
-    return { response, data };
+    return result;
   };
 
   // 加载编辑列表
   const loadEditors = async () => {
     try {
       setLoading(true);
-      const { data } = await adminApiRequest('/admin/list-editors');
+      const result = await adminApiRequest('/admin/list-editors');
       
-      if (data.success) {
-        setEditors(data.data || []);
+      if (result.success) {
+        setEditors(result.data || []);
         if (onError) {
           onError('');
         }
       } else {
         if (onError) {
-          onError(data.message || '加载失败');
+          onError(result.message || '加载失败');
         }
       }
     } catch (err: any) {

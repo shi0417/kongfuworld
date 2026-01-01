@@ -7,6 +7,7 @@ import AdminEditorIncomeTab from './AdminEditorIncomeTab';
 import AdminEditorSettlementTab from './AdminEditorSettlementTab';
 import AdminMyContractsTab from './AdminMyContractsTab';
 import styles from './AdminEditorIncome.module.css';
+import ApiService from '../../services/ApiService';
 
 interface AdminPayoutAccountsProps {
   onError?: (error: string) => void;
@@ -36,24 +37,22 @@ const AdminPayoutAccounts: React.FC<AdminPayoutAccountsProps> = ({ onError }) =>
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const result = await ApiService.request(endpoint, {
       ...options,
-      headers,
+      headers
     });
 
-    const data = await response.json();
-
-    if (!data.success && data.message && 
-        (data.message.includes('Token') || data.message.includes('token') || 
-         data.message.includes('登录') || data.message.includes('无效') || 
-         data.message.includes('过期'))) {
+    if (!result.success && result.message &&
+        (result.message.includes('Token') || result.message.includes('token') ||
+         result.message.includes('登录') || result.message.includes('无效') ||
+         result.message.includes('过期'))) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
-      throw new Error(data.message || 'Token无效或已过期');
+      throw new Error(result.message || 'Token无效或已过期');
     }
 
-    return { response, data };
+    return result;
   };
 
   // 加载收款账户列表

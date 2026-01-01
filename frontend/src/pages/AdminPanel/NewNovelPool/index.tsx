@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './NewNovelPool.module.css';
+import ApiService from '../../../services/ApiService';
 
 interface Novel {
   id: number;
@@ -88,31 +89,29 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const result = await ApiService.request(endpoint, {
       ...options,
-      headers,
+      headers
     });
 
-    if (response.status === 403) {
+    if (result.status === 403) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
       throw new Error('Token无效或已过期');
     }
 
-    const data = await response.json();
-
-    if (!data.success && data.message && 
-        (data.message.includes('Token') || data.message.includes('token') || 
-         data.message.includes('登录') || data.message.includes('无效') || 
-         data.message.includes('过期'))) {
+    if (!result.success && result.message && 
+        (result.message.includes('Token') || result.message.includes('token') || 
+         result.message.includes('登录') || result.message.includes('无效') || 
+         result.message.includes('过期'))) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
-      throw new Error(data.message || 'Token无效或已过期');
+      throw new Error(result.message || 'Token无效或已过期');
     }
 
-    return { response, data };
+    return result;
   };
 
   // 加载新小说池列表
@@ -131,13 +130,13 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
         params.append('keyword', filters.keyword);
       }
       
-      const { data } = await adminApiRequest(`/admin/new-novel-pool?${params.toString()}`);
+      const result = await adminApiRequest(`/admin/new-novel-pool?${params.toString()}`);
       
-      if (data.success) {
-        setNovels(data.data.list || []);
+      if (result.success) {
+        setNovels(result.data?.list || []);
         setPagination(prev => ({
           ...prev,
-          total: data.data.total || 0
+          total: result.data?.total || 0
         }));
         if (onError) {
           onError('');
@@ -166,10 +165,10 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
   const loadNovelDetail = async (novelId: number) => {
     try {
       setLoadingDetail(true);
-      const { data } = await adminApiRequest(`/admin/new-novel-pool/${novelId}`);
+      const result = await adminApiRequest(`/admin/new-novel-pool/${novelId}`);
       
-      if (data.success) {
-        setNovelDetail(data.data);
+      if (result.success) {
+        setNovelDetail(result.data);
         setShowDetailDrawer(true);
       } else {
         if (onError) {
@@ -211,12 +210,12 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
     
     try {
       setApplying(true);
-      const { data } = await adminApiRequest(`/admin/new-novel-pool/${selectedNovelId}/apply-editor`, {
+      const result = await adminApiRequest(`/admin/new-novel-pool/${selectedNovelId}/apply-editor`, {
         method: 'POST',
         body: JSON.stringify({ reason: applyReason.trim() })
       });
       
-      if (data.success) {
+      if (result.success) {
         alert('申请已提交，等待后台审批');
         setShowApplyModal(false);
         setApplyReason('');

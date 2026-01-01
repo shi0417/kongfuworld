@@ -4,6 +4,7 @@ import AccountManagementTab from './AccountManagementTab';
 import ContractManagementTab from './ContractManagementTab';
 import ContractApprovalTab from './ContractApprovalTab';
 import PermissionManagementTab from './PermissionManagementTab';
+import ApiService from '../../../services/ApiService';
 
 interface AdminUserPageProps {
   onError?: (error: string) => void;
@@ -28,14 +29,13 @@ const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError, currentAdminRole
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const result = await ApiService.request(endpoint, {
       ...options,
-      headers,
+      headers
     });
 
-    if (response.status === 403) {
-      const data = await response.json();
-      if (data.message && data.message.includes('权限')) {
+    if (result.status === 403) {
+      if (result.message && result.message.includes('权限')) {
         setNoPermission(true);
       }
       if (onError) {
@@ -44,27 +44,25 @@ const AdminUserPage: React.FC<AdminUserPageProps> = ({ onError, currentAdminRole
       throw new Error('没有权限');
     }
 
-    const data = await response.json();
-
     // 如果响应不成功，抛出错误（让调用方处理）
-    if (!response.ok) {
-      const error = new Error(data.message || `请求失败: ${response.status}`);
-      (error as any).response = response;
-      (error as any).data = data;
+    if (!result.success) {
+      const error = new Error(result.message || `请求失败: ${result.status || 500}`);
+      (error as any).response = { status: result.status };
+      (error as any).data = result;
       throw error;
     }
 
-    if (!data.success && data.message && 
-        (data.message.includes('Token') || data.message.includes('token') || 
-         data.message.includes('登录') || data.message.includes('无效') || 
-         data.message.includes('过期'))) {
+    if (!result.success && result.message && 
+        (result.message.includes('Token') || result.message.includes('token') || 
+         result.message.includes('登录') || result.message.includes('无效') || 
+         result.message.includes('过期'))) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
-      throw new Error(data.message || 'Token无效或已过期');
+      throw new Error(result.message || 'Token无效或已过期');
     }
 
-    return { response, data };
+    return result;
   }
 
 

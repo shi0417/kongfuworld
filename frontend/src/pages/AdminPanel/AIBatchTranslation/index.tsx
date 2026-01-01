@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './AIBatchTranslation.module.css';
+import ApiService from '../../../services/ApiService';
 
 interface ChapterTranslation {
   id: number;
@@ -150,17 +151,17 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const result = await ApiService.request(endpoint, {
       ...options,
-      headers,
+      headers
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: '请求失败' }));
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+    if (!result.success) {
+      const errorMessage = typeof result.error === 'string' ? result.error : (result.error as any)?.message || result.message || '请求失败';
+      throw new Error(errorMessage || `HTTP ${result.status || 500}`);
     }
 
-    return response.json();
+    return result;
   };
 
   // 开始翻译任务
