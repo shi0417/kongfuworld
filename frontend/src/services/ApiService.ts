@@ -1,5 +1,6 @@
 // 统一API调用服务
 import AuthService from './AuthService';
+import { API_BASE_URL } from '../config';
 
 export interface PaginationInfo {
   page: number;
@@ -50,7 +51,7 @@ export interface ApiError {
 }
 
 class ApiService {
-  private static baseURL = 'http://localhost:5000/api';
+  private static baseURL = `${API_BASE_URL}/api`;
 
   /**
    * 统一API调用方法

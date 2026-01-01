@@ -1,5 +1,7 @@
 // API配置
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// 生产环境使用相对路径 /api（由 Nginx 反代），开发环境使用 localhost:5000
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000');
 
 // API端点
 export const API_ENDPOINTS = {
