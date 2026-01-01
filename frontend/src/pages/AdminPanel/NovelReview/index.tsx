@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './NovelReview.module.css';
+import { toAssetUrl, API_BASE_URL } from '../../../config';
 
 interface Novel {
   id: number;
@@ -78,7 +79,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
       ...options,
       headers,
     });
@@ -200,7 +201,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
   const viewNovelDetail = async (novelId: number) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -230,7 +231,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/review-novel', {
+      const response = await fetch('${API_BASE_URL}/api/admin/review-novel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,11 +380,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                   {novel.cover ? (
                     <img 
                       src={
-                        novel.cover.startsWith('http') 
-                          ? novel.cover 
-                          : novel.cover.startsWith('/')
-                          ? `http://localhost:5000${novel.cover}`
-                          : `http://localhost:5000/covers/${novel.cover}`
+                        toAssetUrl(novel.cover.startsWith('/') ? novel.cover : `/covers/${novel.cover}`)
                       }
                       alt={novel.title}
                       className={styles.novelCover}
@@ -518,9 +515,7 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                     src={
                       selectedNovel.cover.startsWith('http') 
                         ? selectedNovel.cover 
-                        : selectedNovel.cover.startsWith('/')
-                        ? `http://localhost:5000${selectedNovel.cover}`
-                        : `http://localhost:5000/covers/${selectedNovel.cover}`
+                        : toAssetUrl(selectedNovel.cover.startsWith('/') ? selectedNovel.cover : `/covers/${selectedNovel.cover}`)
                     }
                     alt={selectedNovel.title}
                     className={styles.modalCover}

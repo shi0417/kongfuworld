@@ -160,12 +160,7 @@ const ChapterWriter: React.FC = () => {
         params.append('keyword', keyword);
       }
 
-      const response = await fetch(`http://localhost:5000/api/random-notes/list?user_id=${user.id}&${params.toString()}`, {
-        method: 'GET',
-        headers
-      });
-
-      const result = await response.json();
+      const result = await ApiService.get(`/random-notes/list?user_id=${user.id}&${params.toString()}`);
       
       if (result.success) {
         if (page === 1) {
@@ -173,7 +168,7 @@ const ChapterWriter: React.FC = () => {
         } else {
           setNotes(prev => [...prev, ...result.data]);
         }
-        setHasMoreNotes(result.pagination.hasMore);
+        setHasMoreNotes(result.pagination ? result.pagination.totalPages > page : false);
         setCurrentPage(page);
       } else {
         console.error('加载随记失败:', result.message);
@@ -254,29 +249,19 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      let response;
+      let result;
       if (editingNote) {
         // 更新随记
-        response = await fetch(`http://localhost:5000/api/random-notes/update/${editingNote.id}?user_id=${user.id}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            random_note: noteModalContent.trim()
-          })
+        result = await ApiService.put(`/random-notes/update/${editingNote.id}?user_id=${user.id}`, {
+          random_note: noteModalContent.trim()
         });
       } else {
         // 创建随记
-        response = await fetch(`http://localhost:5000/api/random-notes/create?user_id=${user.id}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            novel_id: parseInt(novelId),
-            random_note: noteModalContent.trim()
-          })
+        result = await ApiService.post(`/random-notes/create?user_id=${user.id}`, {
+          novel_id: parseInt(novelId),
+          random_note: noteModalContent.trim()
         });
       }
-
-      const result = await response.json();
       
       if (result.success) {
         setShowNoteModal(false);
@@ -308,12 +293,7 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:5000/api/random-notes/delete/${noteId}?user_id=${user.id}`, {
-        method: 'DELETE',
-        headers
-      });
-
-      const result = await response.json();
+      const result = await ApiService.delete(`/random-notes/delete/${noteId}?user_id=${user.id}`);
       
       if (result.success) {
         // 重新加载随记列表
@@ -432,15 +412,7 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(
-        `http://localhost:5000/api/draft/list?novel_id=${novelId}&chapter_number=${chapterInfo.chapter_number}`,
-        {
-          method: 'GET',
-          headers
-        }
-      );
-
-      const result = await response.json();
+      const result = await ApiService.get(`/draft/list?novel_id=${novelId}&chapter_number=${chapterInfo.chapter_number}`);
       
       if (result.success && result.data) {
         // 按创建时间降序排列，只保留最近10个版本
@@ -890,18 +862,11 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const response = await fetch('http://localhost:5000/api/draft/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
-      });
+      const result = await ApiService.post('/draft/create', requestBody);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '自动保存失败');
+      if (!result.success) {
+        throw new Error(result.message || '自动保存失败');
       }
-      
-      const result = await response.json();
       
       // 更新上次保存的内容
       lastSavedContentRef.current = currentContent;
@@ -1094,50 +1059,55 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      let response;
-      if (chapterInfo.id || chapterId) {
-        // 更新现有章节
-        formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
-        formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/update', {
-          method: 'POST',
-          headers,
-          body: formData
-        });
-      } else {
-        // 创建新章节
-        formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/create', {
-          method: 'POST',
-          headers,
-          body: formData
-        });
-        
-        // 检查是否是重复章节号
-        if (response.status === 409) {
-          const errorData = await response.json();
-          if (errorData.code === 'CHAPTER_EXISTS' && errorData.existingChapter) {
-            setExistingChapter(errorData.existingChapter);
-            setPendingAction('draft');
-            setPendingFormData(formData);
-            setShowUpdateConfirmDialog(true);
-            setIsSaving(false);
-            return;
+      let result: any;
+      try {
+        if (chapterInfo.id || chapterId) {
+          // 更新现有章节
+          formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
+          formData.append('action', 'draft');
+          result = await ApiService.request('/chapter/update', {
+            method: 'POST',
+            body: formData
+          });
+        } else {
+          // 创建新章节
+          formData.append('action', 'draft');
+          result = await ApiService.request('/chapter/create', {
+            method: 'POST',
+            body: formData
+          });
+          
+          // 检查是否是重复章节号
+          if (!result.success && result.status === 409) {
+            if ((result.data as any)?.code === 'CHAPTER_EXISTS' && (result.data as any)?.existingChapter) {
+              setExistingChapter((result.data as any).existingChapter);
+              setPendingAction('draft');
+              setPendingFormData(formData);
+              setShowUpdateConfirmDialog(true);
+              setIsSaving(false);
+              return;
+            }
+          }
+          
+          // 如果是新建章节，保存返回的chapter_id
+          if (result.success && (result.data as any)?.chapter_id) {
+            setChapterInfo(prev => ({ ...prev, id: (result.data as any).chapter_id }));
           }
         }
         
-        // 如果是新建章节，保存返回的chapter_id
-        if (response.ok) {
-          const result = await response.json();
-          if (result.chapter_id) {
-            setChapterInfo(prev => ({ ...prev, id: result.chapter_id }));
-          }
+        if (!result.success) {
+          throw new Error(result.message || '保存失败');
         }
-      }
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '保存失败');
+      } catch (error: any) {
+        if (error.status === 409 && error.code === 'CHAPTER_EXISTS' && error.existingChapter) {
+          setExistingChapter(error.existingChapter);
+          setPendingAction('draft');
+          setPendingFormData(formData);
+          setShowUpdateConfirmDialog(true);
+          setIsSaving(false);
+          return;
+        }
+        throw error;
       }
       
       setSavedToCloud(true);
@@ -1205,45 +1175,50 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      let response;
-      if (chapterInfo.id || chapterId) {
-        formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
-        response = await fetch('http://localhost:5000/api/chapter/update', {
-          method: 'POST',
-          headers,
-          body: formData
-        });
-      } else {
-        response = await fetch('http://localhost:5000/api/chapter/create', {
-          method: 'POST',
-          headers,
-          body: formData
-        });
-        
-        // 检查是否是重复章节号
-        if (response.status === 409) {
-          const errorData = await response.json();
-          if (errorData.code === 'CHAPTER_EXISTS' && errorData.existingChapter) {
-            setExistingChapter(errorData.existingChapter);
-            setPendingAction('schedule');
-            setPendingFormData(formData);
-            setShowUpdateConfirmDialog(true);
-            setIsSubmitting(false);
-            return;
+      let result: any;
+      try {
+        if (chapterInfo.id || chapterId) {
+          formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
+          result = await ApiService.request('/chapter/update', {
+            method: 'POST',
+            body: formData
+          });
+        } else {
+          result = await ApiService.request('/chapter/create', {
+            method: 'POST',
+            body: formData
+          });
+          
+          // 检查是否是重复章节号
+          if (!result.success && result.status === 409) {
+            if ((result.data as any)?.code === 'CHAPTER_EXISTS' && (result.data as any)?.existingChapter) {
+              setExistingChapter((result.data as any).existingChapter);
+              setPendingAction('schedule');
+              setPendingFormData(formData);
+              setShowUpdateConfirmDialog(true);
+              setIsSubmitting(false);
+              return;
+            }
+          }
+          
+          if (result.success && (result.data as any)?.chapter_id) {
+            setChapterInfo(prev => ({ ...prev, id: (result.data as any).chapter_id }));
           }
         }
         
-        if (response.ok) {
-          const result = await response.json();
-          if (result.chapter_id) {
-            setChapterInfo(prev => ({ ...prev, id: result.chapter_id }));
-          }
+        if (!result.success) {
+          throw new Error(result.message || '定时发布失败');
         }
-      }
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '定时发布失败');
+      } catch (error: any) {
+        if (error.status === 409 && error.code === 'CHAPTER_EXISTS' && error.existingChapter) {
+          setExistingChapter(error.existingChapter);
+          setPendingAction('schedule');
+          setPendingFormData(formData);
+          setShowUpdateConfirmDialog(true);
+          setIsSubmitting(false);
+          return;
+        }
+        throw error;
       }
       
       setShowScheduleModal(false);
@@ -1312,15 +1287,10 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const draftResponse = await fetch('http://localhost:5000/api/draft/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(draftRequestBody)
-      });
+      const draftResult = await ApiService.post('/draft/create', draftRequestBody);
 
-      if (!draftResponse.ok) {
-        const error = await draftResponse.json();
-        throw new Error(error.message || (language === 'zh' ? '保存草稿失败' : 'Failed to save draft'));
+      if (!draftResult.success) {
+        throw new Error(draftResult.message || (language === 'zh' ? '保存草稿失败' : 'Failed to save draft'));
       }
 
       console.log('排版前草稿已保存');
@@ -1332,18 +1302,11 @@ const ChapterWriter: React.FC = () => {
         translator_note: authorNote2.trim() || ''
       };
 
-      const layoutResponse = await fetch('http://localhost:5000/api/ai/layout', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(layoutRequestBody)
-      });
+      const layoutResult = await ApiService.post('/ai/layout', layoutRequestBody);
 
-      if (!layoutResponse.ok) {
-        const error = await layoutResponse.json();
-        throw new Error(error.message || (language === 'zh' ? 'AI 排版失败' : 'AI layout failed'));
+      if (!layoutResult.success) {
+        throw new Error(layoutResult.message || (language === 'zh' ? 'AI 排版失败' : 'AI layout failed'));
       }
-
-      const layoutResult = await layoutResponse.json();
       
       if (!layoutResult.success || !layoutResult.data) {
         throw new Error(layoutResult.message || (language === 'zh' ? 'AI 排版返回数据异常' : 'AI layout returned invalid data'));
@@ -1906,29 +1869,25 @@ const ChapterWriter: React.FC = () => {
           formData.append('is_released', '1');
         }
         
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        result = await ApiService.request('/chapter/update', {
           method: 'POST',
-          headers,
           body: formData
         });
-        result = await response.json();
       } else {
         // 新建章节
         formData.append('is_draft', '0');
         formData.append('action', 'publish');
         formData.append('is_released', '1');
         
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        result = await ApiService.request('/chapter/create', {
           method: 'POST',
-          headers,
           body: formData
         });
-        result = await response.json();
         
         // 检查是否是重复章节号
-        if (response.status === 409) {
-          if (result.code === 'CHAPTER_EXISTS' && result.existingChapter) {
-            setExistingChapter(result.existingChapter);
+        if (!result.success && result.status === 409) {
+          if ((result.data as any)?.code === 'CHAPTER_EXISTS' && (result.data as any)?.existingChapter) {
+            setExistingChapter((result.data as any).existingChapter);
             setPendingAction('publish');
             setPendingFormData(formData);
             setShowUpdateConfirmDialog(true);
@@ -1937,12 +1896,12 @@ const ChapterWriter: React.FC = () => {
           }
         }
         
-        if (response.ok && result.chapter_id) {
-          setChapterInfo(prev => ({ ...prev, id: result.chapter_id ?? null }));
+        if (result.success && (result.data as any)?.chapter_id) {
+          setChapterInfo(prev => ({ ...prev, id: (result.data as any).chapter_id ?? null }));
         }
       }
       
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.message || '发布失败');
       }
 
@@ -2720,43 +2679,31 @@ const ChapterWriter: React.FC = () => {
             // 将创建请求改为更新请求
             pendingFormData.append('chapter_id', existingChapter.id.toString());
             
-            let response: Response;
+            let result;
             if (pendingAction === 'schedule') {
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              result = await ApiService.request('/chapter/update', {
                 method: 'POST',
-                headers: {
-                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
-                },
                 body: pendingFormData
               });
             } else if (pendingAction === 'publish') {
               pendingFormData.append('action', 'publish');
               pendingFormData.append('is_released', '1');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              result = await ApiService.request('/chapter/update', {
                 method: 'POST',
-                headers: {
-                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
-                },
                 body: pendingFormData
               });
             } else {
               // draft
               pendingFormData.append('action', 'draft');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              result = await ApiService.request('/chapter/update', {
                 method: 'POST',
-                headers: {
-                  'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
-                },
                 body: pendingFormData
               });
             }
             
-            if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.message || '更新失败');
+            if (!result.success) {
+              throw new Error(result.message || '更新失败');
             }
-            
-            const result = await response.json();
             
             // 更新章节信息
             setChapterInfo(prev => ({ ...prev, id: existingChapter.id }));

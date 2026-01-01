@@ -5,6 +5,7 @@ import styles from './ChapterCommentSectionNew.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
 import Toast from '../Toast/Toast';
+import { toAssetUrl } from '../../config';
 
 interface ChapterCommentSectionNewProps {
   chapterId: number;
@@ -272,10 +273,7 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
       return avatar;
     }
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   const formatDate = (dateString: string) => {

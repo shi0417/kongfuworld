@@ -12,6 +12,7 @@ import styles from './CommentManagement.module.css';
 import reviewStyles from '../ReviewSection/ReviewSectionNew.module.css';
 import chapterStyles from '../ChapterCommentSection/ChapterCommentSectionNew.module.css';
 import paragraphStyles from '../ParagraphComment/ParagraphComment.module.css';
+import { toAssetUrl } from '../../config';
 
 interface Novel {
   id: number;
@@ -240,10 +241,7 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
       return avatar;
     }
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   }, []);
 
   // 获取显示名称（如果是作者且有笔名，显示笔名，否则显示用户名）
@@ -517,20 +515,10 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
   const handleLikeParagraphComment = useCallback(async (commentId: number, isLike: boolean) => {
     if (!user) return;
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/like`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            isLike: isLike ? 1 : 0
-          })
-        }
-      );
-      const data = await response.json();
+      const data = await ApiService.post(`/paragraph-comment/${commentId}/like`, {
+        userId: user.id,
+        isLike: isLike ? 1 : 0
+      });
       if (data.success) {
         setComments(prevComments => 
           prevComments.map(comment => {
@@ -567,21 +555,9 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
   const handleSaveEditParagraphComment = useCallback(async (commentId: number) => {
     if (!editParagraphCommentContent.trim() || editParagraphCommentContent.trim().length < 10) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            content: editParagraphCommentContent.trim()
-          })
-        }
-      );
-      const data = await response.json();
+      const data = await ApiService.put(`/paragraph-comment/${commentId}`, {
+        content: editParagraphCommentContent.trim()
+      });
       if (data.success) {
         setEditingParagraphCommentId(null);
         setEditParagraphCommentContent('');
@@ -596,21 +572,11 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
     if (!content.trim() || !user) return;
     if (content.trim().length < 10) return;
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/reply`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: content.trim(),
-            userId: user.id,
-            parentId: commentId
-          })
-        }
-      );
-      const data = await response.json();
+      const data = await ApiService.post(`/paragraph-comment/${commentId}/reply`, {
+        content: content.trim(),
+        userId: user.id,
+        parentId: commentId
+      });
       if (data.success) {
         setParagraphReplyContentMap(prev => ({ ...prev, [commentId]: '' }));
         setShowParagraphReplyFormMap(prev => ({ ...prev, [commentId]: false }));

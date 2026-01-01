@@ -3,6 +3,7 @@ import ApiService from '../../services/ApiService';
 import AuthService from '../../services/AuthService';
 import Toast from '../Toast/Toast';
 import styles from './PersonalInfo.module.css';
+import { toAssetUrl } from '../../config';
 
 interface PersonalInfoData {
   id: number;
@@ -312,7 +313,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
         <div className={styles.avatarSection}>
           <div className={styles.avatar}>
             {data.avatar ? (
-              <img src={data.avatar.startsWith('http') ? data.avatar : `http://localhost:5000${data.avatar}`} alt="Avatar" />
+              <img src={toAssetUrl(data.avatar)} alt="Avatar" />
             ) : (
               <div className={styles.avatarPlaceholder}>👤</div>
             )}

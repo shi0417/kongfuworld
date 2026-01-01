@@ -86,7 +86,7 @@ router.get('/current-reads/:user_id', async (req, res) => {
           n.title as novel_title,
           n.chapters,
           n.status as novel_status,
-          CONCAT('http://localhost:5000', n.cover) as novel_cover,
+          n.cover as novel_cover,
           ROW_NUMBER() OVER (PARTITION BY c.novel_id ORDER BY rl.read_at DESC) as rn
         FROM reading_log rl
         INNER JOIN chapter c ON rl.chapter_id = c.id

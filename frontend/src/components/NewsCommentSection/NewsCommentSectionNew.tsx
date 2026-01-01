@@ -4,6 +4,7 @@ import NewsCommentReplies from './NewsCommentReplies';
 import styles from './NewsCommentSectionNew.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import { toAssetUrl } from '../../config';
 
 interface NewsCommentSectionNewProps {
   newsId: number;
@@ -173,9 +174,7 @@ const NewsCommentSectionNew: React.FC<NewsCommentSectionNewProps> = ({ newsId, u
 
   const getAvatarUrl = (avatar?: string) => {
     if (!avatar) return 'https://i.pravatar.cc/40?img=1';
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
-    if (avatar.startsWith('/')) return `http://localhost:5000${avatar}`;
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   const formatDate = (dateString: string) => {

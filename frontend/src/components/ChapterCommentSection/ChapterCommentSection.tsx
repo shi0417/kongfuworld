@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import chapterCommentService, { ChapterComment, ChapterCommentStats } from '../../services/chapterCommentService';
 import styles from './ChapterCommentSection.module.css';
+import { toAssetUrl } from '../../config';
 
 interface ChapterCommentSectionProps {
   chapterId: number;
@@ -99,10 +100,7 @@ const ChapterCommentSection: React.FC<ChapterCommentSectionProps> = ({ chapterId
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
       return avatar;
     }
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   if (loading) {

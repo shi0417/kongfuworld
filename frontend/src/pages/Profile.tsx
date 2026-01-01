@@ -5,6 +5,7 @@ import Footer from '../components/Footer/Footer';
 import { useAuth, useUser } from '../hooks/useAuth';
 import ApiService, { ApiError } from '../services/ApiService';
 import Toast from '../components/Toast/Toast';
+import { toAssetUrl } from '../config';
 
 const defaultAvatar = 'https://via.placeholder.com/150x150/4a90e2/ffffff?text=Avatar';
 
@@ -582,11 +583,7 @@ const Profile: React.FC = () => {
   if (!user) return null;
 
   // 假设 user.avatar 是 /avatars/xxx.jpg
-  const avatarUrl = user.avatar?.startsWith('http')
-    ? user.avatar
-    : user.avatar
-      ? `http://localhost:5000${user.avatar}`
-      : defaultAvatar;
+  const avatarUrl = user.avatar ? toAssetUrl(user.avatar) : defaultAvatar;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '0 0 40px 0', display: 'flex', flexDirection: 'column' }}>

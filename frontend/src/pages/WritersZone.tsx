@@ -12,6 +12,7 @@ import WorkData from './WritersZone/WorkData';
 import ApiService from '../services/ApiService';
 import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './WritersZone.module.css';
+import { toAssetUrl } from '../config';
 
 const ALLOWED_NAV = new Set(['home', 'novels', 'workData', 'incomeManagement', 'personalInfo', 'commentManagement']);
 
@@ -671,7 +672,7 @@ const WritersZone: React.FC = () => {
             <div className={styles.profileCard}>
               <div className={styles.avatar}>
                 {user?.avatar ? (
-                  <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`} alt="Avatar" />
+                  <img src={toAssetUrl(user.avatar)} alt="Avatar" />
                 ) : (
                   <div className={styles.avatarPlaceholder}>👤</div>
                 )}

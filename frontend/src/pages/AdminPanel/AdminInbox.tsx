@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ApiService from '../../services/ApiService';
 import styles from './AdminInbox.module.css';
+import { API_BASE_URL } from '../../config';
 
 interface AdminInboxProps {
   onError?: (error: string) => void;
@@ -143,7 +144,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onError }) => {
       setClaimingId(conversationId);
       setClaimError('');
       // 1) join/claim (must succeed before assign)
-      const resp = await fetch(`http://localhost:5000/api/inbox/conversation/${conversationId}/join`, {
+      const resp = await fetch(`${API_BASE_URL}/api/inbox/conversation/${conversationId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

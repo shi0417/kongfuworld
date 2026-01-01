@@ -3,6 +3,7 @@ import chapterCommentService, { ChapterComment } from '../../services/chapterCom
 import styles from './ChapterCommentSectionNew.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import { toAssetUrl } from '../../config';
 
 interface NestedReplyItemProps {
   reply: ChapterComment;
@@ -278,10 +279,7 @@ const ChapterCommentReplies: React.FC<ChapterCommentRepliesProps> = ({
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
       return avatar;
     }
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   const formatDate = (dateString: string) => {

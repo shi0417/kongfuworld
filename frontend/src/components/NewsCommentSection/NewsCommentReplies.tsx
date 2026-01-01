@@ -3,6 +3,7 @@ import newsCommentService, { NewsComment } from '../../services/newsCommentServi
 import styles from './NewsCommentSectionNew.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import { toAssetUrl } from '../../config';
 
 interface NestedReplyItemProps {
   reply: NewsComment;
@@ -145,9 +146,7 @@ const NewsCommentReplies: React.FC<NewsCommentRepliesProps> = ({
 
   const getAvatarUrl = (avatar?: string) => {
     if (!avatar) return 'https://i.pravatar.cc/40?img=1';
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
-    if (avatar.startsWith('/')) return `http://localhost:5000${avatar}`;
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   const formatDate = (dateString: string) => {

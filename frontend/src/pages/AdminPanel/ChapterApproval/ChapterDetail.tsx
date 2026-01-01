@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './ChapterApproval.module.css';
+import { toAssetUrl } from '../../../config';
 
 interface ChapterDetailData {
   id: number;
@@ -216,9 +217,7 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
               src={
                 chapter.novel_cover.startsWith('http')
                   ? chapter.novel_cover
-                  : chapter.novel_cover.startsWith('/')
-                  ? `http://localhost:5000${chapter.novel_cover}`
-                  : `http://localhost:5000/covers/${chapter.novel_cover}`
+                  : toAssetUrl(chapter.novel_cover.startsWith('/') ? chapter.novel_cover : `/covers/${chapter.novel_cover}`)
               }
               alt={chapter.novel_title}
               className={styles.novelCover}

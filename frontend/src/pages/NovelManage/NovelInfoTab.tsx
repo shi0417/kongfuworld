@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import ApiService from '../../services/ApiService';
 import styles from './NovelInfoTab.module.css';
+import { toAssetUrl, API_BASE_URL } from '../../config';
 
 interface Genre {
   id: number;
@@ -40,7 +41,7 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
   const [recommendation, setRecommendation] = useState(initialNovel.recommendation || '');
   const [description, setDescription] = useState(initialNovel.description || '');
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(initialNovel.cover ? `http://localhost:5000${initialNovel.cover}` : null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(initialNovel.cover ? toAssetUrl(initialNovel.cover) : null);
 
   const [genres, setGenres] = useState<Genre[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -282,7 +283,7 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/update', {
+      const response = await fetch(`${API_BASE_URL}/api/novel/update`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '../services/ApiService';
 import styles from './AdminPanel.module.css';
+import { toAssetUrl, API_BASE_URL } from '../config';
 import NovelReview from './AdminPanel/NovelReview';
 import ChapterApproval from './AdminPanel/ChapterApproval';
 import PaymentStats from './AdminPanel/PaymentStats';
@@ -292,7 +293,7 @@ const AdminPanel: React.FC = () => {
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
       ...options,
       headers,
     });
@@ -348,7 +349,7 @@ const AdminPanel: React.FC = () => {
       if (!adminToken || !isAuthenticated) return;
       
       try {
-        const response = await fetch('http://localhost:5000/api/admin/menu-permissions/my', {
+        const response = await fetch('${API_BASE_URL}/api/admin/menu-permissions/my', {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${adminToken}`
@@ -494,7 +495,7 @@ const AdminPanel: React.FC = () => {
     try {
       setAuthorIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/author-income-stats?month=${authorIncomeMonth}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/author-income-stats?month=${authorIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -521,7 +522,7 @@ const AdminPanel: React.FC = () => {
     try {
       setReaderIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/reader-income-stats?month=${readerIncomeMonth}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/reader-income-stats?month=${readerIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -546,7 +547,7 @@ const AdminPanel: React.FC = () => {
     try {
       setSettlementLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/user-settlement/overview?month=${settlementMonth}`;
+      let url = `${API_BASE_URL}/api/admin/user-settlement/overview?month=${settlementMonth}`;
       if (settlementStatus !== 'all') {
         url += `&status=${settlementStatus}`;
       }
@@ -602,7 +603,7 @@ const AdminPanel: React.FC = () => {
     try {
       setLoadingRows({ ...loadingRows, [incomeMonthlyId]: true });
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/detail`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settlements/${incomeMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -631,7 +632,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/detail`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settlements/${incomeMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -657,7 +658,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/sync-paypal`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settlements/${incomeMonthlyId}/sync-paypal`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -687,7 +688,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/pay`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settlements/${incomeMonthlyId}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -724,7 +725,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/payouts/${payoutId}/sync-gateway`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/payouts/${payoutId}/sync-gateway`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -758,7 +759,7 @@ const AdminPanel: React.FC = () => {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
       const monthParam = settlementMonth + '-01';
-      const response = await fetch(`http://localhost:5000/api/admin/user-settlement/detail/${userId}?months=1`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user-settlement/detail/${userId}?months=1`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -885,7 +886,7 @@ const AdminPanel: React.FC = () => {
       if (method === 'paypal' || method === 'alipay' || method === 'wechat') {
         // PayPal/支付宝/微信：调用新的支付接口
         const token = localStorage.getItem('adminToken');
-        const payResponse = await fetch(`http://localhost:5000/api/admin/settlements/${pendingPaymentInfo.income_monthly_id}/pay`, {
+        const payResponse = await fetch(`${API_BASE_URL}/api/admin/settlements/${pendingPaymentInfo.income_monthly_id}/pay`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -934,7 +935,7 @@ const AdminPanel: React.FC = () => {
       } else {
         // 银行转账或手动支付：使用旧的创建支付订单接口
         const token = localStorage.getItem('adminToken');
-        const createResponse = await fetch(`http://localhost:5000/api/admin/user-settlement/create-payout`, {
+        const createResponse = await fetch(`${API_BASE_URL}/api/admin/user-settlement/create-payout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -998,7 +999,7 @@ const AdminPanel: React.FC = () => {
       setError('');
       
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/payouts/${payoutId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/payouts/${payoutId}/status`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1056,7 +1057,7 @@ const AdminPanel: React.FC = () => {
     try {
       setMarkingPaid(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/user-settlement/mark-paid', {
+      const response = await fetch('${API_BASE_URL}/api/admin/user-settlement/mark-paid', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1103,7 +1104,7 @@ const AdminPanel: React.FC = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/user-settlement/generate-monthly', {
+      const response = await fetch('${API_BASE_URL}/api/admin/user-settlement/generate-monthly', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1134,7 +1135,7 @@ const AdminPanel: React.FC = () => {
     try {
       setEditorSettlementLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/editor-settlement/overview?month=${settlementMonth}`;
+      let url = `${API_BASE_URL}/api/admin/editor-settlement/overview?month=${settlementMonth}`;
       if (editorSettlementStatus !== 'all') {
         url += `&status=${editorSettlementStatus}`;
       }
@@ -1178,7 +1179,7 @@ const AdminPanel: React.FC = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/editor-settlement/generate-monthly', {
+      const response = await fetch('${API_BASE_URL}/api/admin/editor-settlement/generate-monthly', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1207,7 +1208,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/pay`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/editor-settlements/${settlementMonthlyId}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1243,7 +1244,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/sync-paypal`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/editor-settlements/${settlementMonthlyId}/sync-paypal`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1285,7 +1286,7 @@ const AdminPanel: React.FC = () => {
       setEditorPayoutDetailLoading(true);
 
       const token = localStorage.getItem('adminToken');
-      const res = await fetch(`http://localhost:5000/api/admin/editor-settlements/${item.settlement_id}/detail`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/editor-settlements/${item.settlement_id}/detail`, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
@@ -1321,7 +1322,7 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/detail`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/editor-settlements/${settlementMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1388,7 +1389,7 @@ const AdminPanel: React.FC = () => {
       if (paymentFilters.payment_status) params.append('payment_status', paymentFilters.payment_status);
       if (paymentFilters.user_id) params.append('user_id', paymentFilters.user_id);
       
-      const response = await fetch(`http://localhost:5000/api/admin/payments/summary?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/payments/summary?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1423,7 +1424,7 @@ const AdminPanel: React.FC = () => {
       params.append('page', subscriptionsPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/subscriptions?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/subscriptions?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1458,7 +1459,7 @@ const AdminPanel: React.FC = () => {
       params.append('page', karmaPurchasesPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/karma-purchases?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/karma-purchases?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1501,7 +1502,7 @@ const AdminPanel: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/login', {
+      const response = await fetch('${API_BASE_URL}/api/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1556,7 +1557,7 @@ const AdminPanel: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/review-novel', {
+      const response = await fetch('${API_BASE_URL}/api/admin/review-novel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1598,7 +1599,7 @@ const AdminPanel: React.FC = () => {
   const viewNovelDetail = async (novelId: number) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -2070,7 +2071,7 @@ const AdminPanel: React.FC = () => {
                                       try {
                                         // 只加载用户收款账户信息，不显示用户结算详情对话框
                                         const token = localStorage.getItem('adminToken');
-                                        const response = await fetch(`http://localhost:5000/api/admin/user-settlement/detail/${item.user_id}?months=1`, {
+                                        const response = await fetch(`${API_BASE_URL}/api/admin/user-settlement/detail/${item.user_id}?months=1`, {
                                           headers: {
                                             'Authorization': `Bearer ${token}`
                                           }
@@ -3396,7 +3397,7 @@ const AdminPanel: React.FC = () => {
             <div className={styles.modalBody}>
               {selectedNovel.cover && (
                 <img 
-                  src={selectedNovel.cover.startsWith('http') ? selectedNovel.cover : `http://localhost:5000/covers/${selectedNovel.cover}`}
+                  src={toAssetUrl(`/covers/${selectedNovel.cover}`)}
                   alt={selectedNovel.title}
                   className={styles.modalCover}
                 />

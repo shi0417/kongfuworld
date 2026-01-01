@@ -3,6 +3,8 @@ import styles from './ParagraphComment.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
 import Toast from '../Toast/Toast';
+import { toAssetUrl } from '../../config';
+import ApiService from '../../services/ApiService';
 
 interface Comment {
   id: number;
@@ -89,10 +91,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     
     try {
       setLoading(true);
-      const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`
-      );
-      const data = await response.json();
+      const data = await ApiService.get(`/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`);
       
       if (data.success) {
         const loadedComments = data.data.comments;
@@ -124,22 +123,11 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     
     try {
       setSubmitting(true);
-      const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: newComment.trim(),
-            userId: user.id,
-            parentId: null
-          })
-        }
-      );
-      
-      const data = await response.json();
+      const data = await ApiService.post(`/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`, {
+        content: newComment.trim(),
+        userId: user.id,
+        parentId: null
+      });
       if (data.success) {
         setNewComment('');
         loadComments();
@@ -177,10 +165,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
       return avatar;
     }
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   // 格式化时间
@@ -218,10 +203,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     const loadReplyCounts = async () => {
       for (const comment of comments) {
         try {
-          const response = await fetch(
-            `http://localhost:5000/api/paragraph-comment/${comment.id}/replies`
-          );
-          const data = await response.json();
+          const data = await ApiService.get(`/paragraph-comment/${comment.id}/replies`);
           if (data.success) {
             setReplyCountsMap(prev => ({
               ...prev,
@@ -258,22 +240,9 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            content: editContent.trim()
-          })
-        }
-      );
-
-      const data = await response.json();
+      const data = await ApiService.put(`/paragraph-comment/${commentId}`, {
+        content: editContent.trim()
+      });
       if (data.success) {
         setEditingCommentId(null);
         setEditContent('');
@@ -299,22 +268,11 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
 
     try {
       setSubmitting(true);
-      const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: content.trim(),
-            userId: user.id,
-            parentId: commentId
-          })
-        }
-      );
-      
-      const data = await response.json();
+      const data = await ApiService.post(`/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`, {
+        content: content.trim(),
+        userId: user.id,
+        parentId: commentId
+      });
       if (data.success) {
         loadComments();
         setShowReplyFormMap(prev => ({ ...prev, [commentId]: false }));
@@ -334,21 +292,10 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     if (!user) return;
     
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/like`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            isLike: isLike ? 1 : 0
-          })
-        }
-      );
-      
-      const data = await response.json();
+      const data = await ApiService.post(`/paragraph-comment/${commentId}/like`, {
+        userId: user.id,
+        isLike: isLike ? 1 : 0
+      });
       if (data.success) {
         // 立即更新本地状态
         setComments(prevComments => 
@@ -442,10 +389,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     useEffect(() => {
       const loadNestedReplyCount = async () => {
         try {
-          const response = await fetch(
-            `http://localhost:5000/api/paragraph-comment/${currentReply.id}/replies`
-          );
-          const data = await response.json();
+          const data = await ApiService.get(`/paragraph-comment/${currentReply.id}/replies`);
           if (data.success) {
             setNestedReplyCount(data.data.length);
           }
@@ -460,10 +404,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     // 加载嵌套回复
     const loadNestedReplies = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${currentReply.id}/replies`
-        );
-        const data = await response.json();
+        const data = await ApiService.get(`/paragraph-comment/${currentReply.id}/replies`);
         if (data.success) {
           setNestedReplies(data.data);
           setNestedReplyCount(data.data.length);
@@ -519,21 +460,10 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       }
 
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${replyId}/like`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: user.id,
-              isLike: 1
-            })
-          }
-        );
-        
-        const data = await response.json();
+        const data = await ApiService.post(`/paragraph-comment/${replyId}/like`, {
+          userId: user.id,
+          isLike: 1
+        });
         if (data.success) {
           if (replyId === currentReply.id) {
             setCurrentReply(prev => ({
@@ -565,21 +495,10 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       }
 
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${replyId}/like`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: user.id,
-              isLike: 0
-            })
-          }
-        );
-        
-        const data = await response.json();
+        const data = await ApiService.post(`/paragraph-comment/${replyId}/like`, {
+          userId: user.id,
+          isLike: 0
+        });
         if (data.success) {
           if (replyId === currentReply.id) {
             setCurrentReply(prev => ({
@@ -784,10 +703,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     // 加载回复
     const loadReplies = async () => {
       try {
-        const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${comment.id}/replies`
-        );
-        const data = await response.json();
+        const data = await ApiService.get(`/paragraph-comment/${comment.id}/replies`);
         if (data.success) {
           setReplies(data.data);
         }

@@ -8,6 +8,7 @@ import Footer from '../components/Footer/Footer';
 import ApiService from '../services/ApiService';
 import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './CreateNovel.module.css';
+import { API_BASE_URL } from '../config';
 
 interface Genre {
   id: number;
@@ -219,7 +220,7 @@ const CreateNovel: React.FC = () => {
 
       // 直接使用 fetch 发送 FormData，因为 ApiService 可能不支持 FormData
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/create', {
+      const response = await fetch(`${API_BASE_URL}/api/novel/create`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

@@ -4,6 +4,7 @@ import { useAuth, useUser } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
 import styles from './NavBar.module.css';
 import { useTheme } from '../../contexts/ThemeContext';
+import { toAssetUrl } from '../../config';
 
 const defaultAvatar = 'https://via.placeholder.com/150x150/4a90e2/ffffff?text=Avatar';
 
@@ -28,8 +29,7 @@ type Notification = {
 
 const getAvatarUrl = (avatar?: string) => {
   if (!avatar) return defaultAvatar;
-  if (avatar.startsWith('http')) return avatar;
-  return `http://localhost:5000${avatar}`;
+  return toAssetUrl(avatar);
 };
 
 const NavBar: React.FC = () => {

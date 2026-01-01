@@ -395,10 +395,10 @@ router.get('/novels/user/:user_id', async (req, res) => {
     
     console.log(`找到 ${results.length} 本小说`);
     
-    // 处理封面URL
+    // 处理封面URL - 返回相对路径，由前端使用 toAssetUrl 处理
     const novels = results.map(novel => ({
       ...novel,
-      cover: novel.cover ? (novel.cover.startsWith('http') ? novel.cover : `http://localhost:5000${novel.cover}`) : null,
+      cover: novel.cover ? (novel.cover.startsWith('http') ? novel.cover : novel.cover.startsWith('/') ? novel.cover : `/${novel.cover}`) : null,
       monthly_word_count: parseInt(novel.monthly_word_count) || 0,
       reviewed_word_count: parseInt(novel.reviewed_word_count) || 0
     }));

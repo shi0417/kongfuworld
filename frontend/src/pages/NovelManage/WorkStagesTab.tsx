@@ -4,6 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
 import styles from './WorkStagesTab.module.css';
+import { toAssetUrl } from '../../config';
 
 interface ContractStatus {
   total_word_count: number;
@@ -239,11 +240,7 @@ const WorkStagesTab: React.FC<{ novelId: number }> = ({ novelId }) => {
                   {novelInfo.cover ? (
                     <img
                       src={
-                        novelInfo.cover.startsWith('http') 
-                          ? novelInfo.cover 
-                          : novelInfo.cover.startsWith('/')
-                          ? `http://localhost:5000${novelInfo.cover}`
-                          : `http://localhost:5000/covers/${novelInfo.cover}`
+                        toAssetUrl(novelInfo.cover.startsWith('/') ? novelInfo.cover : `/covers/${novelInfo.cover}`)
                       }
                       alt={novelInfo.title}
                       className={styles.novelCover}

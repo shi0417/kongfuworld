@@ -4,6 +4,7 @@ import ApiService from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
+import { toAssetUrl } from '../../config';
 
 interface Reply {
   id: number;
@@ -297,11 +298,7 @@ const ReviewReplies: React.FC<ReviewRepliesProps> = ({ reviewId, user, onReplySu
       return avatar;
     }
     
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   if (compactMode) {

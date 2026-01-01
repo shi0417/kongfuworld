@@ -143,7 +143,7 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
         }
       } else {
         if (onError) {
-          onError(data.message || '加载失败');
+          onError(result.message || '加载失败');
         }
       }
     } catch (err: any) {
@@ -172,7 +172,7 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
         setShowDetailDrawer(true);
       } else {
         if (onError) {
-          onError(data.message || '加载详情失败');
+          onError(result.message || '加载详情失败');
         }
       }
     } catch (err: any) {

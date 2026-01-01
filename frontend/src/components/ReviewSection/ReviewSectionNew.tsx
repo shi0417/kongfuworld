@@ -6,6 +6,7 @@ import ReviewReplies from './ReviewReplies';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
 import Toast from '../Toast/Toast';
+import { toAssetUrl } from '../../config';
 
 
 interface ReviewSectionProps {
@@ -314,11 +315,7 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
       return avatar;
     }
     
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   if (loading) {

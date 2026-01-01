@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import reviewService, { Review, ReviewStats } from '../../services/reviewService';
 import styles from './ReviewSection.module.css';
+import { toAssetUrl } from '../../config';
 
 interface ReviewSectionProps {
   novelId: number;
@@ -140,13 +141,7 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
       return avatar;
     }
     
-    // 如果是相对路径，添加API基础URL
-    if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
-    }
-    
-    // 如果是文件名，添加avatars路径
-    return `http://localhost:5000/avatars/${avatar}`;
+    return toAssetUrl(avatar.startsWith('/') ? avatar : `/avatars/${avatar}`);
   };
 
   if (loading) {
