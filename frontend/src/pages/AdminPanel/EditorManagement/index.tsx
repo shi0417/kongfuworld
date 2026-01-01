@@ -43,8 +43,8 @@ const EditorManagement: React.FC<EditorManagementProps> = ({ onError }) => {
 
     if (!result.success && result.message && 
         (result.message.includes('Token') || result.message.includes('token') || 
-         data.message.includes('登录') || data.message.includes('无效') || 
-         data.message.includes('过期'))) {
+         result.message.includes('登录') || result.message.includes('无效') || 
+         result.message.includes('过期'))) {
       if (onError) {
         onError('Token无效或已过期，请重新登录');
       }
