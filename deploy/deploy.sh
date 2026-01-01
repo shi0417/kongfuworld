@@ -49,6 +49,15 @@ fi
 cd "$APP_DIR" || exit 1
 log_info "当前目录: $(pwd)"
 
+# ========== 打印 Git 信息 ==========
+log_info "当前 Git 状态:"
+git rev-parse HEAD
+git log -1 --oneline
+
+# ========== 打印环境变量 ==========
+log_info "检查环境变量:"
+printenv | grep -E "REACT_APP_API_URL|API_URL" || log_warn "未找到 REACT_APP_API_URL 环境变量（将使用同源）"
+
 # ========== Git 拉取最新代码 ==========
 log_info "拉取最新代码..."
 git fetch origin "$BRANCH" || {
@@ -109,6 +118,10 @@ EOF
     log_info ".env.production 已创建"
 fi
 
+# ========== 清理旧构建 ==========
+log_info "清理旧构建..."
+rm -rf build
+
 log_info "开始构建前端..."
 npm run build || {
     log_error "前端构建失败"
@@ -117,14 +130,15 @@ npm run build || {
 
 log_info "前端构建完成"
 
-# ========== 验证构建产物 ==========
-log_info "验证构建产物..."
-if grep -r "localhost:5000" build/static/js/*.js 2>/dev/null | grep -v "node_modules" > /dev/null; then
-    log_warn "警告: 构建产物中仍包含 localhost:5000"
-    log_warn "请检查前端代码中的硬编码"
-else
-    log_info "✓ 构建产物验证通过（无 localhost:5000 硬编码）"
+# ========== 强制验证构建产物（必须通过） ==========
+log_info "强制验证构建产物（禁止 localhost:5000）..."
+if grep -R "localhost:5000" -n build/static/js >/dev/null 2>&1; then
+    log_error "[FAIL] 生产构建产物包含 localhost:5000，部署终止！"
+    log_error "发现以下问题："
+    grep -R "localhost:5000" -n build/static/js | head -n 50
+    exit 1
 fi
+log_info "✓ 构建产物验证通过（无 localhost:5000 硬编码）"
 
 # ========== 重启服务 ==========
 log_info "重启服务..."

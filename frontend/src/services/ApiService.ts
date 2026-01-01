@@ -77,8 +77,8 @@ class ApiService {
       const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
       const url = `${baseURL}${normalizedEndpoint}`;
       
-      // 只在开发环境打印日志
-      if (process.env.NODE_ENV === 'development') {
+      // 只在非生产环境打印日志
+      if (process.env.NODE_ENV !== 'production') {
         console.log('ApiService请求URL:', url);
       }
       
@@ -158,8 +158,8 @@ class ApiService {
       }
 
       const data = await response.json();
-      // 只在开发环境打印日志
-      if (process.env.NODE_ENV === 'development') {
+      // 只在非生产环境打印日志
+      if (process.env.NODE_ENV !== 'production') {
         console.log('ApiService响应数据:', data);
       }
       return data;
