@@ -1,14 +1,11 @@
 import React from 'react';
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
-import FacebookLogin from 'react-facebook-login';
 import AppleSignin from 'react-apple-signin-auth';
 import styles from './SocialLogin.module.css';
 
 interface SocialLoginProps {
   onGoogleSuccess?: (response: any) => void;
   onGoogleError?: (error: any) => void;
-  onFacebookSuccess?: (response: any) => void;
-  onFacebookFailure?: (error: any) => void;
   onAppleSuccess?: (response: any) => void;
   onAppleError?: (error: any) => void;
 }
@@ -16,29 +13,11 @@ interface SocialLoginProps {
 const SocialLogin: React.FC<SocialLoginProps> = ({
   onGoogleSuccess,
   onGoogleError,
-  onFacebookSuccess,
-  onFacebookFailure,
   onAppleSuccess,
   onAppleError
 }) => {
   // Google OAuth配置
   const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '804347936135-h7t7lvcfobidto0vma40jfq30f6jgp08.apps.googleusercontent.com';
-  
-  // Facebook OAuth配置
-  const FACEBOOK_APP_ID = process.env.REACT_APP_FACEBOOK_APP_ID || '989475010031730';
-  
-  // 检查Facebook应用状态
-  const checkFacebookAppStatus = () => {
-    console.log('Facebook App ID:', FACEBOOK_APP_ID);
-    console.log('当前域名:', window.location.hostname);
-    console.log('当前URL:', window.location.href);
-    
-    // 如果应用被禁用，显示提示
-    if (FACEBOOK_APP_ID === '789137810752485') {
-      console.warn('⚠️ Facebook应用可能被禁用，请检查Facebook开发者控制台');
-    }
-  };
-  
   
   // Apple OAuth配置
   const APPLE_CLIENT_ID = process.env.REACT_APP_APPLE_CLIENT_ID || 'your-apple-client-id';
@@ -54,35 +33,6 @@ const SocialLogin: React.FC<SocialLoginProps> = ({
     console.log('Google登录失败');
     if (onGoogleError) {
       onGoogleError('Google login failed. Please configure a valid Google Client ID.');
-    }
-  };
-
-  const handleFacebookResponse = (response: any) => {
-    console.log('Facebook登录响应:', response);
-    console.log('Facebook App ID:', FACEBOOK_APP_ID);
-    console.log('Current URL:', window.location.href);
-    
-    if (response.accessToken && onFacebookSuccess) {
-      console.log('Facebook登录成功，访问令牌:', response.accessToken);
-      onFacebookSuccess(response);
-    } else {
-      console.log('Facebook登录失败，响应:', response);
-      if (onFacebookFailure) {
-        onFacebookFailure(response);
-      }
-    }
-  };
-
-  const handleFacebookFailure = (response: any) => {
-    console.log('Facebook登录失败:', response);
-    console.error('Facebook登录错误详情:', {
-      error: response,
-      appId: FACEBOOK_APP_ID,
-      currentUrl: window.location.href,
-      userAgent: navigator.userAgent
-    });
-    if (onFacebookFailure) {
-      onFacebookFailure(response);
     }
   };
 
@@ -103,7 +53,6 @@ const SocialLogin: React.FC<SocialLoginProps> = ({
   // 检查是否为开发环境
   const isDevelopment = process.env.NODE_ENV === 'development';
   const isGoogleConfigured = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('your-google-client-id');
-  const isFacebookConfigured = FACEBOOK_APP_ID && !FACEBOOK_APP_ID.includes('your-facebook-app-id');
 
   return (
     <div className={styles.socialLogin}>
@@ -123,34 +72,6 @@ const SocialLogin: React.FC<SocialLoginProps> = ({
           color: '#856404'
         }}>
           ⚠️ Google login requires a valid Client ID. Configure REACT_APP_GOOGLE_CLIENT_ID in your .env file.
-        </div>
-      )}
-      
-      {isDevelopment && !isFacebookConfigured && (
-        <div style={{
-          background: '#fff3cd',
-          border: '1px solid #ffeaa7',
-          borderRadius: '4px',
-          padding: '8px 12px',
-          marginBottom: '16px',
-          fontSize: '12px',
-          color: '#856404'
-        }}>
-          ⚠️ Facebook login requires proper domain configuration. Check Facebook App settings and network connection.
-        </div>
-      )}
-      
-      {isDevelopment && FACEBOOK_APP_ID === '989475010031730' && (
-        <div style={{
-          background: '#d4edda',
-          border: '1px solid #c3e6cb',
-          borderRadius: '4px',
-          padding: '8px 12px',
-          marginBottom: '16px',
-          fontSize: '12px',
-          color: '#155724'
-        }}>
-          ✅ 使用新的测试应用！App ID: 989475010031730
         </div>
       )}
       
@@ -196,24 +117,6 @@ const SocialLogin: React.FC<SocialLoginProps> = ({
               Continue with Google
             </button>
           )}
-        </div>
-
-        {/* Facebook登录 */}
-        <div className={styles.socialButton}>
-          <FacebookLogin
-            appId={FACEBOOK_APP_ID}
-            fields="name,email,picture"
-            callback={handleFacebookResponse}
-            onFailure={handleFacebookFailure}
-            cssClass={styles.facebookButton}
-            textButton="Continue with Facebook"
-            size="medium"
-            language="en_US"
-            isDisabled={false}
-            scope="email,public_profile"
-            returnScopes={true}
-            redirectUri={window.location.origin}
-          />
         </div>
 
         {/* Apple登录 */}

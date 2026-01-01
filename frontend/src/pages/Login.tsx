@@ -228,8 +228,6 @@ const Login: React.FC = () => {
         <SocialLogin
           onGoogleSuccess={(response) => handleSocialLoginSuccess('Google', response)}
           onGoogleError={(error) => handleSocialLoginError('Google', error)}
-          onFacebookSuccess={(response) => handleSocialLoginSuccess('Facebook', response)}
-          onFacebookFailure={(error) => handleSocialLoginError('Facebook', error)}
           onAppleSuccess={(response) => handleSocialLoginSuccess('Apple', response)}
           onAppleError={(error) => handleSocialLoginError('Apple', error)}
         />

@@ -91,23 +91,10 @@ const Register: React.FC = () => {
       
       console.log(`${provider} login response:`, userData);
       
-      // 对于Facebook，确保传递accessToken
-      let dataToSend = userData;
-      if (provider === 'Facebook' && userData.accessToken) {
-        // Facebook登录：传递accessToken，后端会从Graph API获取用户信息
-        dataToSend = {
-          accessToken: userData.accessToken,
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          picture: userData.picture
-        };
-      }
-      
       // Call backend API for social login
       const result = await ApiService.post('/auth/social-login', {
         provider,
-        userData: dataToSend
+        userData
       });
       
       if (result.success) {
@@ -339,8 +326,6 @@ const Register: React.FC = () => {
         <SocialLogin
           onGoogleSuccess={(response) => handleSocialLoginSuccess('Google', response)}
           onGoogleError={(error) => handleSocialLoginError('Google', error)}
-          onFacebookSuccess={(response) => handleSocialLoginSuccess('Facebook', response)}
-          onFacebookFailure={(error) => handleSocialLoginError('Facebook', error)}
           onAppleSuccess={(response) => handleSocialLoginSuccess('Apple', response)}
           onAppleError={(error) => handleSocialLoginError('Apple', error)}
         />
