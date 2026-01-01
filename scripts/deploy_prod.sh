@@ -6,94 +6,171 @@ NGINX_ROOT="/var/www/kongfuworld"
 PM2_NAME="kongfuworld-api"
 ENV_FILE="$REPO/backend/kongfuworld.env"
 
+# 定义 run() 函数：打印命令 -> 执行 -> 若失败打印 [FAIL] 并 exit 1
+run() {
+  local cmd="$*"
+  echo "[RUN] $cmd"
+  if eval "$cmd"; then
+    echo "[OK] Command succeeded"
+  else
+    echo "[FAIL] Command failed: $cmd"
+    exit 1
+  fi
+}
+
 echo "=============================="
 echo "KongFuWorld Production Deploy"
-echo "Scheme A: stash keep env + pull + Node20 + pm2 + frontend build + publish + nginx reload"
+echo "Scheme A: Enhanced with robust error handling"
 echo "=============================="
 
-echo "[0] Baseline"
-cd "$REPO"
-date
-echo "PWD=$(pwd)"
-echo "HEAD=$(git rev-parse --short HEAD)"
-git status -sb || true
+# A) Baseline
+echo "[A] Baseline"
+run "date"
+run "cd $REPO"
+run "pwd"
+run "git rev-parse --short HEAD"
+run "node -v || echo 'node not in PATH'"
+run "npm -v || echo 'npm not in PATH'"
+run "pm2 -v || echo 'pm2 not found'"
+run "nginx -v || echo 'nginx not found'"
 
-echo "[1] Git stash（保留 env）"
-# 仅 stash 其他变更，保留 env 文件本地化
-# --keep-index: 保持 index（通常无 staged）
-# --include-untracked: 把未跟踪也 stash 掉，避免污染 pull
-STASH_NAME="local-deploy-changes-keep-env-$(date +%F-%H%M%S)"
-git stash push --include-untracked -m "$STASH_NAME" -- . ":(exclude)$ENV_FILE" || true
-echo "[INFO] stash list:"
-git stash list | head -n 5 || true
+# B) Git 更新（保留 env）
+echo "[B] Git Update (preserve env)"
+if [ -f "$ENV_FILE" ] && git check-ignore -q "$ENV_FILE"; then
+  echo "[OK] $ENV_FILE exists and is ignored"
+else
+  echo "[WARN] $ENV_FILE may not be properly ignored"
+fi
 
-echo "[2] 拉取最新代码"
-git pull --rebase
+# Git stash（允许无变更继续）
+echo "[B.1] Git stash (preserve env)"
+STASH_NAME="deploy:stash-keep-env-$(date +%F-%H%M%S)"
+if git stash push -u --keep-index -m "$STASH_NAME" -- . ":(exclude)backend/kongfuworld.env" 2>/dev/null; then
+  echo "[OK] Stashed changes"
+else
+  echo "[INFO] No changes to stash (continuing)"
+fi
+run "git stash list | head -n 3 || true"
 
-echo "[3] Node 20 运行环境（nvm）"
+# 拉取最新代码
+echo "[B.2] Git pull"
+run "git pull --rebase"
+run "git status --porcelain"
+
+# C) Node 20
+echo "[C] Node 20 Setup"
 export NVM_DIR="$HOME/.nvm"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090
   . "$NVM_DIR/nvm.sh"
-else
-  echo "[ERROR] nvm not found at $NVM_DIR/nvm.sh"
+elif [ -s "$HOME/.bashrc" ]; then
+  # shellcheck disable=SC1090
+  source "$HOME/.bashrc"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # shellcheck disable=SC1090
+    . "$NVM_DIR/nvm.sh"
+  fi
+fi
+
+if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+  echo "[FAIL] nvm not found at $NVM_DIR/nvm.sh"
   exit 1
 fi
 
-# 安装/使用 Node 20（幂等）
-nvm install 20
-nvm use 20
-echo "[INFO] node=$(node -v) npm=$(npm -v)"
+run "nvm install 20"
+run "nvm use 20"
+run "node -v"
+run "npm -v"
+run "which node"
 
-echo "[4] 后端：安装依赖 + PM2 重启"
-cd "$REPO/backend"
-if [ -f package-lock.json ]; then
-  npm ci || npm install
+# D) Backend 部署
+echo "[D] Backend Deployment"
+run "cd $REPO/backend"
+
+# npm ci with fallback
+echo "[D.1] Installing backend dependencies"
+if npm ci 2>&1; then
+  echo "[OK] npm ci succeeded"
 else
-  npm install
+  CI_ERROR=$?
+  echo "[WARN] npm ci failed (exit $CI_ERROR), attempting fallback..."
+  echo "[INFO] Fallback step 1: npm install --no-audit --no-fund"
+  run "npm install --no-audit --no-fund"
+  echo "[INFO] Fallback step 2: retry npm ci"
+  run "npm ci"
 fi
 
-# 用 Node20 启动/重启（通过 pm2 使用当前 PATH 下 node）
+# PM2 重启
+echo "[D.2] PM2 Restart"
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 restart "$PM2_NAME" --update-env
+  run "pm2 restart $PM2_NAME --update-env"
 else
-  pm2 start server.js --name "$PM2_NAME" --update-env
+  run "pm2 start server.js --name $PM2_NAME --update-env"
 fi
-pm2 save
-pm2 list
+run "pm2 save"
+run "pm2 list | grep $PM2_NAME || pm2 list"
 
-echo "[5] 前端：Node20 构建"
-cd "$REPO/frontend"
-# 依赖安装：优先 npm ci；若 peer 冲突则 fallback
-if [ -f package-lock.json ]; then
-  npm ci || npm install --legacy-peer-deps
+# 验证端口
+echo "[D.3] Verify port 5000"
+run "ss -lntp | grep ':5000'"
+
+# E) Frontend 构建（Node20）
+echo "[E] Frontend Build (Node20)"
+run "cd $REPO/frontend"
+
+# 安全检查：react-facebook-login
+echo "[E.1] Safety check: react-facebook-login"
+if node -e "const p=require('./package.json'); if((p.dependencies&&p.dependencies['react-facebook-login'])||(p.devDependencies&&p.devDependencies['react-facebook-login'])){console.error('react-facebook-login still present');process.exit(2)}" 2>/dev/null; then
+  echo "[OK] react-facebook-login not found in package.json"
 else
-  npm install --legacy-peer-deps
+  echo "[FAIL] react-facebook-login is still present in package.json"
+  echo "[FAIL] Please remove it from dependencies first"
+  exit 2
 fi
 
-npm run build
+# 清理旧依赖
+echo "[E.2] Clean old dependencies"
+run "rm -rf node_modules"
 
-echo "[6] 发布静态文件到 Nginx 目录"
-if [ ! -d build ]; then
-  echo "[ERROR] frontend/build not found."
-  exit 1
-fi
+# 安装依赖
+echo "[E.3] Install frontend dependencies"
+run "npm install --legacy-peer-deps --no-audit --no-fund"
 
-sudo mkdir -p "$NGINX_ROOT"
-sudo rm -rf "$NGINX_ROOT"/*
-sudo cp -r build/* "$NGINX_ROOT"/
+# 构建
+echo "[E.4] Build frontend"
+run "npm run build"
 
-echo "[7] Nginx reload"
-sudo nginx -t
-sudo systemctl reload nginx
+# 验证 build 目录
+echo "[E.5] Verify build directory"
+run "test -d build && echo BUILD_OK"
 
-echo "[8] 健康检查"
-echo "- Frontend:"
-curl -I -L https://kongfuworld.com/ | head -n 20 || true
-echo "- API:"
-curl -I -L "https://kongfuworld.com/api/chapter/1244?userId=1000" | head -n 20 || true
+# F) 发布静态文件 + nginx
+echo "[F] Publish Static Files + Nginx"
+run "sudo rm -rf $NGINX_ROOT/*"
+run "sudo cp -r $REPO/frontend/build/* $NGINX_ROOT/"
+run "sudo nginx -t"
+run "sudo systemctl reload nginx"
 
-echo "✅ Deploy finished."
-echo "[INFO] Remaining git status:"
+# G) 健康检查
+echo "[G] Health Checks"
+run "curl -I https://kongfuworld.com/ | head -n 10"
+run "curl -I 'https://kongfuworld.com/api/chapter/1244?userId=1000' | head -n 10"
+
+# H) Summary
+echo "=============================="
+echo "[H] Deployment Summary"
+echo "=============================="
 cd "$REPO"
-git status -sb || true
+echo "HEAD: $(git rev-parse --short HEAD)"
+echo "Node: $(node -v) | NPM: $(npm -v)"
+echo "PM2 Status:"
+pm2 list | grep "$PM2_NAME" || pm2 list
+echo "Nginx Status: $(systemctl is-active nginx)"
+echo "Build Files Count: $(ls -1 $NGINX_ROOT | wc -l)"
+echo "Git Status:"
+git status --porcelain || echo "clean"
+
+echo "=============================="
+echo "✅ Deploy finished successfully"
+echo "=============================="
+
