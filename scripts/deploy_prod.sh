@@ -45,7 +45,7 @@ fi
 # Git stash（允许无变更继续）
 echo "[B.1] Git stash (preserve env)"
 STASH_NAME="deploy:stash-keep-env-$(date +%F-%H%M%S)"
-if git stash push -u --keep-index -m "$STASH_NAME" -- . ":(exclude)backend/kongfuworld.env" 2>/dev/null; then
+if git stash push -u -m "$STASH_NAME" -- . ":(exclude)backend/kongfuworld.env" 2>/dev/null; then
   echo "[OK] Stashed changes"
 else
   echo "[INFO] No changes to stash (continuing)"
