@@ -1,49 +1,41 @@
 // API配置
-// 生产环境强制约束：只允许两类来源
-// 1) process.env.REACT_APP_API_URL 非空字符串（明确配置独立 API 域名）
-// 2) 否则使用 window.location.origin（同源）
-// 严禁在生产路径出现默认值 http://localhost:5000
+// 严格要求：源码中不得出现硬编码的 API 地址
+// 开发环境通过 .env.development 注入 REACT_APP_API_URL
+// 生产环境只允许：
+//   - process.env.REACT_APP_API_URL（如果明确配置）
+//   - 否则使用 window.location.origin
+// 不允许任何默认 localhost fallback
 const getApiOrigin = (): string => {
   const envApi = (process.env.REACT_APP_API_URL || '').trim();
-  const runtimeOrigin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
-  
-  // 生产环境：必须配置，否则抛出错误
-  if (process.env.NODE_ENV === 'production') {
-    const origin = envApi || runtimeOrigin;
-    if (!origin) {
-      throw new Error('API_ORIGIN is not configured. Please set REACT_APP_API_URL or ensure window.location.origin is available.');
-    }
-    // 生产环境禁止使用 localhost
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      throw new Error(`API_ORIGIN cannot be localhost in production: ${origin}`);
-    }
-    return origin;
-  } else {
-    // 开发环境：允许使用 localhost:5000 作为默认值
-    return envApi || runtimeOrigin || 'http://localhost:5000';
+  const runtimeOrigin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : '';
+
+  const API_ORIGIN = envApi || runtimeOrigin;
+
+  if (!API_ORIGIN) {
+    throw new Error('API_ORIGIN is not configured');
   }
+
+  return API_ORIGIN;
 };
 
-export const API_ORIGIN = getApiOrigin();
-export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, '')}/api`;
+export const API_BASE_URL = getApiOrigin().replace(/\/$/, '') + '/api';
 
 // 静态资源（头像/封面/上传文件）Base URL
-// 开发环境：优先使用 REACT_APP_ASSET_URL，否则使用 localhost:5000
+// 开发环境：通过 .env.development 注入 REACT_APP_ASSET_URL
 // 生产环境：优先使用 REACT_APP_ASSET_URL，如果未设置则使用 window.location.origin（同源）
 const getAssetOrigin = (): string => {
   if (process.env.REACT_APP_ASSET_URL) {
     return process.env.REACT_APP_ASSET_URL;
   }
-  if (process.env.NODE_ENV === 'production') {
-    // 生产环境：运行时使用当前页面的 origin
-    if (typeof window !== 'undefined') {
-      return window.location.origin;
-    }
-    // 构建时无法获取 window，返回空字符串（相对路径）
-    return '';
+  // 生产环境：运行时使用当前页面的 origin
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
   }
-  // 开发环境默认值
-  return 'http://localhost:5000';
+  // 构建时无法获取 window，返回空字符串（相对路径）
+  return '';
 };
 
 export const ASSET_BASE_URL = getAssetOrigin();
