@@ -1,15 +1,6 @@
 const AlipaySdk = require('alipay-sdk').default;
 
-// 加载环境变量
-try {
-  require('dotenv').config({ path: './kongfuworld.env' });
-} catch (error) {
-  try {
-    require('dotenv').config({ path: '../kongfuworld.env' });
-  } catch (error2) {
-    console.log('dotenv not available, using default values');
-  }
-}
+// NOTE: env is already loaded by server.js via config/loadEnv.js
 
 const isSandbox = process.env.ALIPAY_MODE === 'sandbox';
 

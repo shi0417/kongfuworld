@@ -1,6 +1,6 @@
-// Load env early (must be before any route/service require that depends on process.env)
+require('./config/loadEnv.js');
+
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, 'kongfuworld.env') });
 
 // One-time non-sensitive diagnostics (do NOT print values)
 console.log('[BOOT] cwd:', process.cwd());

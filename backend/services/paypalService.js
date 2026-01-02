@@ -1,12 +1,7 @@
 const mysql = require('mysql2/promise');
 const https = require('https');
 
-// 加载环境变量
-try {
-  require('dotenv').config({ path: '../kongfuworld.env' });
-} catch (error) {
-  console.log('dotenv not available, using default values');
-}
+// NOTE: env is already loaded by server.js via config/loadEnv.js
 
 // PayPal配置
 const PAYPAL_CONFIG = {

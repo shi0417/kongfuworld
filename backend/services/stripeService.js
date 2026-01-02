@@ -1,12 +1,7 @@
 const mysql = require('mysql2/promise');
 const stripe = require('stripe');
 
-// 加载环境变量
-try {
-  require('dotenv').config({ path: './kongfuworld.env' });
-} catch (error) {
-  console.log('dotenv not available, using default values');
-}
+// NOTE: env is already loaded by server.js via config/loadEnv.js
 
 // Stripe配置
 const STRIPE_CONFIG = {

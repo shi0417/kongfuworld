@@ -23,12 +23,14 @@ function tryLoadEnv() {
     const dotenv = require('dotenv');
 
     const candidates = [
-      // 兼容：从项目根目录执行 node backend/migrations/xxx.js
-      path.join(process.cwd(), 'backend', 'kongfuworld.env'),
-      // 兼容：从 backend 目录执行 node migrations/xxx.js
-      path.join(process.cwd(), 'kongfuworld.env'),
-      // 兼容：以脚本位置推导
-      path.join(__dirname, '..', 'kongfuworld.env'),
+      // 新的 env 加载机制
+      path.join(process.cwd(), 'backend', '.env.production'),
+      path.join(process.cwd(), '.env.production'),
+      path.join(__dirname, '..', '.env.production'),
+      // 本地开发环境
+      path.join(process.cwd(), 'backend', '.env.local'),
+      path.join(process.cwd(), '.env.local'),
+      path.join(__dirname, '..', '.env.local'),
     ];
 
     for (const p of candidates) {
@@ -38,7 +40,7 @@ function tryLoadEnv() {
         return;
       }
     }
-    console.log('ℹ️ 未找到 kongfuworld.env，将使用进程环境变量或默认值');
+    console.log('ℹ️ 未找到 env 文件，将使用进程环境变量或默认值');
   } catch {
     console.log('ℹ️ dotenv 不可用，将使用进程环境变量或默认值');
   }
