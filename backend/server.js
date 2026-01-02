@@ -294,9 +294,7 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectTimeout: 10000,
   queueLimit: 0,
-  ssl: process.env.DB_HOST === 'localhost' || process.env.DB_HOST === '127.0.0.1' ? false : {
-    rejectUnauthorized: false
-  }
+  ssl: false
 });
 
 // 初始化点赞/点踩服务
