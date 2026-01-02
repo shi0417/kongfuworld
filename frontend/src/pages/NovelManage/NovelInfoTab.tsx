@@ -40,7 +40,7 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
   const [recommendation, setRecommendation] = useState(initialNovel.recommendation || '');
   const [description, setDescription] = useState(initialNovel.description || '');
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(initialNovel.cover ? `http://localhost:5000${initialNovel.cover}` : null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(initialNovel.cover ? `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${initialNovel.cover}` : null);
 
   const [genres, setGenres] = useState<Genre[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -282,7 +282,13 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/update', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/novel/update', {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

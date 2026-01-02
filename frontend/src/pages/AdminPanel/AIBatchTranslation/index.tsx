@@ -150,7 +150,13 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch(`${apiBase}${endpoint}`, {
       ...options,
       headers,
     });

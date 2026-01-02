@@ -178,7 +178,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       return avatar;
     }
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${avatar}`;
     }
     return `http://localhost:5000/avatars/${avatar}`;
   };

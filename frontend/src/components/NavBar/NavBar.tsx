@@ -29,7 +29,7 @@ type Notification = {
 const getAvatarUrl = (avatar?: string) => {
   if (!avatar) return defaultAvatar;
   if (avatar.startsWith('http')) return avatar;
-  return `http://localhost:5000${avatar}`;
+  return `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${avatar}`;
 };
 
 const NavBar: React.FC = () => {

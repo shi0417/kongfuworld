@@ -219,7 +219,13 @@ const CreateNovel: React.FC = () => {
 
       // 直接使用 fetch 发送 FormData，因为 ApiService 可能不支持 FormData
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/create', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/novel/create', {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

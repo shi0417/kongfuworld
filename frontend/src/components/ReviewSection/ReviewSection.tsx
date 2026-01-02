@@ -142,7 +142,7 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
     
     // 如果是相对路径，添加API基础URL
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${avatar}`;
     }
     
     // 如果是文件名，添加avatars路径

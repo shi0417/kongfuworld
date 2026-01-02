@@ -50,7 +50,7 @@ export interface ApiError {
 }
 
 class ApiService {
-  private static baseURL = 'http://localhost:5000/api';
+  private static baseURL = (typeof window !== 'undefined' && window.location?.origin ? `${window.location.origin}/api` : (process.env.REACT_APP_API_URL || ''));
 
   /**
    * 统一API调用方法

@@ -890,7 +890,13 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const response = await fetch('http://localhost:5000/api/draft/create', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/draft/create', {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
@@ -1099,7 +1105,13 @@ const ChapterWriter: React.FC = () => {
         // 更新现有章节
         formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
         formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
           method: 'POST',
           headers,
           body: formData
@@ -1107,7 +1119,13 @@ const ChapterWriter: React.FC = () => {
       } else {
         // 创建新章节
         formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/create', {
           method: 'POST',
           headers,
           body: formData
@@ -1208,13 +1226,25 @@ const ChapterWriter: React.FC = () => {
       let response;
       if (chapterInfo.id || chapterId) {
         formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
           method: 'POST',
           headers,
           body: formData
         });
       } else {
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/create', {
           method: 'POST',
           headers,
           body: formData
@@ -1312,7 +1342,13 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const draftResponse = await fetch('http://localhost:5000/api/draft/create', {
+      const draftResponse = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/draft/create', {
         method: 'POST',
         headers,
         body: JSON.stringify(draftRequestBody)
@@ -1332,7 +1368,13 @@ const ChapterWriter: React.FC = () => {
         translator_note: authorNote2.trim() || ''
       };
 
-      const layoutResponse = await fetch('http://localhost:5000/api/ai/layout', {
+      const layoutResponse = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/ai/layout', {
         method: 'POST',
         headers,
         body: JSON.stringify(layoutRequestBody)
@@ -1906,7 +1948,13 @@ const ChapterWriter: React.FC = () => {
           formData.append('is_released', '1');
         }
         
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
           method: 'POST',
           headers,
           body: formData
@@ -1918,7 +1966,13 @@ const ChapterWriter: React.FC = () => {
         formData.append('action', 'publish');
         formData.append('is_released', '1');
         
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/create', {
           method: 'POST',
           headers,
           body: formData
@@ -2722,7 +2776,13 @@ const ChapterWriter: React.FC = () => {
             
             let response: Response;
             if (pendingAction === 'schedule') {
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
@@ -2732,7 +2792,13 @@ const ChapterWriter: React.FC = () => {
             } else if (pendingAction === 'publish') {
               pendingFormData.append('action', 'publish');
               pendingFormData.append('is_released', '1');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
@@ -2742,7 +2808,13 @@ const ChapterWriter: React.FC = () => {
             } else {
               // draft
               pendingFormData.append('action', 'draft');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/chapter/update', {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''

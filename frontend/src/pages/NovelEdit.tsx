@@ -115,7 +115,7 @@ const NovelEdit: React.FC = () => {
       if (novel.cover.startsWith('http')) {
         setCoverPreview(novel.cover);
       } else {
-        setCoverPreview(`http://localhost:5000${novel.cover}`);
+        setCoverPreview(`${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${novel.cover}`);
       }
     } else {
       setCoverPreview('');
@@ -341,7 +341,7 @@ const NovelEdit: React.FC = () => {
           ...prev,
           cover: data.coverUrl
         }));
-        setCoverPreview(`http://localhost:5000${data.coverUrl}`);
+        setCoverPreview(`${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${data.coverUrl}`);
         setMessage('封面图片上传成功！');
       } else {
         setMessage(data.message || '封面图片上传失败');

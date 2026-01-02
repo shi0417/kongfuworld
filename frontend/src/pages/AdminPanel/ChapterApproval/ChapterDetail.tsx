@@ -217,7 +217,7 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
                 chapter.novel_cover.startsWith('http')
                   ? chapter.novel_cover
                   : chapter.novel_cover.startsWith('/')
-                  ? `http://localhost:5000${chapter.novel_cover}`
+                  ? `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${chapter.novel_cover}`
                   : `http://localhost:5000/covers/${chapter.novel_cover}`
               }
               alt={chapter.novel_title}

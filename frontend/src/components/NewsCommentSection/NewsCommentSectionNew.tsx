@@ -174,7 +174,7 @@ const NewsCommentSectionNew: React.FC<NewsCommentSectionNewProps> = ({ newsId, u
   const getAvatarUrl = (avatar?: string) => {
     if (!avatar) return 'https://i.pravatar.cc/40?img=1';
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
-    if (avatar.startsWith('/')) return `http://localhost:5000${avatar}`;
+    if (avatar.startsWith('/')) return `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')}${avatar}`;
     return `http://localhost:5000/avatars/${avatar}`;
   };
 

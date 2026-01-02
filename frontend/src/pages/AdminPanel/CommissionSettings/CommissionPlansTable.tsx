@@ -64,7 +64,13 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setCommissionPlansLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/commission-plans', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -215,7 +221,13 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
       const defaultPercent = 0.01;
       
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plan-levels', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/commission-plan-levels', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -255,7 +267,13 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setSavingForPlans(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/commission-plans', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -374,7 +392,13 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setSavingForPlans(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/commission-plans', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

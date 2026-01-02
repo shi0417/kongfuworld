@@ -71,7 +71,13 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty/generate', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/author-royalty/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

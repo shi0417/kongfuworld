@@ -37,7 +37,13 @@ const AdminRegister: React.FC = () => {
 
     setSendingCode(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/email-verification/send-code', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/email-verification/send-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +101,13 @@ const AdminRegister: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/register-editor', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/register-editor', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

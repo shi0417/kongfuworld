@@ -117,7 +117,13 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setAuthorRoyaltyPlansLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty-plans', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/author-royalty-plans', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -453,7 +459,13 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty-plans', {
+      const response = await const apiBase = typeof window !== 'undefined' && window.location?.origin 
+      ? `${window.location.origin}/api` 
+      : (process.env.REACT_APP_API_URL || '');
+    if (!apiBase) {
+      throw new Error('API base url is not configured');
+    }
+    fetch('${apiBase}/admin/author-royalty-plans', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
