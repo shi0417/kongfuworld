@@ -280,8 +280,11 @@ app.use('/api', novelCreationRoutes);
 const pricingRoutes = require('./routes/pricing');
 app.use('/api', pricingRoutes);
 
-// 静态托管 covers 目录 - 使用avatars目录
-app.use('/covers', express.static(path.join(__dirname, '../avatars')));
+// 静态托管 covers 目录
+app.use('/covers', express.static(path.join(__dirname, '../covers')));
+
+// 静态托管 avatars 目录
+app.use('/avatars', express.static(path.join(__dirname, '../avatars')));
 
 // 数据库连接池配置
 const db = mysql.createPool({
