@@ -173,7 +173,7 @@
 }
 
 .volumeCardTitle {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.3;

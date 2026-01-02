@@ -84,7 +84,7 @@
 
 .freeAccess {
   background: #2196f3;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 18px;
   padding: 16px 36px;
@@ -117,7 +117,7 @@
 
 .advanceAccess {
   background: linear-gradient(90deg, #1976d2 0%, #a259f7 100%);
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 18px;
   padding: 16px 36px;
