@@ -285,12 +285,16 @@ app.use('/covers', express.static(path.join(__dirname, '../avatars')));
 
 // 数据库连接池配置
 const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '123456',
-  database: 'kongfuworld',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'kongfuworld',
   connectionLimit: 10,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  waitForConnections: true,
+  connectTimeout: 10000,
+  queueLimit: 0,
+  ssl: {}
 });
 
 // 初始化点赞/点踩服务
