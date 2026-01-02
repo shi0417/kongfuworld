@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl, getApiOrigin } from '../../../config';
 import styles from './NovelReview.module.css';
 
 interface Novel {
@@ -78,7 +79,12 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });
@@ -200,7 +206,11 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
   const viewNovelDetail = async (novelId: number) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -230,7 +240,11 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/review-novel', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/review-novel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -382,8 +396,8 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                         novel.cover.startsWith('http') 
                           ? novel.cover 
                           : novel.cover.startsWith('/')
-                          ? `http://localhost:5000${novel.cover}`
-                          : `http://localhost:5000/covers/${novel.cover}`
+                          ? `${getApiOrigin()}${novel.cover}`
+                          : `${getApiOrigin()}/covers/${novel.cover}`
                       }
                       alt={novel.title}
                       className={styles.novelCover}
@@ -519,8 +533,8 @@ const NovelReview: React.FC<NovelReviewProps> = ({ onError }) => {
                       selectedNovel.cover.startsWith('http') 
                         ? selectedNovel.cover 
                         : selectedNovel.cover.startsWith('/')
-                        ? `http://localhost:5000${selectedNovel.cover}`
-                        : `http://localhost:5000/covers/${selectedNovel.cover}`
+                        ? `${getApiOrigin()}${selectedNovel.cover}`
+                        : `${getApiOrigin()}/covers/${selectedNovel.cover}`
                     }
                     alt={selectedNovel.title}
                     className={styles.modalCover}

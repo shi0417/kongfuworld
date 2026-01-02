@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiBaseUrl } from '../../config';
 import styles from './ReviewSectionNew.module.css';
 import reviewService, { Review, ReviewStats } from '../../services/reviewService';
 import ReviewReplies from './ReviewReplies';
@@ -315,10 +316,10 @@ const ReviewSectionNew: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
     }
     
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
     
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   if (loading) {

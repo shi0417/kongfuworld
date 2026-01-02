@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './PaymentStats.module.css';
 
 interface PaymentStatsProps {
@@ -41,7 +42,11 @@ const PaymentStats: React.FC<PaymentStatsProps> = ({ onError }) => {
       if (paymentFilters.payment_status) params.append('payment_status', paymentFilters.payment_status);
       if (paymentFilters.user_id) params.append('user_id', paymentFilters.user_id);
       
-      const response = await fetch(`http://localhost:5000/api/admin/payments/summary?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/payments/summary?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -80,7 +85,11 @@ const PaymentStats: React.FC<PaymentStatsProps> = ({ onError }) => {
       params.append('page', subscriptionsPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/subscriptions?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/subscriptions?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -119,7 +128,11 @@ const PaymentStats: React.FC<PaymentStatsProps> = ({ onError }) => {
       params.append('page', karmaPurchasesPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/karma-purchases?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/karma-purchases?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../hooks/useAuth';
+import { getApiBaseUrl } from '../../config';
 import ApiService from '../../services/ApiService';
 import reviewService from '../../services/reviewService';
 import chapterCommentService from '../../services/chapterCommentService';
@@ -241,9 +242,9 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
       return avatar;
     }
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   }, []);
 
   // 获取显示名称（如果是作者且有笔名，显示笔名，否则显示用户名）
@@ -518,7 +519,7 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
     if (!user) return;
     try {
       const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/like`,
+        `${getApiBaseUrl()}/api/paragraph-comment/${commentId}/like`,
         {
           method: 'POST',
           headers: {
@@ -569,7 +570,7 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}`,
+        `${getApiBaseUrl()}/api/paragraph-comment/${commentId}`,
         {
           method: 'PUT',
           headers: {
@@ -597,7 +598,7 @@ const CommentManagement: React.FC<CommentManagementProps> = ({ userId }) => {
     if (content.trim().length < 10) return;
     try {
       const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/reply`,
+        `${getApiBaseUrl()}/api/paragraph-comment/${commentId}/reply`,
         {
           method: 'POST',
           headers: {

@@ -1,5 +1,6 @@
 // 统一API调用服务
 import AuthService from './AuthService';
+import { getApiBaseUrl } from '../config';
 
 export interface PaginationInfo {
   page: number;
@@ -50,8 +51,6 @@ export interface ApiError {
 }
 
 class ApiService {
-  private static baseURL = 'http://localhost:5000/api';
-
   /**
    * 统一API调用方法
    */
@@ -60,8 +59,16 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      console.log('ApiService请求URL:', url);
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new ApiError('API base url is not configured', 500);
+      }
+      
+      const url = `${base}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('ApiService请求URL:', url);
+      }
       
       // 检查是否是管理员API，如果是则使用管理员Token
       const isAdminApi = endpoint.startsWith('/admin');
@@ -139,7 +146,9 @@ class ApiService {
       }
 
       const data = await response.json();
-      console.log('ApiService响应数据:', data);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('ApiService响应数据:', data);
+      }
       return data;
     } catch (error) {
       console.error('API请求失败:', error);

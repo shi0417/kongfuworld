@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionSettings.module.css';
 
 // 辅助函数：将数据库日期格式转换为 datetime-local 输入框需要的格式
@@ -64,7 +65,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setCommissionPlansLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plans`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -103,7 +108,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setPlanLevelsLoading(prev => ({ ...prev, [planId]: true }));
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/commission-plans/${planId}/levels`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plans/${planId}/levels`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -149,7 +158,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
   const updateLevelPercent = async (levelId: number, percent: number) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/commission-plan-levels/${levelId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plan-levels/${levelId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -215,7 +228,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
       const defaultPercent = 0.01;
       
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plan-levels', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plan-levels`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -255,7 +272,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setSavingForPlans(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plans`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -296,7 +317,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setUserSearchLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/users/search?q=${encodeURIComponent(query)}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/users/search?q=${encodeURIComponent(query)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -374,7 +399,11 @@ const CommissionPlansTable: React.FC<CommissionPlansTableProps> = ({
     try {
       setSavingForPlans(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-plans', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plans`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

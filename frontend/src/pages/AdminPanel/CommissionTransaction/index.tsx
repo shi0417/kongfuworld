@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionTransaction.module.css';
 
 interface CommissionTransactionProps {
@@ -29,7 +30,11 @@ const CommissionTransaction: React.FC<CommissionTransactionProps> = ({ onError }
         params.append('type', commissionTypeFilter);
       }
       
-      const response = await fetch(`http://localhost:5000/api/admin/commission-transaction?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-transaction?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -75,7 +80,11 @@ const CommissionTransaction: React.FC<CommissionTransactionProps> = ({ onError }
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/commission-transaction/generate', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-transaction/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +135,11 @@ const CommissionTransaction: React.FC<CommissionTransactionProps> = ({ onError }
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/commission-transaction?month=${commissionMonth}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-transaction?month=${commissionMonth}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

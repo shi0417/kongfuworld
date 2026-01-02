@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionSettings.module.css';
 
 interface PricingSettingsProps {
@@ -49,7 +50,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setUnlockpriceLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/unlockprice/list?page=${unlockpricePage}&limit=20&sort_by=${unlockpriceSortBy}&sort_order=${unlockpriceSortOrder}`;
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      let url = `${base}/admin/unlockprice/list?page=${unlockpricePage}&limit=20&sort_by=${unlockpriceSortBy}&sort_order=${unlockpriceSortOrder}`;
       
       if (userId) {
         url += `&user_id=${userId}`;
@@ -97,8 +102,12 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSearchLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/users/search?q=${encodeURIComponent(keyword)}`,
+        `${base}/admin/users/search?q=${encodeURIComponent(keyword)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -140,8 +149,12 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSearchLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/novels/search?q=${encodeURIComponent(keyword)}`,
+        `${base}/admin/novels/search?q=${encodeURIComponent(keyword)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -254,8 +267,12 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setUpdatingPrices(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/novels/${editingUnlockprice.novel_id}/recalc-chapter-prices`,
+        `${base}/admin/novels/${editingUnlockprice.novel_id}/recalc-chapter-prices`,
         {
           method: 'POST',
           headers: {
@@ -296,8 +313,12 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setChapterListLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/novels/${novelId}/chapters`,
+        `${base}/admin/novels/${novelId}/chapters`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -332,7 +353,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setAllPromotionsLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/pricing-promotions?page=${page}&page_size=20`;
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      let url = `${base}/admin/pricing-promotions?page=${page}&page_size=20`;
       if (status && status !== 'all') {
         url += `&status=${status}`;
       }
@@ -377,7 +402,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/pricing-promotions/${promotionId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/pricing-promotions/${promotionId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -415,8 +444,12 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setPromotionsLoading(prev => ({ ...prev, [novelId]: true }));
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/pricing-promotions?novel_id=${novelId}`,
+        `${base}/admin/pricing-promotions?novel_id=${novelId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -465,7 +498,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -494,7 +531,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/user/${userId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -525,7 +566,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novels/${editingUnlockprice.novel_id}/unlockprice`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/novels/${editingUnlockprice.novel_id}/unlockprice`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -568,7 +613,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/pricing-promotions/${editingPromotion.id}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/pricing-promotions/${editingPromotion.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -616,7 +665,11 @@ const PricingSettings: React.FC<PricingSettingsProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/pricing-promotions/${promotion.id}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/pricing-promotions/${promotion.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

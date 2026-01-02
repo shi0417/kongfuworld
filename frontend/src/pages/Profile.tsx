@@ -4,6 +4,7 @@ import NavBar from '../components/NavBar/NavBar';
 import Footer from '../components/Footer/Footer';
 import { useAuth, useUser } from '../hooks/useAuth';
 import ApiService, { ApiError } from '../services/ApiService';
+import { getApiOrigin } from '../config';
 import Toast from '../components/Toast/Toast';
 
 const defaultAvatar = 'https://via.placeholder.com/150x150/4a90e2/ffffff?text=Avatar';
@@ -582,10 +583,11 @@ const Profile: React.FC = () => {
   if (!user) return null;
 
   // 假设 user.avatar 是 /avatars/xxx.jpg
+  const origin = getApiOrigin();
   const avatarUrl = user.avatar?.startsWith('http')
     ? user.avatar
     : user.avatar
-      ? `http://localhost:5000${user.avatar}`
+      ? (origin ? `${origin}${user.avatar}` : defaultAvatar)
       : defaultAvatar;
 
   return (

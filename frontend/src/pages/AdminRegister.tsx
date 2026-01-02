@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiBaseUrl } from '../config';
 
 const AdminRegister: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +38,11 @@ const AdminRegister: React.FC = () => {
 
     setSendingCode(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/email-verification/send-code', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/email-verification/send-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +100,11 @@ const AdminRegister: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/register-editor', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/register-editor`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

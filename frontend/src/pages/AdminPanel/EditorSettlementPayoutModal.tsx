@@ -3,6 +3,7 @@
  * 用于编辑结算的支付发起功能
  */
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../config';
 import styles from '../AdminPanel.module.css';
 
 interface EditorSettlementPayoutModalProps {
@@ -161,8 +162,12 @@ const EditorSettlementPayoutModal: React.FC<EditorSettlementPayoutModalProps> = 
       setError('');
 
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/editor-settlements/${settlementMonthly.id}/pay`,
+        `${base}/admin/editor-settlements/${settlementMonthly.id}/pay`,
         {
           method: 'POST',
           headers: {

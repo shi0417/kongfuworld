@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiOrigin } from '../../../config';
 import styles from './ChapterApproval.module.css';
 
 interface ChapterDetailData {
@@ -217,8 +218,8 @@ const ChapterDetail: React.FC<ChapterDetailProps> = ({
                 chapter.novel_cover.startsWith('http')
                   ? chapter.novel_cover
                   : chapter.novel_cover.startsWith('/')
-                  ? `http://localhost:5000${chapter.novel_cover}`
-                  : `http://localhost:5000/covers/${chapter.novel_cover}`
+                  ? `${getApiOrigin()}${chapter.novel_cover}`
+                  : `${getApiOrigin()}/covers/${chapter.novel_cover}`
               }
               alt={chapter.novel_title}
               className={styles.novelCover}

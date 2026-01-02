@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_ENDPOINTS } from '../config';
+import { API_ENDPOINTS, getApiOrigin } from '../config';
 import { updateVolumesAPI, updateChaptersVolumeIdAPI } from '../api/novel';
 import styles from './NovelEdit.module.css';
 
@@ -115,7 +115,8 @@ const NovelEdit: React.FC = () => {
       if (novel.cover.startsWith('http')) {
         setCoverPreview(novel.cover);
       } else {
-        setCoverPreview(`http://localhost:5000${novel.cover}`);
+        const origin = getApiOrigin();
+        setCoverPreview(origin ? `${origin}${novel.cover}` : novel.cover);
       }
     } else {
       setCoverPreview('');
@@ -341,7 +342,8 @@ const NovelEdit: React.FC = () => {
           ...prev,
           cover: data.coverUrl
         }));
-        setCoverPreview(`http://localhost:5000${data.coverUrl}`);
+        const origin = getApiOrigin();
+        setCoverPreview(origin ? `${origin}${data.coverUrl}` : data.coverUrl);
         setMessage('封面图片上传成功！');
       } else {
         setMessage(data.message || '封面图片上传失败');

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
+import { getApiOrigin } from '../../config';
 import styles from './WorkStagesTab.module.css';
 
 interface ContractStatus {
@@ -241,9 +242,13 @@ const WorkStagesTab: React.FC<{ novelId: number }> = ({ novelId }) => {
                       src={
                         novelInfo.cover.startsWith('http') 
                           ? novelInfo.cover 
-                          : novelInfo.cover.startsWith('/')
-                          ? `http://localhost:5000${novelInfo.cover}`
-                          : `http://localhost:5000/covers/${novelInfo.cover}`
+                          : (() => {
+                              const origin = getApiOrigin();
+                              if (!origin) return novelInfo.cover;
+                              return novelInfo.cover.startsWith('/')
+                                ? `${origin}${novelInfo.cover}`
+                                : `${origin}/covers/${novelInfo.cover}`;
+                            })()
                       }
                       alt={novelInfo.title}
                       className={styles.novelCover}

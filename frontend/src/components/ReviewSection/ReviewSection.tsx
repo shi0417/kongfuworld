@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiBaseUrl } from '../../config';
 import reviewService, { Review, ReviewStats } from '../../services/reviewService';
 import styles from './ReviewSection.module.css';
 
@@ -142,11 +143,11 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ novelId, user }) => {
     
     // 如果是相对路径，添加API基础URL
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
     
     // 如果是文件名，添加avatars路径
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   if (loading) {

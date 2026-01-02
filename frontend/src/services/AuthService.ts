@@ -1,5 +1,6 @@
 // 统一认证服务
 import { jwtDecode } from 'jwt-decode';
+import { getApiBaseUrl } from '../config';
 
 export interface User {
   id: number;
@@ -217,7 +218,11 @@ class AuthService {
     
     // 如果user.checkinday不等于今天（包括null或其他日期），调用后端API检查daily_checkin表
     try {
-      const response = await fetch(`http://localhost:5000/api/checkin/status/${user.id}?timezone=UTC`);
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/checkin/status/${user.id}?timezone=UTC`);
       const result = await response.json();
       
       if (result.success && result.data.hasCheckedInToday) {

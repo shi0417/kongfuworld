@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../config';
 import styles from './ReviewSectionNew.module.css';
 import ApiService from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
@@ -298,10 +299,10 @@ const ReviewReplies: React.FC<ReviewRepliesProps> = ({ reviewId, user, onReplySu
     }
     
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
     
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   if (compactMode) {

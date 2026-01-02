@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './AIBatchTranslation.module.css';
 
 interface ChapterTranslation {
@@ -150,7 +151,12 @@ const AIBatchTranslation: React.FC<AIBatchTranslationProps> = ({ onError }) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiBaseUrl } from '../../config';
 import chapterCommentService, { ChapterComment, ChapterCommentStats } from '../../services/chapterCommentService';
 import styles from './ChapterCommentSection.module.css';
 
@@ -100,9 +101,9 @@ const ChapterCommentSection: React.FC<ChapterCommentSectionProps> = ({ chapterId
       return avatar;
     }
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   if (loading) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './AuthorIncome.module.css';
 
 interface AuthorIncomeProps {
@@ -17,7 +18,11 @@ const AuthorIncome: React.FC<AuthorIncomeProps> = ({ onError }) => {
     try {
       setAuthorIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/author-income-stats?month=${authorIncomeMonth}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-income-stats?month=${authorIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

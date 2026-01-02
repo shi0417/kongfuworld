@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './EditorBaseIncome.module.css';
 
 interface EditorBaseIncomeProps {
@@ -34,7 +35,11 @@ const EditorBaseIncome: React.FC<EditorBaseIncomeProps> = ({ onError }) => {
         params.append('novelKeyword', novelKeyword);
       }
       
-      const response = await fetch(`http://localhost:5000/api/admin/editor-base-income?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-base-income?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -81,7 +86,11 @@ const EditorBaseIncome: React.FC<EditorBaseIncomeProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/editor-base-income/generate', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-base-income/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +141,11 @@ const EditorBaseIncome: React.FC<EditorBaseIncomeProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-base-income?month=${month}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-base-income?month=${month}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

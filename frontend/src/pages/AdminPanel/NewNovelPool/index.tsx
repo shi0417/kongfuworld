@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './NewNovelPool.module.css';
 
 interface Novel {
@@ -88,7 +89,12 @@ const NewNovelPool: React.FC<NewNovelPoolProps> = ({ onError, onNavigateToChapte
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });

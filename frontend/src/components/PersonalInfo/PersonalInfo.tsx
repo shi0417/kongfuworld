@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ApiService from '../../services/ApiService';
 import AuthService from '../../services/AuthService';
+import { getApiBaseUrl } from '../../config';
 import Toast from '../Toast/Toast';
 import styles from './PersonalInfo.module.css';
 
@@ -312,7 +313,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({ userId, language = 'zh', on
         <div className={styles.avatarSection}>
           <div className={styles.avatar}>
             {data.avatar ? (
-              <img src={data.avatar.startsWith('http') ? data.avatar : `http://localhost:5000${data.avatar}`} alt="Avatar" />
+              <img src={data.avatar.startsWith('http') ? data.avatar : `${getApiBaseUrl()}${data.avatar}`} alt="Avatar" />
             ) : (
               <div className={styles.avatarPlaceholder}>👤</div>
             )}

@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import NavBar from '../components/NavBar/NavBar';
 import Footer from '../components/Footer/Footer';
 import ApiService from '../services/ApiService';
+import { getApiBaseUrl } from '../config';
 import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './CreateNovel.module.css';
 
@@ -219,7 +220,11 @@ const CreateNovel: React.FC = () => {
 
       // 直接使用 fetch 发送 FormData，因为 ApiService 可能不支持 FormData
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/create', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/novel/create`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

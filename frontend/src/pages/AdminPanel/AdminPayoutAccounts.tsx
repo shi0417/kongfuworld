@@ -3,6 +3,7 @@
  * 用于编辑/管理员管理自己的收款账户
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../config';
 import AdminEditorIncomeTab from './AdminEditorIncomeTab';
 import AdminEditorSettlementTab from './AdminEditorSettlementTab';
 import AdminMyContractsTab from './AdminMyContractsTab';
@@ -36,7 +37,12 @@ const AdminPayoutAccounts: React.FC<AdminPayoutAccountsProps> = ({ onError }) =>
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });

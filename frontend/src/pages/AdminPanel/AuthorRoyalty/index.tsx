@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './AuthorRoyalty.module.css';
 
 interface AuthorRoyaltyProps {
@@ -25,7 +26,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         params.append('search', authorRoyaltySearchQuery);
       }
       
-      const response = await fetch(`http://localhost:5000/api/admin/author-royalty?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-royalty?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -71,7 +76,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty/generate', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-royalty/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +131,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/author-royalty?month=${authorRoyaltyMonth}`, {
+      const baseUrl = getApiBaseUrl();
+      if (!baseUrl) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${baseUrl}/admin/author-royalty?month=${authorRoyaltyMonth}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

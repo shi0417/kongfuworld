@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useUser } from '../../hooks/useAuth';
 import ApiService from '../../services/ApiService';
+import { getApiBaseUrl } from '../../config';
 import styles from './NavBar.module.css';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -29,7 +30,7 @@ type Notification = {
 const getAvatarUrl = (avatar?: string) => {
   if (!avatar) return defaultAvatar;
   if (avatar.startsWith('http')) return avatar;
-  return `http://localhost:5000${avatar}`;
+  return `${getApiBaseUrl()}${avatar}`;
 };
 
 const NavBar: React.FC = () => {

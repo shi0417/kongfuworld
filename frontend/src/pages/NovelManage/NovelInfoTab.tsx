@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import ApiService from '../../services/ApiService';
+import { getApiOrigin, getApiBaseUrl } from '../../config';
 import styles from './NovelInfoTab.module.css';
 
 interface Genre {
@@ -40,7 +41,13 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
   const [recommendation, setRecommendation] = useState(initialNovel.recommendation || '');
   const [description, setDescription] = useState(initialNovel.description || '');
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(initialNovel.cover ? `http://localhost:5000${initialNovel.cover}` : null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(() => {
+    const origin = getApiOrigin();
+    if (initialNovel.cover) {
+      return origin ? `${origin}${initialNovel.cover}` : initialNovel.cover;
+    }
+    return null;
+  });
 
   const [genres, setGenres] = useState<Genre[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -282,7 +289,11 @@ const NovelInfoTab: React.FC<{ novelId: number; novel: Novel }> = ({ novelId, no
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/novel/update', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/novel/update`, {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

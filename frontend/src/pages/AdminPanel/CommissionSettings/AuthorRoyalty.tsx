@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionSettings.module.css';
 import Toast from '../../../components/Toast/Toast';
 
@@ -117,7 +118,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setAuthorRoyaltyPlansLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty-plans', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-royalty-plans`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -149,8 +154,12 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setRoyaltyContractsLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       
-      let url = `http://localhost:5000/api/admin/novel-royalty-contracts?page=${page}&page_size=20`;
+      let url = `${base}/admin/novel-royalty-contracts?page=${page}&page_size=20`;
       if (novelId) {
         url += `&novel_id=${novelId}`;
       }
@@ -193,8 +202,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       
-      // 构建请求体，只包含有值的字段
       const requestBody: any = {};
       if (editingRoyaltyContract.plan_id !== undefined && editingRoyaltyContract.plan_id !== null) {
         requestBody.plan_id = editingRoyaltyContract.plan_id;
@@ -206,7 +218,7 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         requestBody.effective_to = editingRoyaltyContract.effective_to || null;
       }
       
-      const response = await fetch(`http://localhost:5000/api/admin/novel-royalty-contracts/${editingRoyaltyContract.id}`, {
+      const response = await fetch(`${base}/admin/novel-royalty-contracts/${editingRoyaltyContract.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -243,12 +255,15 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       
-      // 转换日期格式
       const startDate = convertToMySQLDateTime(editingAuthorPlan.start_date);
       const endDate = convertToMySQLDateTime(editingAuthorPlan.end_date);
       
-      const response = await fetch(`http://localhost:5000/api/admin/author-royalty-plans/${editingAuthorPlan.id}`, {
+      const response = await fetch(`${base}/admin/author-royalty-plans/${editingAuthorPlan.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -299,8 +314,12 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setContractSearchLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/users/search?q=${encodeURIComponent(keyword)}`,
+        `${base}/admin/users/search?q=${encodeURIComponent(keyword)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -342,8 +361,12 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setContractSearchLoading(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/admin/novels/search?q=${encodeURIComponent(keyword)}`,
+        `${base}/admin/novels/search?q=${encodeURIComponent(keyword)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -443,7 +466,6 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
       const startDate = convertToMySQLDateTime(creatingAuthorPlan.start_date);
       const endDate = convertToMySQLDateTime(creatingAuthorPlan.end_date);
       
-      // 再次验证转换后的日期
       if (!startDate) {
         setToast({
           message: '生效时间格式不正确 / Invalid effective date format',
@@ -453,7 +475,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/admin/author-royalty-plans', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-royalty-plans`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -519,7 +545,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -551,7 +581,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/user/${authorId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user/${authorId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -583,7 +617,11 @@ const AuthorRoyalty: React.FC<AuthorRoyaltyProps> = ({ onError }) => {
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/author-royalty-plans/${planId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-royalty-plans/${planId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

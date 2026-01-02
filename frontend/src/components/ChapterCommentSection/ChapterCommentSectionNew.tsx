@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../config';
 import chapterCommentService, { ChapterComment } from '../../services/chapterCommentService';
 import ChapterCommentReplies from './ChapterCommentReplies';
 import styles from './ChapterCommentSectionNew.module.css';
@@ -273,9 +274,9 @@ const ChapterCommentSectionNew: React.FC<ChapterCommentSectionNewProps> = ({ cha
       return avatar;
     }
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   const formatDate = (dateString: string) => {

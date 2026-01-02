@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../config';
 import styles from './ParagraphComment.module.css';
 import ReportButton from '../ReportButton/ReportButton';
 import reportService from '../../services/reportService';
@@ -90,7 +91,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`
+        `${getApiBaseUrl()}/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`
       );
       const data = await response.json();
       
@@ -125,7 +126,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     try {
       setSubmitting(true);
       const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
+        `${getApiBaseUrl()}/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
         {
           method: 'POST',
           headers: {
@@ -178,9 +179,9 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       return avatar;
     }
     if (avatar.startsWith('/')) {
-      return `http://localhost:5000${avatar}`;
+      return `${getApiBaseUrl()}${avatar}`;
     }
-    return `http://localhost:5000/avatars/${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   // 格式化时间
@@ -219,7 +220,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       for (const comment of comments) {
         try {
           const response = await fetch(
-            `http://localhost:5000/api/paragraph-comment/${comment.id}/replies`
+            `${getApiBaseUrl()}/api/paragraph-comment/${comment.id}/replies`
           );
           const data = await response.json();
           if (data.success) {
@@ -260,7 +261,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}`,
+        `${getApiBaseUrl()}/api/paragraph-comment/${commentId}`,
         {
           method: 'PUT',
           headers: {
@@ -300,7 +301,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     try {
       setSubmitting(true);
       const response = await fetch(
-        `http://localhost:5000/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
+        `${getApiBaseUrl()}/api/chapter/${chapterId}/paragraph/${paragraphIndex}/comments`,
         {
           method: 'POST',
           headers: {
@@ -335,7 +336,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     
     try {
       const response = await fetch(
-        `http://localhost:5000/api/paragraph-comment/${commentId}/like`,
+        `${getApiBaseUrl()}/api/paragraph-comment/${commentId}/like`,
         {
           method: 'POST',
           headers: {
@@ -443,7 +444,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
       const loadNestedReplyCount = async () => {
         try {
           const response = await fetch(
-            `http://localhost:5000/api/paragraph-comment/${currentReply.id}/replies`
+            `${getApiBaseUrl()}/api/paragraph-comment/${currentReply.id}/replies`
           );
           const data = await response.json();
           if (data.success) {
@@ -461,7 +462,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     const loadNestedReplies = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${currentReply.id}/replies`
+          `${getApiBaseUrl()}/api/paragraph-comment/${currentReply.id}/replies`
         );
         const data = await response.json();
         if (data.success) {
@@ -520,7 +521,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
 
       try {
         const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${replyId}/like`,
+          `${getApiBaseUrl()}/api/paragraph-comment/${replyId}/like`,
           {
             method: 'POST',
             headers: {
@@ -566,7 +567,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
 
       try {
         const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${replyId}/like`,
+          `${getApiBaseUrl()}/api/paragraph-comment/${replyId}/like`,
           {
             method: 'POST',
             headers: {
@@ -785,7 +786,7 @@ const ParagraphComment: React.FC<ParagraphCommentProps> = ({
     const loadReplies = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/paragraph-comment/${comment.id}/replies`
+          `${getApiBaseUrl()}/api/paragraph-comment/${comment.id}/replies`
         );
         const data = await response.json();
         if (data.success) {

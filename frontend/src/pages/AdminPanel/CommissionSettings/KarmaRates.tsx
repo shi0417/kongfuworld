@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionSettings.module.css';
 
 interface KarmaRatesProps {
@@ -46,7 +47,11 @@ const KarmaRates: React.FC<KarmaRatesProps> = ({ onError }) => {
     try {
       setKarmaRatesLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/karma-rates', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/karma-rates`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -80,8 +85,11 @@ const KarmaRates: React.FC<KarmaRatesProps> = ({ onError }) => {
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       
-      // 构建请求体，只包含有值的字段
       const requestBody: any = {};
       if (editingRate.usd_per_karma !== undefined) {
         requestBody.usd_per_karma = editingRate.usd_per_karma;
@@ -93,7 +101,7 @@ const KarmaRates: React.FC<KarmaRatesProps> = ({ onError }) => {
         requestBody.effective_to = editingRate.effective_to || null;
       }
       
-      const response = await fetch(`http://localhost:5000/api/admin/karma-rates/${editingRate.id}`, {
+      const response = await fetch(`${base}/admin/karma-rates/${editingRate.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

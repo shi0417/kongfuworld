@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './BaseIncome.module.css';
 
 interface BaseIncomeProps {
@@ -18,7 +19,11 @@ const BaseIncome: React.FC<BaseIncomeProps> = ({ onError }) => {
     try {
       setBaseIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/reader-spending?month=${baseIncomeMonth}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/reader-spending?month=${baseIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -64,7 +69,11 @@ const BaseIncome: React.FC<BaseIncomeProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/generate-reader-spending', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/generate-reader-spending`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +124,11 @@ const BaseIncome: React.FC<BaseIncomeProps> = ({ onError }) => {
         onError('');
       }
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/reader-spending?month=${baseIncomeMonth}`, {
+      const baseUrl = getApiBaseUrl();
+      if (!baseUrl) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${baseUrl}/admin/reader-spending?month=${baseIncomeMonth}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

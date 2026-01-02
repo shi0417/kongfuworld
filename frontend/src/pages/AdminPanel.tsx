@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiBaseUrl } from '../config';
 import ApiService from '../services/ApiService';
 import styles from './AdminPanel.module.css';
 import NovelReview from './AdminPanel/NovelReview';
@@ -292,7 +293,12 @@ const AdminPanel: React.FC = () => {
       }
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });
@@ -348,7 +354,11 @@ const AdminPanel: React.FC = () => {
       if (!adminToken || !isAuthenticated) return;
       
       try {
-        const response = await fetch('http://localhost:5000/api/admin/menu-permissions/my', {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        const response = await fetch(`${base}/admin/menu-permissions/my`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${adminToken}`
@@ -494,7 +504,11 @@ const AdminPanel: React.FC = () => {
     try {
       setAuthorIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/author-income-stats?month=${authorIncomeMonth}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/author-income-stats?month=${authorIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -521,7 +535,11 @@ const AdminPanel: React.FC = () => {
     try {
       setReaderIncomeLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/reader-income-stats?month=${readerIncomeMonth}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/reader-income-stats?month=${readerIncomeMonth}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -546,7 +564,11 @@ const AdminPanel: React.FC = () => {
     try {
       setSettlementLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/user-settlement/overview?month=${settlementMonth}`;
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      let url = `${base}/admin/user-settlement/overview?month=${settlementMonth}`;
       if (settlementStatus !== 'all') {
         url += `&status=${settlementStatus}`;
       }
@@ -602,7 +624,11 @@ const AdminPanel: React.FC = () => {
     try {
       setLoadingRows({ ...loadingRows, [incomeMonthlyId]: true });
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/detail`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/settlements/${incomeMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -631,7 +657,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/detail`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/settlements/${incomeMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -657,7 +687,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/sync-paypal`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/settlements/${incomeMonthlyId}/sync-paypal`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -687,7 +721,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/settlements/${incomeMonthlyId}/pay`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/settlements/${incomeMonthlyId}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -724,7 +762,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/payouts/${payoutId}/sync-gateway`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/payouts/${payoutId}/sync-gateway`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -758,7 +800,11 @@ const AdminPanel: React.FC = () => {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
       const monthParam = settlementMonth + '-01';
-      const response = await fetch(`http://localhost:5000/api/admin/user-settlement/detail/${userId}?months=1`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user-settlement/detail/${userId}?months=1`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -885,7 +931,11 @@ const AdminPanel: React.FC = () => {
       if (method === 'paypal' || method === 'alipay' || method === 'wechat') {
         // PayPal/支付宝/微信：调用新的支付接口
         const token = localStorage.getItem('adminToken');
-        const payResponse = await fetch(`http://localhost:5000/api/admin/settlements/${pendingPaymentInfo.income_monthly_id}/pay`, {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        const payResponse = await fetch(`${base}/admin/settlements/${pendingPaymentInfo.income_monthly_id}/pay`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -934,7 +984,11 @@ const AdminPanel: React.FC = () => {
       } else {
         // 银行转账或手动支付：使用旧的创建支付订单接口
         const token = localStorage.getItem('adminToken');
-        const createResponse = await fetch(`http://localhost:5000/api/admin/user-settlement/create-payout`, {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        const createResponse = await fetch(`${base}/admin/user-settlement/create-payout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -998,7 +1052,11 @@ const AdminPanel: React.FC = () => {
       setError('');
       
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/payouts/${payoutId}/status`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/payouts/${payoutId}/status`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1056,7 +1114,11 @@ const AdminPanel: React.FC = () => {
     try {
       setMarkingPaid(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/user-settlement/mark-paid', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user-settlement/mark-paid`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1103,7 +1165,11 @@ const AdminPanel: React.FC = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/user-settlement/generate-monthly', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user-settlement/generate-monthly`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1134,7 +1200,11 @@ const AdminPanel: React.FC = () => {
     try {
       setEditorSettlementLoading(true);
       const token = localStorage.getItem('adminToken');
-      let url = `http://localhost:5000/api/admin/editor-settlement/overview?month=${settlementMonth}`;
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      let url = `${base}/admin/editor-settlement/overview?month=${settlementMonth}`;
       if (editorSettlementStatus !== 'all') {
         url += `&status=${editorSettlementStatus}`;
       }
@@ -1178,7 +1248,11 @@ const AdminPanel: React.FC = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/editor-settlement/generate-monthly', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-settlement/generate-monthly`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1207,7 +1281,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/pay`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-settlements/${settlementMonthlyId}/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1243,7 +1321,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/sync-paypal`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-settlements/${settlementMonthlyId}/sync-paypal`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1285,7 +1367,11 @@ const AdminPanel: React.FC = () => {
       setEditorPayoutDetailLoading(true);
 
       const token = localStorage.getItem('adminToken');
-      const res = await fetch(`http://localhost:5000/api/admin/editor-settlements/${item.settlement_id}/detail`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const res = await fetch(`${base}/admin/editor-settlements/${item.settlement_id}/detail`, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
@@ -1321,7 +1407,11 @@ const AdminPanel: React.FC = () => {
     try {
       setUserDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/editor-settlements/${settlementMonthlyId}/detail`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/editor-settlements/${settlementMonthlyId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1388,7 +1478,11 @@ const AdminPanel: React.FC = () => {
       if (paymentFilters.payment_status) params.append('payment_status', paymentFilters.payment_status);
       if (paymentFilters.user_id) params.append('user_id', paymentFilters.user_id);
       
-      const response = await fetch(`http://localhost:5000/api/admin/payments/summary?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/payments/summary?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1423,7 +1517,11 @@ const AdminPanel: React.FC = () => {
       params.append('page', subscriptionsPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/subscriptions?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/subscriptions?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1458,7 +1556,11 @@ const AdminPanel: React.FC = () => {
       params.append('page', karmaPurchasesPage.toString());
       params.append('page_size', '20');
       
-      const response = await fetch(`http://localhost:5000/api/admin/karma-purchases?${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/karma-purchases?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1501,7 +1603,11 @@ const AdminPanel: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/login', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1556,7 +1662,11 @@ const AdminPanel: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/review-novel', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/review-novel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1598,7 +1708,11 @@ const AdminPanel: React.FC = () => {
   const viewNovelDetail = async (novelId: number) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/novel/${novelId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/novel/${novelId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -2070,7 +2184,11 @@ const AdminPanel: React.FC = () => {
                                       try {
                                         // 只加载用户收款账户信息，不显示用户结算详情对话框
                                         const token = localStorage.getItem('adminToken');
-                                        const response = await fetch(`http://localhost:5000/api/admin/user-settlement/detail/${item.user_id}?months=1`, {
+                                        const base = getApiBaseUrl();
+                                        if (!base) {
+                                          throw new Error('API base url is not configured');
+                                        }
+                                        const response = await fetch(`${base}/admin/user-settlement/detail/${item.user_id}?months=1`, {
                                           headers: {
                                             'Authorization': `Bearer ${token}`
                                           }
@@ -3396,7 +3514,7 @@ const AdminPanel: React.FC = () => {
             <div className={styles.modalBody}>
               {selectedNovel.cover && (
                 <img 
-                  src={selectedNovel.cover.startsWith('http') ? selectedNovel.cover : `http://localhost:5000/covers/${selectedNovel.cover}`}
+                  src={selectedNovel.cover.startsWith('http') ? selectedNovel.cover : `${getApiBaseUrl()}/covers/${selectedNovel.cover}`}
                   alt={selectedNovel.title}
                   className={styles.modalCover}
                 />

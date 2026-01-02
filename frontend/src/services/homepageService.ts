@@ -221,7 +221,6 @@ class HomepageService {
   // V2：一次性获取 /api/homepage/all（含旧字段 + data.v2）
   async getHomepageAll(limit: number = 6): Promise<HomepageAllResponse> {
     // 使用 ApiService：自动从 AuthService 注入 Authorization（已登录时），未登录则不带 token
-    // 注意：ApiService.baseURL = http://localhost:5000/api，所以 endpoint 需以 /homepage/all 开头
     const res = await ApiService.get(`/homepage/all?limit=${limit}`);
     return res as unknown as HomepageAllResponse;
   }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import ChapterList from './ChapterList';
 import ChapterDetail from './ChapterDetail';
 import styles from './ChapterApproval.module.css';
@@ -95,7 +96,12 @@ const ChapterApproval: React.FC<ChapterApprovalProps> = ({ onError }) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers,
     });

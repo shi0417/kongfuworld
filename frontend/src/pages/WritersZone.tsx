@@ -10,6 +10,7 @@ import CommentManagement from '../components/CommentManagement/CommentManagement
 import IncomeManagement from './WritersZone/IncomeManagement';
 import WorkData from './WritersZone/WorkData';
 import ApiService from '../services/ApiService';
+import { getApiBaseUrl } from '../config';
 import { AuthorSidebar, useAuthorSidebarState } from '../components/AuthorCenter';
 import styles from './WritersZone.module.css';
 
@@ -671,7 +672,7 @@ const WritersZone: React.FC = () => {
             <div className={styles.profileCard}>
               <div className={styles.avatar}>
                 {user?.avatar ? (
-                  <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`} alt="Avatar" />
+                  <img src={user.avatar.startsWith('http') ? user.avatar : `${getApiBaseUrl()}${user.avatar}`} alt="Avatar" />
                 ) : (
                   <div className={styles.avatarPlaceholder}>👤</div>
                 )}

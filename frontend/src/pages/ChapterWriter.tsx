@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
+import { getApiBaseUrl } from '../config';
 import ScheduleReleaseModal from '../components/ScheduleReleaseModal/ScheduleReleaseModal';
 import Toast from '../components/Toast/Toast';
 import ChapterUpdateConfirmDialog from '../components/ChapterUpdateConfirmDialog/ChapterUpdateConfirmDialog';
@@ -160,7 +161,11 @@ const ChapterWriter: React.FC = () => {
         params.append('keyword', keyword);
       }
 
-      const response = await fetch(`http://localhost:5000/api/random-notes/list?user_id=${user.id}&${params.toString()}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/random-notes/list?user_id=${user.id}&${params.toString()}`, {
         method: 'GET',
         headers
       });
@@ -257,7 +262,11 @@ const ChapterWriter: React.FC = () => {
       let response;
       if (editingNote) {
         // 更新随记
-        response = await fetch(`http://localhost:5000/api/random-notes/update/${editingNote.id}?user_id=${user.id}`, {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/random-notes/update/${editingNote.id}?user_id=${user.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify({
@@ -266,7 +275,11 @@ const ChapterWriter: React.FC = () => {
         });
       } else {
         // 创建随记
-        response = await fetch(`http://localhost:5000/api/random-notes/create?user_id=${user.id}`, {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/random-notes/create?user_id=${user.id}`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -308,7 +321,11 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:5000/api/random-notes/delete/${noteId}?user_id=${user.id}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/random-notes/delete/${noteId}?user_id=${user.id}`, {
         method: 'DELETE',
         headers
       });
@@ -432,8 +449,12 @@ const ChapterWriter: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
       const response = await fetch(
-        `http://localhost:5000/api/draft/list?novel_id=${novelId}&chapter_number=${chapterInfo.chapter_number}`,
+        `${base}/draft/list?novel_id=${novelId}&chapter_number=${chapterInfo.chapter_number}`,
         {
           method: 'GET',
           headers
@@ -890,7 +911,11 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const response = await fetch('http://localhost:5000/api/draft/create', {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/draft/create`, {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
@@ -1099,7 +1124,11 @@ const ChapterWriter: React.FC = () => {
         // 更新现有章节
         formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
         formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/chapter/update`, {
           method: 'POST',
           headers,
           body: formData
@@ -1107,7 +1136,11 @@ const ChapterWriter: React.FC = () => {
       } else {
         // 创建新章节
         formData.append('action', 'draft');
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/chapter/create`, {
           method: 'POST',
           headers,
           body: formData
@@ -1208,13 +1241,21 @@ const ChapterWriter: React.FC = () => {
       let response;
       if (chapterInfo.id || chapterId) {
         formData.append('chapter_id', (chapterInfo.id || chapterId)!.toString());
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/chapter/update`, {
           method: 'POST',
           headers,
           body: formData
         });
       } else {
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        response = await fetch(`${base}/chapter/create`, {
           method: 'POST',
           headers,
           body: formData
@@ -1312,7 +1353,7 @@ const ChapterWriter: React.FC = () => {
         word_count: wordCount
       };
 
-      const draftResponse = await fetch('http://localhost:5000/api/draft/create', {
+      const draftResponse = await fetch(`${getApiBaseUrl()}/draft/create`, {
         method: 'POST',
         headers,
         body: JSON.stringify(draftRequestBody)
@@ -1332,7 +1373,7 @@ const ChapterWriter: React.FC = () => {
         translator_note: authorNote2.trim() || ''
       };
 
-      const layoutResponse = await fetch('http://localhost:5000/api/ai/layout', {
+      const layoutResponse = await fetch(`${getApiBaseUrl()}/ai/layout`, {
         method: 'POST',
         headers,
         body: JSON.stringify(layoutRequestBody)
@@ -1906,7 +1947,7 @@ const ChapterWriter: React.FC = () => {
           formData.append('is_released', '1');
         }
         
-        response = await fetch('http://localhost:5000/api/chapter/update', {
+        response = await fetch(`${getApiBaseUrl()}/chapter/update`, {
           method: 'POST',
           headers,
           body: formData
@@ -1918,7 +1959,7 @@ const ChapterWriter: React.FC = () => {
         formData.append('action', 'publish');
         formData.append('is_released', '1');
         
-        response = await fetch('http://localhost:5000/api/chapter/create', {
+        response = await fetch(`${getApiBaseUrl()}/chapter/create`, {
           method: 'POST',
           headers,
           body: formData
@@ -2722,7 +2763,7 @@ const ChapterWriter: React.FC = () => {
             
             let response: Response;
             if (pendingAction === 'schedule') {
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await fetch(`${getApiBaseUrl()}/chapter/update`, {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
@@ -2732,7 +2773,7 @@ const ChapterWriter: React.FC = () => {
             } else if (pendingAction === 'publish') {
               pendingFormData.append('action', 'publish');
               pendingFormData.append('is_released', '1');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await fetch(`${getApiBaseUrl()}/chapter/update`, {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
@@ -2742,7 +2783,7 @@ const ChapterWriter: React.FC = () => {
             } else {
               // draft
               pendingFormData.append('action', 'draft');
-              response = await fetch('http://localhost:5000/api/chapter/update', {
+              response = await fetch(`${getApiBaseUrl()}/chapter/update`, {
                 method: 'POST',
                 headers: {
                   'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''

@@ -54,7 +54,8 @@
             
             try {
                 console.log('🔍 开始测试API连接...');
-                const response = await fetch('http://localhost:5000/api/chapter-unlock/status/844/1');
+                const api = window.location.origin + '/api';
+                const response = await fetch(`${api}/chapter-unlock/status/844/1`);
                 console.log('📡 API响应状态:', response.status);
                 
                 if (!response.ok) {

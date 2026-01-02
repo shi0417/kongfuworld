@@ -126,8 +126,9 @@
             }
             
             try {
+                const api = window.location.origin + '/api';
                 // 测试获取评论统计
-                const response = await fetch('http://localhost:5000/api/novel/13/review-stats', {
+                const response = await fetch(`${api}/novel/13/review-stats`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -162,7 +163,8 @@
 
         async function loginTest() {
             try {
-                const response = await fetch('http://localhost:5000/api/login', {
+                const api = window.location.origin + '/api';
+                const response = await fetch(`${api}/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

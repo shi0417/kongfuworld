@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './CommissionSettings.module.css';
 
 interface ReferralTableProps {
@@ -27,7 +28,11 @@ const ReferralTable: React.FC<ReferralTableProps> = ({
     try {
       setReferralsLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/referrals?page=${page}&page_size=20`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/referrals?page=${page}&page_size=20`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -60,7 +65,11 @@ const ReferralTable: React.FC<ReferralTableProps> = ({
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/user/${userId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -89,7 +98,11 @@ const ReferralTable: React.FC<ReferralTableProps> = ({
     try {
       setDetailLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/commission-plans/${planId}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/commission-plans/${planId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -120,7 +133,11 @@ const ReferralTable: React.FC<ReferralTableProps> = ({
     try {
       setSaving(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/referrals/${editingReferral.id}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const response = await fetch(`${base}/admin/referrals/${editingReferral.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

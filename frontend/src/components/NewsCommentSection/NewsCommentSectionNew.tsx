@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '../../config';
 import newsCommentService, { NewsComment } from '../../services/newsCommentService';
 import NewsCommentReplies from './NewsCommentReplies';
 import styles from './NewsCommentSectionNew.module.css';
@@ -174,8 +175,8 @@ const NewsCommentSectionNew: React.FC<NewsCommentSectionNewProps> = ({ newsId, u
   const getAvatarUrl = (avatar?: string) => {
     if (!avatar) return 'https://i.pravatar.cc/40?img=1';
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
-    if (avatar.startsWith('/')) return `http://localhost:5000${avatar}`;
-    return `http://localhost:5000/avatars/${avatar}`;
+    if (avatar.startsWith('/')) return `${getApiBaseUrl()}${avatar}`;
+    return `${getApiBaseUrl()}/avatars/${avatar}`;
   };
 
   const formatDate = (dateString: string) => {

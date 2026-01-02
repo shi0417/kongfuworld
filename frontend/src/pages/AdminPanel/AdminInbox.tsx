@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../config';
 import ApiService from '../../services/ApiService';
 import styles from './AdminInbox.module.css';
 
@@ -142,8 +143,11 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onError }) => {
     try {
       setClaimingId(conversationId);
       setClaimError('');
-      // 1) join/claim (must succeed before assign)
-      const resp = await fetch(`http://localhost:5000/api/inbox/conversation/${conversationId}/join`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const resp = await fetch(`${base}/inbox/conversation/${conversationId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

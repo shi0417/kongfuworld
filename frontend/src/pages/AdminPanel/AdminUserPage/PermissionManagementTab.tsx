@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config';
 import styles from './AdminUserPage.module.css';
 import {
   incomeEditorMenuGroup,
@@ -25,7 +26,11 @@ const PermissionManagementTab: React.FC<PermissionManagementTabProps> = ({ admin
 
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:5000/api/admin/menu-permissions/role/${selectedRole}`, {
+        const base = getApiBaseUrl();
+        if (!base) {
+          throw new Error('API base url is not configured');
+        }
+        const res = await fetch(`${base}/admin/menu-permissions/role/${selectedRole}`, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${adminToken}`
@@ -92,7 +97,11 @@ const PermissionManagementTab: React.FC<PermissionManagementTabProps> = ({ admin
 
     setSaving(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/menu-permissions/role/${selectedRole}`, {
+      const base = getApiBaseUrl();
+      if (!base) {
+        throw new Error('API base url is not configured');
+      }
+      const res = await fetch(`${base}/admin/menu-permissions/role/${selectedRole}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

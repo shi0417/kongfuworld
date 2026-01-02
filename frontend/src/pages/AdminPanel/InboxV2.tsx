@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getApiBaseUrl } from '../../config';
 import styles from './InboxV2.module.css';
 
 /**
@@ -20,7 +21,13 @@ const AdminInboxV2: React.FC = () => {
   const [auditResult, setAuditResult] = useState<string>('');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
-  const apiBase = useMemo(() => 'http://localhost:5000/api', []);
+  const apiBase = useMemo(() => {
+    const base = getApiBaseUrl();
+    if (!base) {
+      throw new Error('API base url is not configured');
+    }
+    return base;
+  }, []);
 
   const callJoinLeave = async (action: 'join' | 'leave') => {
     const id = parseInt(conversationId, 10);
