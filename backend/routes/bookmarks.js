@@ -2,15 +2,13 @@ const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
 
-// 数据库配置
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '123456',
-  database: 'kongfuworld'
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'kongfuworld'
 };
 
-// 获取数据库连接
 async function getConnection() {
   return await mysql.createConnection(dbConfig);
 }

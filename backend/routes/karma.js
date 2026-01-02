@@ -3,12 +3,11 @@ const router = express.Router();
 const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authenticateToken');
 
-// 数据库连接配置
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '123456',
-  database: 'kongfuworld',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'kongfuworld',
   charset: 'utf8mb4',
   supportBigNumbers: true,
   bigNumberStrings: true
